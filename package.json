@@ -4,9 +4,10 @@
   "type": "module",
   "scripts": {
     "dev": "astro dev",
-    "start": "astro dev",
-    "build": "astro build",
+    "start": "node ./dist/server/entry.mjs",
+    "build": "drizzle-kit push && astro build",
     "preview": "astro preview",
+    "db:push": "drizzle-kit push",
     "geo:monitor": "tsx scripts/geo-monitor.ts",
     "db:seed": "tsx scripts/seed-articles.ts"
   },
