@@ -1,0 +1,91 @@
+---
+import PixelIcon from './PixelIcon.astro';
+---
+
+<section class="about reveal" id="about">
+  <div class="about-container">
+    <h2 class="section-heading">/about</h2>
+
+    <div class="about-grid">
+      <div class="about-bio">
+        <p class="about-text">
+          Building products at the intersection of AI and deep work.
+        </p>
+        <p class="about-text">
+          Creator of <a href="https://frinter.app" target="_blank" rel="noopener noreferrer" class="link-teal">frinter.app</a> —
+          a focus operating system for founders building in deep flow.
+          Shipping <a href="https://pypi.org/project/frinterflow/" target="_blank" rel="noopener noreferrer" class="link-teal">FrinterFlow</a> —
+          local voice dictation CLI with zero cloud, full control.
+        </p>
+        <p class="about-text">
+          6 years in Norway. Two Norwegian degrees. Built a camper from scratch.
+          Learned that <strong>focus = freedom</strong>.
+        </p>
+      </div>
+
+      <div class="focus-areas">
+        <div class="focus-item">
+          <PixelIcon name="ai" size={36} label="AI Development icon" />
+          <span>AI Development</span>
+        </div>
+        <div class="focus-item">
+          <PixelIcon name="lightning" size={36} label="Performance icon" />
+          <span>Performance</span>
+        </div>
+        <div class="focus-item">
+          <PixelIcon name="book" size={36} label="Deep Work icon" />
+          <span>Deep Work</span>
+        </div>
+        <div class="focus-item">
+          <PixelIcon name="tree" size={36} label="Building in Public icon" />
+          <span>Building in Public</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .about {
+    padding: 5rem 1.5rem;
+    background-color: var(--bg-base);
+  }
+  .about-container {
+    max-width: 900px;
+    margin: 0 auto;
+  }
+  .about-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3rem;
+    align-items: start;
+  }
+  .about-text {
+    color: var(--text-secondary);
+    margin-bottom: 1rem;
+    line-height: 1.7;
+  }
+  .link-teal {
+    color: var(--teal);
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: border-color 0.15s;
+  }
+  .link-teal:hover { border-color: var(--teal); }
+  .focus-areas {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+  .focus-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+  }
+  @media (max-width: 768px) {
+    .about-grid { grid-template-columns: 1fr; }
+  }
+</style>

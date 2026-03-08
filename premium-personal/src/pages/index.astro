@@ -1,0 +1,21 @@
+---
+import Landing from '@/components/layouts/Landing.astro';
+import Hero from '@/components/Hero.astro';
+import About from '@/components/About.astro';
+import Projects from '@/components/Projects.astro';
+import BlogPreview from '@/components/BlogPreview.astro';
+import Contact from '@/components/Contact.astro';
+---
+
+<Landing title="Przemysław Filipiak — Builder. AI Dev. Deep Work Founder.">
+  <Hero />
+  <About />
+  <Projects />
+  <BlogPreview />
+  <Contact />
+</Landing>
+
+<script>
+  import { observeRevealElements } from '@/utils/animations';
+  document.addEventListener('DOMContentLoaded', observeRevealElements);
+</script>

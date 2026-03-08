@@ -1,0 +1,55 @@
+---
+import ProjectCard from './ProjectCard.astro';
+
+const projects = [
+  {
+    name: 'frinter.',
+    tagline: 'Focus OS for founders',
+    description: 'A whole-being performance system for founders — deep work timer, energy tracking, and relationship balance. No more burnout from shallow work.',
+    stack: ['React', 'Vite', 'PostgreSQL', 'Drizzle', 'Tailwind'],
+    links: [{ label: 'frinter.app', url: 'https://frinter.app' }],
+    featured: true,
+  },
+  {
+    name: 'FrinterFlow',
+    tagline: 'Local voice dictation CLI',
+    description: 'Push-to-talk voice dictation via faster-whisper. Zero cloud, zero subscription. Full control. Python, works offline after model download.',
+    stack: ['Python', 'faster-whisper', 'sounddevice', 'pynput'],
+    links: [
+      { label: 'PyPI', url: 'https://pypi.org/project/frinterflow/' },
+      { label: 'GitHub', url: 'https://github.com/delta240mvt' },
+    ],
+    featured: false,
+  },
+];
+---
+
+<section class="projects reveal" id="projects">
+  <div class="projects-container">
+    <h2 class="section-heading">/projects</h2>
+    <div class="projects-grid">
+      {projects.map(project => (
+        <ProjectCard {...project} />
+      ))}
+    </div>
+  </div>
+</section>
+
+<style>
+  .projects {
+    padding: 5rem 1.5rem;
+    background-color: var(--bg-surface);
+  }
+  .projects-container {
+    max-width: 900px;
+    margin: 0 auto;
+  }
+  .projects-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem;
+  }
+  @media (max-width: 768px) {
+    .projects-grid { grid-template-columns: 1fr; }
+  }
+</style>

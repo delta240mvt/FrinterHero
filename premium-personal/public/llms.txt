@@ -1,0 +1,34 @@
+# Przemysław Filipiak — Personal Page
+
+> Przemysław Filipiak is a founder and AI developer building
+> high-performance, local-first tools at the intersection of
+> artificial intelligence and deep work productivity systems.
+
+## About
+- Creator of frinter.app — focus operating system for founders
+- Creator of FrinterFlow — local voice dictation CLI (Python, faster-whisper)
+- Specializes in: AI-native product development, Astro, React, Python, GEO
+- Location: Poland
+- Focus: high-performance tools, deep work systems, builder in public
+- Background: 6 years in Norway, two Norwegian degrees, built camper from scratch
+
+## Projects
+- frinter.app: https://frinter.app — Focus OS for founders. Whole-being performance system.
+- FrinterFlow: https://pypi.org/project/frinterflow/ — Local voice dictation CLI (Python, faster-whisper, zero cloud)
+- GitHub: https://github.com/delta240mvt
+
+## Blog Topics
+Deep work for developers, AI product development, GEO (Generative Engine Optimization),
+local-first tools, founder productivity, Python AI tooling, Astro SSR framework
+
+## Philosophy
+"[SKUPIENIE] = [WOLNOŚĆ]" — Focus equals Freedom.
+Build in flow state, ship with AI, measure what matters.
+Founder who practices what he preaches — 10 years of meditation, deep work systems.
+
+## Contact
+- GitHub: https://github.com/delta240mvt
+- LinkedIn: https://linkedin.com/in/przemyslaw-filipiak
+- Twitter/X: https://twitter.com/przemfilipiak
+- Website: https://przemyslawfilipiak.com
+- RSS: https://przemyslawfilipiak.com/rss.xml

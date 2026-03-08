@@ -1,0 +1,239 @@
+---
+import Base from './Base.astro';
+import Nav from '@/components/Nav.astro';
+import Footer from '@/components/Footer.astro';
+
+export interface Props {
+  title: string;
+  description?: string | null;
+  publishedAt?: Date | null;
+  updatedAt?: Date | null;
+  readingTime?: number | null;
+  tags?: string[];
+  author?: string;
+  slug?: string;
+}
+
+const {
+  title,
+  description,
+  publishedAt,
+  updatedAt,
+  readingTime,
+  tags = [],
+  author = 'Przemysław Filipiak',
+  slug,
+} = Astro.props;
+
+const formattedDate = publishedAt
+  ? new Intl.DateTimeFormat('en-US', { year: 'numeric', month: 'long', day: 'numeric' }).format(publishedAt)
+  : null;
+
+const canonicalUrl = slug ? `https://przemyslawfilipiak.com/blog/${slug}` : Astro.url.href;
+---
+
+<Base
+  title={`${title} — Przemysław Filipiak`}
+  description={description || undefined}
+  canonical={canonicalUrl}
+>
+  <Nav />
+  <main class="blog-main">
+    <article class="blog-article">
+      <header class="article-header">
+        <div class="article-meta">
+          {formattedDate && (
+            <time datetime={publishedAt?.toISOString()} class="article-date">
+              {formattedDate}
+            </time>
+          )}
+          {readingTime && (
+            <span class="article-reading-time">{readingTime} min read</span>
+          )}
+        </div>
+        <h1 class="article-title">{title}</h1>
+        {description && <p class="article-description">{description}</p>}
+        {tags.length > 0 && (
+          <div class="article-tags">
+            {tags.map(tag => (
+              <a href={`/blog?tag=${tag}`} class="article-tag">{tag}</a>
+            ))}
+          </div>
+        )}
+      </header>
+      <div class="article-content prose">
+        <slot />
+      </div>
+      <footer class="article-footer">
+        <p class="article-author">By {author}</p>
+        {updatedAt && (
+          <p class="article-updated">
+            Last updated: <time datetime={updatedAt.toISOString()}>
+              {new Intl.DateTimeFormat('en-US', { year: 'numeric', month: 'long', day: 'numeric' }).format(updatedAt)}
+            </time>
+          </p>
+        )}
+        <a href="/blog" class="back-to-blog">← Back to blog</a>
+      </footer>
+    </article>
+  </main>
+  <Footer />
+</Base>
+
+<script type="application/ld+json" set:html={JSON.stringify({
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": title,
+  "description": description,
+  "datePublished": publishedAt?.toISOString(),
+  "dateModified": updatedAt?.toISOString(),
+  "author": { "@type": "Person", "name": "Przemysław Filipiak", "url": "https://przemyslawfilipiak.com" },
+  "publisher": { "@type": "Person", "name": "Przemysław Filipiak" },
+  "url": canonicalUrl,
+})} />
+
+<style>
+  .blog-main {
+    padding-top: 3.5rem;
+    min-height: 100vh;
+    background-color: var(--bg-base);
+  }
+  .blog-article {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 4rem 1.5rem;
+  }
+  .article-header {
+    margin-bottom: 3rem;
+    padding-bottom: 2rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .article-meta {
+    display: flex;
+    gap: 1rem;
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+    margin-bottom: 1rem;
+  }
+  .article-title {
+    font-family: var(--font-heading);
+    font-size: clamp(1.75rem, 4vw, 2.5rem);
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1.25;
+    margin-bottom: 1rem;
+  }
+  .article-description {
+    color: var(--text-secondary);
+    font-size: var(--text-lg);
+    line-height: 1.6;
+    margin-bottom: 1rem;
+  }
+  .article-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .article-tag {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    padding: 0.2rem 0.6rem;
+    border-radius: 9999px;
+    background: var(--violet-glow);
+    color: var(--violet);
+    border: 1px solid rgba(138,78,100,0.2);
+    text-decoration: none;
+    transition: background 0.15s;
+  }
+  .article-tag:hover { background: rgba(138,78,100,0.25); }
+  .article-content {
+    color: var(--text-secondary);
+    line-height: 1.8;
+  }
+  /* Prose styles for article content */
+  .article-content :global(h1),
+  .article-content :global(h2),
+  .article-content :global(h3),
+  .article-content :global(h4) {
+    font-family: var(--font-heading);
+    color: var(--text-primary);
+    margin-top: 2.5rem;
+    margin-bottom: 1rem;
+    line-height: 1.3;
+  }
+  .article-content :global(h2) { font-size: 1.5rem; font-weight: 600; }
+  .article-content :global(h3) { font-size: 1.25rem; font-weight: 600; }
+  .article-content :global(p) { margin-bottom: 1.25rem; }
+  .article-content :global(a) { color: var(--teal); text-decoration: underline; text-underline-offset: 2px; }
+  .article-content :global(a:hover) { color: var(--gold); }
+  .article-content :global(code) {
+    font-family: var(--font-mono);
+    font-size: 0.875em;
+    background: var(--bg-elevated);
+    padding: 0.15em 0.4em;
+    border-radius: 4px;
+    color: var(--gold);
+  }
+  .article-content :global(pre) {
+    background: var(--bg-elevated);
+    padding: 1.25rem;
+    border-radius: 0.5rem;
+    overflow-x: auto;
+    margin-bottom: 1.5rem;
+    border: 1px solid var(--border);
+  }
+  .article-content :global(pre code) {
+    background: none;
+    padding: 0;
+    color: var(--text-primary);
+    font-size: var(--text-sm);
+  }
+  .article-content :global(blockquote) {
+    border-left: 3px solid var(--teal);
+    padding-left: 1.25rem;
+    color: var(--text-secondary);
+    font-style: italic;
+    margin: 1.5rem 0;
+  }
+  .article-content :global(ul), .article-content :global(ol) {
+    padding-left: 1.5rem;
+    margin-bottom: 1.25rem;
+  }
+  .article-content :global(li) { margin-bottom: 0.5rem; }
+  .article-content :global(table) {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 1.5rem;
+    font-size: var(--text-sm);
+  }
+  .article-content :global(th), .article-content :global(td) {
+    padding: 0.6rem 0.9rem;
+    border: 1px solid var(--border);
+    text-align: left;
+  }
+  .article-content :global(th) {
+    background: var(--bg-elevated);
+    color: var(--text-primary);
+    font-weight: 600;
+  }
+  .article-footer {
+    margin-top: 3rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--border);
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .back-to-blog {
+    color: var(--teal);
+    text-decoration: none;
+    transition: color 0.15s;
+  }
+  .back-to-blog:hover { color: var(--gold); }
+</style>

@@ -1,0 +1,77 @@
+---
+import '@/styles/global.css';
+import '@/styles/animations.css';
+
+export interface Props {
+  title?: string;
+  description?: string;
+  ogImage?: string;
+  canonical?: string;
+}
+
+const {
+  title = 'Przemysław Filipiak — Builder. AI Dev. Deep Work Founder.',
+  description = 'Personal site of Przemysław Filipiak — founder of frinter.app and FrinterFlow. Building high-performance local-first AI tools.',
+  ogImage = '/og-image.png',
+  canonical = Astro.url.href,
+} = Astro.props;
+---
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0f172a" />
+    <meta name="description" content={description} />
+    <meta name="author" content="Przemysław Filipiak" />
+    <title>{title}</title>
+    <link rel="canonical" href={canonical} />
+
+    <!-- Font Preloads -->
+    <link rel="preload" href="/fonts/CourierPrime-Regular.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/CourierPrime-Bold.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/Poppins-600.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/Roboto-400.woff2" as="font" type="font/woff2" crossorigin />
+
+    <!-- Favicon -->
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/favicon-32x32.png" type="image/png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+    <!-- OpenGraph -->
+    <meta property="og:site_name" content="Przemysław Filipiak" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="profile" />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={ogImage} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImage} />
+
+    <!-- JSON-LD Person Schema -->
+    <script type="application/ld+json" set:html={JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "Person",
+      "name": "Przemysław Filipiak",
+      "jobTitle": "AI Developer & Founder",
+      "description": "Polish founder and AI developer. Creator of frinter.app and FrinterFlow. Specializes in high-performance local-first AI tools and deep work systems.",
+      "url": "https://przemyslawfilipiak.com",
+      "sameAs": [
+        "https://github.com/delta240mvt",
+        "https://linkedin.com/in/przemyslaw-filipiak",
+        "https://twitter.com/przemfilipiak"
+      ],
+      "knowsAbout": ["Artificial Intelligence","Deep Work","Astro Framework","Python","React","Local-first Software","Founder Productivity"],
+      "creator": [
+        {"@type": "SoftwareApplication","name": "frinter.","url": "https://frinter.app"},
+        {"@type": "SoftwareApplication","name": "FrinterFlow","url": "https://pypi.org/project/frinterflow/"}
+      ]
+    })} />
+  </head>
+  <body>
+    <slot />
+  </body>
+</html>

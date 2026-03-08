@@ -1,0 +1,96 @@
+---
+import BlogPost from '@/components/layouts/BlogPost.astro';
+import BlogCard from '@/components/BlogCard.astro';
+import { db } from '@/db/client';
+import { articles } from '@/db/schema';
+import { eq, and, ne, sql } from 'drizzle-orm';
+
+const { slug } = Astro.params;
+
+if (!slug) {
+  return Astro.redirect('/404');
+}
+
+let article: any = null;
+let relatedArticles: any[] = [];
+
+try {
+  const [result] = await db
+    .select()
+    .from(articles)
+    .where(and(eq(articles.slug, slug), eq(articles.status, 'published')))
+    .limit(1);
+
+  article = result;
+
+  if (article?.tags?.length > 0) {
+    relatedArticles = await db
+      .select()
+      .from(articles)
+      .where(
+        and(
+          eq(articles.status, 'published'),
+          ne(articles.id, article.id),
+          sql`${articles.tags} && ARRAY[${sql.join(article.tags.map((t: string) => sql`${t}`), sql`, `)}]::text[]`
+        )
+      )
+      .limit(3);
+  }
+} catch {
+  // DB error
+}
+
+if (!article) {
+  return Astro.redirect('/404');
+}
+---
+
+<BlogPost
+  title={article.title}
+  description={article.description}
+  publishedAt={article.publishedAt}
+  updatedAt={article.updatedAt}
+  readingTime={article.readingTime}
+  tags={article.tags || []}
+  author={article.author}
+  slug={article.slug}
+>
+  <div set:html={article.content} />
+
+  {relatedArticles.length > 0 && (
+    <aside class="related-articles">
+      <h2 class="related-title">Related Articles</h2>
+      <div class="related-grid">
+        {relatedArticles.map(related => (
+          <BlogCard
+            title={related.title}
+            description={related.description}
+            date={related.publishedAt}
+            readingTime={related.readingTime}
+            tags={related.tags || []}
+            slug={related.slug}
+          />
+        ))}
+      </div>
+    </aside>
+  )}
+</BlogPost>
+
+<style>
+  .related-articles {
+    margin-top: 3rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--border);
+  }
+  .related-title {
+    font-family: var(--font-mono);
+    font-size: var(--text-base);
+    color: var(--teal);
+    margin-bottom: 1.25rem;
+  }
+  .related-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 1rem;
+  }
+</style>

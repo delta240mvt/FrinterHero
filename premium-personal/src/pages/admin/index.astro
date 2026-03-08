@@ -1,0 +1,341 @@
+---
+import Base from '@/components/layouts/Base.astro';
+import { db } from '@/db/client';
+import { articles, geoRuns } from '@/db/schema';
+import { desc, eq, count } from 'drizzle-orm';
+
+let allArticles: any[] = [];
+let recentRuns: any[] = [];
+let stats = { draft: 0, published: 0, archived: 0 };
+
+const page = parseInt(Astro.url.searchParams.get('page') || '1');
+const search = Astro.url.searchParams.get('search') || '';
+const statusFilter = Astro.url.searchParams.get('status') || '';
+const LIMIT = 20;
+
+try {
+  const { like, and } = await import('drizzle-orm');
+  let query = db.select().from(articles).$dynamic();
+
+  const conditions = [];
+  if (statusFilter) conditions.push(eq(articles.status, statusFilter as any));
+  if (search) conditions.push(like(articles.title, `%${search}%`));
+
+  if (conditions.length === 1) query = query.where(conditions[0]);
+  else if (conditions.length > 1) query = query.where(and(...conditions));
+
+  allArticles = await query.orderBy(desc(articles.createdAt)).limit(LIMIT).offset((page - 1) * LIMIT);
+
+  const [draftCount] = await db.select({ c: count() }).from(articles).where(eq(articles.status, 'draft'));
+  const [pubCount] = await db.select({ c: count() }).from(articles).where(eq(articles.status, 'published'));
+  const [archCount] = await db.select({ c: count() }).from(articles).where(eq(articles.status, 'archived'));
+  stats = { draft: draftCount.c, published: pubCount.c, archived: archCount.c };
+
+  recentRuns = await db.select().from(geoRuns).orderBy(desc(geoRuns.runAt)).limit(10);
+} catch (e) {
+  console.error('[Admin]', e);
+}
+---
+
+<Base title="Admin Dashboard — Przemysław Filipiak" description="Admin panel">
+  <div class="admin-layout">
+    <header class="admin-header">
+      <a href="/" class="admin-logo">P·F</a>
+      <h1 class="admin-title">Admin Panel</h1>
+      <a href="/api/logout" class="logout-btn">Logout</a>
+    </header>
+
+    <main class="admin-main">
+      <!-- Stats Bar -->
+      <div class="stats-bar">
+        <div class="stat">
+          <span class="stat-value">{stats.published}</span>
+          <span class="stat-label">Published</span>
+        </div>
+        <div class="stat">
+          <span class="stat-value" style="color: var(--gold)">{stats.draft}</span>
+          <span class="stat-label">Drafts</span>
+        </div>
+        <div class="stat">
+          <span class="stat-value" style="color: var(--text-muted)">{stats.archived}</span>
+          <span class="stat-label">Archived</span>
+        </div>
+        <a href="/admin/article/new" class="new-article-btn">+ New Article</a>
+      </div>
+
+      <!-- Articles Section -->
+      <section class="admin-section">
+        <div class="section-toolbar">
+          <h2 class="admin-section-title">Articles</h2>
+          <form method="GET" class="search-form">
+            <input
+              type="text"
+              name="search"
+              value={search}
+              placeholder="Search titles..."
+              class="search-input"
+            />
+            <select name="status" class="filter-select">
+              <option value="" selected={!statusFilter}>All Status</option>
+              <option value="draft" selected={statusFilter === 'draft'}>Draft</option>
+              <option value="published" selected={statusFilter === 'published'}>Published</option>
+              <option value="archived" selected={statusFilter === 'archived'}>Archived</option>
+            </select>
+            <button type="submit" class="filter-btn">Filter</button>
+          </form>
+        </div>
+
+        <div class="table-wrapper">
+          <table class="articles-table">
+            <thead>
+              <tr>
+                <th>Title</th>
+                <th>Slug</th>
+                <th>Status</th>
+                <th>Created</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {allArticles.length === 0 ? (
+                <tr>
+                  <td colspan="5" class="empty-row">No articles found.</td>
+                </tr>
+              ) : allArticles.map(article => (
+                <tr class={`article-row article-row--${article.status}`}>
+                  <td class="article-title-cell">
+                    <a href={`/admin/article/${article.id}`} class="article-link">{article.title}</a>
+                  </td>
+                  <td class="slug-cell">
+                    <code class="slug-code">{article.slug}</code>
+                  </td>
+                  <td>
+                    <span class={`status-badge status-badge--${article.status}`}>{article.status}</span>
+                  </td>
+                  <td class="date-cell">
+                    {new Date(article.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </td>
+                  <td class="actions-cell">
+                    <a href={`/admin/article/${article.id}`} class="action-btn action-btn--edit">Edit</a>
+                    {article.status !== 'published' && (
+                      <button
+                        class="action-btn action-btn--publish"
+                        data-id={article.id}
+                        onclick={`publishArticle(${article.id})`}
+                      >Publish</button>
+                    )}
+                    <button
+                      class="action-btn action-btn--delete"
+                      onclick={`deleteArticle(${article.id}, '${article.title.replace(/'/g, "\\'")}')`}
+                    >Delete</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- GEO Runs Section -->
+      {recentRuns.length > 0 && (
+        <section class="admin-section">
+          <h2 class="admin-section-title">GEO Monitor — Recent Runs</h2>
+          <div class="table-wrapper">
+            <table class="articles-table">
+              <thead>
+                <tr>
+                  <th>Run At</th>
+                  <th>Queries</th>
+                  <th>Gaps Found</th>
+                  <th>Drafts Generated</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recentRuns.map(run => (
+                  <tr>
+                    <td class="date-cell">{new Date(run.runAt).toLocaleString('en-US')}</td>
+                    <td>{run.queriesCount}</td>
+                    <td style={run.gapsFound > 0 ? 'color: var(--gold)' : ''}>{run.gapsFound}</td>
+                    <td style={run.draftsGenerated > 0 ? 'color: var(--teal)' : ''}>{run.draftsGenerated}</td>
+                    <td>
+                      <a href={`/admin/geo/${run.id}`} class="action-btn action-btn--edit">View Details</a>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+    </main>
+  </div>
+</Base>
+
+<script>
+  async function publishArticle(id: number) {
+    if (!confirm('Publish this article?')) return;
+    const res = await fetch(`/api/articles/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'published' }),
+    });
+    if (res.ok) window.location.reload();
+    else alert('Failed to publish article');
+  }
+
+  async function deleteArticle(id: number, title: string) {
+    if (!confirm(`Delete "${title}"? This cannot be undone.`)) return;
+    const res = await fetch(`/api/articles/${id}`, { method: 'DELETE' });
+    if (res.ok) window.location.reload();
+    else alert('Failed to delete article');
+  }
+
+  (window as any).publishArticle = publishArticle;
+  (window as any).deleteArticle = deleteArticle;
+</script>
+
+<style>
+  .admin-layout { min-height: 100vh; background: var(--bg-base); }
+  .admin-header {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    padding: 0.875rem 1.5rem;
+    background: var(--bg-elevated);
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  .admin-logo { font-family: var(--font-mono); font-weight: 700; color: var(--teal); text-decoration: none; font-size: 1.1rem; }
+  .admin-title { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--text-secondary); flex: 1; }
+  .logout-btn {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+    text-decoration: none;
+    padding: 0.35rem 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 0.25rem;
+    transition: all 0.15s;
+  }
+  .logout-btn:hover { color: var(--text-primary); border-color: var(--border-hover); }
+  .admin-main { max-width: 1200px; margin: 0 auto; padding: 2rem 1.5rem; }
+  .stats-bar {
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+    margin-bottom: 2rem;
+    padding: 1.25rem 1.5rem;
+    background: var(--bg-surface);
+    border-radius: 0.5rem;
+    border: 1px solid var(--border);
+  }
+  .stat { text-align: center; }
+  .stat-value { display: block; font-family: var(--font-mono); font-size: 1.5rem; font-weight: 700; color: var(--teal); }
+  .stat-label { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); }
+  .new-article-btn {
+    margin-left: auto;
+    padding: 0.6rem 1.25rem;
+    background: var(--teal);
+    color: #fff;
+    border-radius: 0.375rem;
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    text-decoration: none;
+    transition: opacity 0.15s;
+  }
+  .new-article-btn:hover { opacity: 0.9; }
+  .admin-section { margin-bottom: 3rem; }
+  .section-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+  }
+  .admin-section-title {
+    font-family: var(--font-mono);
+    font-size: var(--text-base);
+    color: var(--teal);
+    flex-shrink: 0;
+  }
+  .search-form { display: flex; gap: 0.5rem; flex-wrap: wrap; flex: 1; justify-content: flex-end; }
+  .search-input, .filter-select {
+    padding: 0.4rem 0.7rem;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 0.25rem;
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    outline: none;
+  }
+  .search-input { min-width: 160px; }
+  .filter-btn {
+    padding: 0.4rem 0.8rem;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 0.25rem;
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .filter-btn:hover { border-color: var(--teal); color: var(--teal); }
+  .table-wrapper { overflow-x: auto; border: 1px solid var(--border); border-radius: 0.5rem; }
+  .articles-table { width: 100%; border-collapse: collapse; }
+  .articles-table th {
+    padding: 0.7rem 1rem;
+    background: var(--bg-elevated);
+    text-align: left;
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid var(--border);
+  }
+  .articles-table td {
+    padding: 0.7rem 1rem;
+    border-bottom: 1px solid var(--border);
+    font-size: var(--text-sm);
+    vertical-align: middle;
+  }
+  .articles-table tr:last-child td { border-bottom: none; }
+  .articles-table tr:hover td { background: rgba(255,255,255,0.02); }
+  .article-link { color: var(--text-primary); text-decoration: none; font-weight: 500; }
+  .article-link:hover { color: var(--teal); }
+  .slug-code { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); }
+  .status-badge {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    padding: 0.2rem 0.5rem;
+    border-radius: 9999px;
+  }
+  .status-badge--published { background: rgba(74,141,131,0.15); color: var(--teal); }
+  .status-badge--draft { background: rgba(214,183,121,0.15); color: var(--gold); }
+  .status-badge--archived { background: rgba(71,85,105,0.3); color: var(--text-muted); }
+  .date-cell { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); white-space: nowrap; }
+  .actions-cell { white-space: nowrap; }
+  .action-btn {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    padding: 0.25rem 0.6rem;
+    border-radius: 0.25rem;
+    border: 1px solid var(--border);
+    background: none;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.15s;
+    margin-right: 0.4rem;
+    color: var(--text-secondary);
+    display: inline-block;
+  }
+  .action-btn--edit:hover { border-color: var(--teal); color: var(--teal); }
+  .action-btn--publish:hover { border-color: var(--gold); color: var(--gold); }
+  .action-btn--delete:hover { border-color: #ef4444; color: #ef4444; }
+  .empty-row { text-align: center; color: var(--text-muted); font-family: var(--font-mono); font-size: var(--text-sm); padding: 2rem; }
+</style>
