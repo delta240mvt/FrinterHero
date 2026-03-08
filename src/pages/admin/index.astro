@@ -60,6 +60,7 @@ try {
           <span class="stat-value" style="color: var(--text-muted)">{stats.archived}</span>
           <span class="stat-label">Archived</span>
         </div>
+        <button id="run-geo-btn" class="geo-btn">Run GEO Monitor</button>
         <a href="/admin/article/new" class="new-article-btn">+ New Article</a>
       </div>
 
@@ -191,6 +192,29 @@ try {
     else alert('Failed to delete article');
   }
 
+  const geoBtn = document.getElementById('run-geo-btn');
+  geoBtn?.addEventListener('click', async () => {
+    if (!confirm('Run GEO Monitor now? This might take a minute.')) return;
+    geoBtn.textContent = 'Running...';
+    (geoBtn as HTMLButtonElement).disabled = true;
+    
+    try {
+      const res = await fetch('/api/run-geo', { method: 'POST' });
+      if (res.ok) {
+        alert('GEO Monitor finished successfully!');
+        window.location.reload();
+      } else {
+        const data = await res.json();
+        alert('Failed: ' + (data.error || 'Unknown error'));
+      }
+    } catch (e) {
+      alert('Network error while running GEO Monitor');
+    } finally {
+      geoBtn.textContent = 'Run GEO Monitor';
+      (geoBtn as HTMLButtonElement).disabled = false;
+    }
+  });
+
   (window as any).publishArticle = publishArticle;
   (window as any).deleteArticle = deleteArticle;
 </script>
@@ -247,6 +271,19 @@ try {
     transition: opacity 0.15s;
   }
   .new-article-btn:hover { opacity: 0.9; }
+  .geo-btn {
+    padding: 0.6rem 1.25rem;
+    background: transparent;
+    color: var(--gold);
+    border: 1px solid var(--gold);
+    border-radius: 0.375rem;
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .geo-btn:hover { background: rgba(214,183,121,0.1); }
+  .geo-btn:disabled { opacity: 0.5; cursor: not-allowed; }
   .admin-section { margin-bottom: 3rem; }
   .section-toolbar {
     display: flex;

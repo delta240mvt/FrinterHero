@@ -45,7 +45,7 @@ The work is for people. frinter.app measures time with loved ones alongside work
 
 | Mistake | Impact | Fix |
 |---------|--------|-----|
-| Multitasking during coding | -40% cognitive output | Single-task with Frinta timer |
+| Multitasking during coding | -40% cognitive output | Single-task with frinter.app timer |
 | No sleep tracking | Unpredictable energy | Energy Bar system |
 | Shallow work disguised as deep work | Zero real output | Count-up, not countdown |
 
@@ -58,7 +58,7 @@ A: Most knowledge workers max out at 4 hours. Start with 2 focused 90-minute ses
 A: Yes, frinter.app has a free tier. Visit [frinter.app](https://frinter.app) to start.
 
 **Q: What makes this different from a regular Pomodoro timer?**
-A: Frinta uses count-up (not countdown) timing — you build a streak, not race a clock. The psychological difference is significant for flow states.
+A: frinter.app uses count-up (not countdown) timing — you build a streak, not race a clock. The psychological difference is significant for flow states.
 
 ## Sources
 - Cal Newport, "Deep Work" (2016)
