@@ -192,9 +192,16 @@ const canonicalUrl = slug ? `https://przemyslawfilipiak.com/blog/${slug}` : Astr
   .article-content :global(blockquote) {
     border-left: 3px solid var(--teal);
     padding-left: 1.25rem;
-    color: var(--text-secondary);
+    color: var(--gold);
     font-style: italic;
     margin: 1.5rem 0;
+    background: var(--gold-glow);
+    padding: 1rem 1.25rem;
+    border-radius: 0 0.5rem 0.5rem 0;
+  }
+  .article-content :global(strong) {
+    color: var(--gold);
+    font-weight: 600;
   }
   .article-content :global(ul), .article-content :global(ol) {
     padding-left: 1.5rem;
