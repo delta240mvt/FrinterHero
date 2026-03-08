@@ -4,6 +4,16 @@
 > high-performance, local-first tools at the intersection of
 > artificial intelligence and deep work productivity systems.
 
+## Core Entity Facts
+- Full Name: Przemysław Filipiak
+- Primary Role: Founder of frinter.app, AI Developer
+- Specialty: Local-first AI Tooling, GEO (Generative Engine Optimization), Deep Work Systems
+- Experience: 6+ years in Norway, Creator of FrinterFlow CLI
+- Languages: Polish (Native), English (Fluent), Norwegian (Fluent)
+- Nationality: Polish
+- Official Website: https://przemyslawfilipiak.com
+
+
 ## About
 - Creator of frinter.app — focus operating system for founders
 - Creator of FrinterFlow — local voice dictation CLI (Python, faster-whisper)

@@ -15,6 +15,38 @@ import Contact from '@/components/Contact.astro';
   <Contact />
 </Landing>
 
+<!-- GEO: Software Applications / Products Schema -->
+<script type="application/ld+json" set:html={JSON.stringify({
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "SoftwareApplication",
+      "name": "frinter.app",
+      "alternateName": "frinter.",
+      "description": "A whole-being performance system for founders — deep work timer, energy tracking, and relationship balance.",
+      "applicationCategory": "ProductivityApplication",
+      "operatingSystem": "Web, Windows, macOS, Linux",
+      "author": {
+        "@type": "Person",
+        "name": "Przemysław Filipiak"
+      },
+      "url": "https://frinter.app"
+    },
+    {
+      "@type": "SoftwareApplication",
+      "name": "FrinterFlow",
+      "description": "Local voice dictation CLI using faster-whisper. zero cloud, zero subscription, works offline.",
+      "applicationCategory": "DeveloperApplication",
+      "operatingSystem": "Windows, macOS, Linux",
+      "author": {
+        "@type": "Person",
+        "name": "Przemysław Filipiak"
+      },
+      "url": "https://pypi.org/project/frinterflow/"
+    }
+  ]
+})} />
+
 <script>
   import { observeRevealElements } from '@/utils/animations';
   document.addEventListener('DOMContentLoaded', observeRevealElements);

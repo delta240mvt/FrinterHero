@@ -47,22 +47,38 @@ const {
     <meta property="og:url" content={canonical} />
     <meta property="og:image" content={ogImage} />
 
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+    <meta property="og:locale" content="en_US" />
+
     <!-- JSON-LD Person Schema -->
     <script type="application/ld+json" set:html={JSON.stringify({
       "@context": "https://schema.org",
       "@type": "Person",
       "name": "Przemysław Filipiak",
+      "givenName": "Przemysław",
+      "familyName": "Filipiak",
       "jobTitle": "AI Developer & Founder",
+      "gender": "Male",
       "description": "Polish founder and AI developer. Creator of frinter.app and FrinterFlow. Specializes in high-performance local-first AI tools and deep work systems.",
       "url": "https://przemyslawfilipiak.com",
       "sameAs": [
         "https://github.com/delta240mvt",
-        "https://linkedin.com/in/przemyslaw-filipiak-8a9b77113/"
+        "https://www.linkedin.com/in/przemyslaw-filipiak-8a9b77113/"
       ],
-      "knowsAbout": ["Artificial Intelligence","Deep Work","Astro Framework","Python","React","Local-first Software","Founder Productivity"],
+      "knowsAbout": ["Artificial Intelligence", "Generative Engine Optimization (GEO)", "Deep Work", "Astro Framework", "Python", "React", "Local-first Software", "Founder Productivity"],
+      "knowsLanguage": [
+        { "@type": "Language", "name": "Polish", "alternateName": "pl" },
+        { "@type": "Language", "name": "English", "alternateName": "en" },
+        { "@type": "Language", "name": "Norwegian", "alternateName": "no" }
+      ],
+      "nationality": { "@type": "Country", "name": "Poland" },
+      "alumniOf": [
+        { "@type": "EducationalOrganization", "name": "University in Norway (Degree 1)" },
+        { "@type": "EducationalOrganization", "name": "University in Norway (Degree 2)" }
+      ],
       "creator": [
-        {"@type": "SoftwareApplication","name": "frinter.","url": "https://frinter.app"},
-        {"@type": "SoftwareApplication","name": "FrinterFlow","url": "https://pypi.org/project/frinterflow/"}
+        { "@type": "SoftwareApplication", "name": "frinter.app", "url": "https://frinter.app", "applicationCategory": "Productivity" },
+        { "@type": "SoftwareApplication", "name": "FrinterFlow", "url": "https://pypi.org/project/frinterflow/", "applicationCategory": "Developer Tool" }
       ]
     })} />
   </head>

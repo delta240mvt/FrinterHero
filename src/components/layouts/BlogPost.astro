@@ -86,10 +86,27 @@ const canonicalUrl = slug ? `https://przemyslawfilipiak.com/blog/${slug}` : Astr
   "headline": title,
   "description": description,
   "datePublished": publishedAt?.toISOString(),
-  "dateModified": updatedAt?.toISOString(),
-  "author": { "@type": "Person", "name": "Przemysław Filipiak", "url": "https://przemyslawfilipiak.com" },
-  "publisher": { "@type": "Person", "name": "Przemysław Filipiak" },
+  "dateModified": updatedAt?.toISOString() || publishedAt?.toISOString(),
+  "author": { 
+    "@type": "Person", 
+    "name": "Przemysław Filipiak", 
+    "url": "https://przemyslawfilipiak.com",
+    "jobTitle": "AI Developer & Founder",
+    "sameAs": [
+      "https://github.com/delta240mvt",
+      "https://www.linkedin.com/in/przemyslaw-filipiak-8a9b77113/"
+    ]
+  },
+  "publisher": { 
+    "@type": "Person", 
+    "name": "Przemysław Filipiak",
+    "url": "https://przemyslawfilipiak.com"
+  },
   "url": canonicalUrl,
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": canonicalUrl
+  }
 })} />
 
 <style>
