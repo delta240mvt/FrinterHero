@@ -36,7 +36,7 @@ The system has three pillars:
 Phone goes away. Timer starts. Pure creation begins. No "quick checks", no Slack, no email.
 
 ### 2. Energy Bar
-Your sleep quality translates directly to your cognitive capacity. frinter.app tracks this as a battery percentage — from [ZOMBIE] to [BESTIA]. You wouldn't run a server on 10% battery. Why run your mind?
+Your sleep quality translates directly to your cognitive capacity. frinter.app tracks this as a battery percentage — from [ZOMBIE] to [BEAST]. You wouldn't run a server on 10% battery. Why run your mind?
 
 ### 3. Relationship Balance
 The work is for people. frinter.app measures time with loved ones alongside work — not as a productivity metric, but as a sanity check.
