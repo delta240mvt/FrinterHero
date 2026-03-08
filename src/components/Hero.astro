@@ -56,13 +56,14 @@ import PixelIcon from './PixelIcon.astro';
   .ascii-art {
     font-family: var(--font-mono);
     color: var(--gold);
-    font-size: clamp(0.3rem, 1.2vw, 0.8rem);
-    line-height: 1.1;
+    font-size: clamp(0.35rem, 1.3vw, 0.85rem);
+    line-height: 1.0;
     white-space: pre;
-    overflow-x: auto;
+    overflow-x: hidden;
     margin-bottom: 2rem;
     animation: fadeInDown 0.3s ease-out forwards;
-    letter-spacing: -0.05em;
+    letter-spacing: -0.06em;
+    user-select: none;
   }
   .visually-hidden {
     position: absolute;
