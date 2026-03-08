@@ -56,14 +56,21 @@ import PixelIcon from './PixelIcon.astro';
   .ascii-art {
     font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Monaco, Consolas, 'DejaVu Sans Mono', monospace;
     color: var(--gold);
-    font-size: clamp(0.35rem, 1.3vw, 0.85rem);
-    line-height: 1.0;
+    font-size: clamp(0.35rem, 1.25vw, 0.85rem);
+    line-height: 1.1;
     white-space: pre;
-    overflow-x: hidden;
-    margin-bottom: 2rem;
+    overflow: hidden;
+    margin-bottom: 2.5rem;
     animation: fadeInDown 0.3s ease-out forwards;
     letter-spacing: normal;
     user-select: none;
+    transform: scaleY(1.25);
+    transform-origin: left top;
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE/Edge */
+  }
+  .ascii-art::-webkit-scrollbar {
+    display: none; /* Chrome/Safari */
   }
   .visually-hidden {
     position: absolute;
