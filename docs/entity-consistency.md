@@ -28,6 +28,8 @@ is consistent across the personal page, llms.txt, and social profiles.
 - Landing page bio: matches llms.txt description — "High Performer and Deep Focus Founder bridging high-intensity focus with data-driven life optimization."
 - GitHub profile (https://github.com/delta240mvt): matches all references
 - Tagline used across site: "High Performer. Deep Focus Founder. WholeBeing."
+- **FRINT Check-in** (Weekly methodology) documented in llms.txt and llms-full.txt:
+  - F: Flow, R: Relationships, I: Inner Balance, N: Nourishment, T: Transcendence.
 - Product list: frinter.app and FrinterFlow consistently listed
 - JSON-LD Person schema in Base.astro: matches all entity data above
 - llms.txt at /llms.txt: contains updated High Performer biography, 3 Spheres of Life, and methodology.

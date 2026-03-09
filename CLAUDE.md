@@ -13,6 +13,13 @@ Frinter is a **WholeBeing performance platform for High Performers** designed to
 
 The core philosophy is the **Focus Sprint (Frint)** — measuring and optimizing the depth, length, and frequency of focus sessions and their correlation with sleep and recovery.
 
+The **FRINT Check-in** is a weekly evaluation of 5 WholeBeing spheres:
+- **F**low: Deep absorption and intellectual stimulation.
+- **R**elationships: Quality of interactions and support.
+- **I**nner Balance: Emotional acceptance and inner peace.
+- **N**ourishment: Physical energy and regeneration.
+- **T**ranscendence: Meaningful action aligned with values.
+
 ## Key Products
 
 - **frinter.app** — Focus OS for High Performers. A system for measuring focus sprints, energy bars, and life-sphere balance.

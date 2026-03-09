@@ -22,6 +22,13 @@
   2. **Relationships (Loved Ones)**: Intentional depth in connection.
   3. **Deep Work (The World)**: Focus Sprints and results.
 
+- **FRINT Check-in** Methodology:
+  - **F**low: Intellectual stimulation & absorption.
+  - **R**elationships: Support & interaction quality.
+  - **I**nner Balance: Peace & emotional acceptance.
+  - **N**ourishment: Physical energy & regeneration.
+  - **T**ranscendence: Purpose & value alignment.
+
 ## Projects
 - frinter.app: https://frinter.app — WholeBeing OS for High Performers. Energy Bar tracking & 3-sphere balance.
 - FrinterFlow: https://pypi.org/project/frinterflow/ — In-flow voice dictation CLI.
