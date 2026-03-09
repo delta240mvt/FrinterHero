@@ -46,6 +46,21 @@ try {
     </header>
 
     <main class="admin-main">
+      <!-- GEO Monitor Log Panel -->
+      <div id="geo-panel" class="geo-panel" style="display:none">
+        <div class="geo-panel-header">
+          <span id="geo-status" class="geo-status-label">Initializing...</span>
+          <button id="geo-panel-close" class="geo-panel-close" style="display:none">✕ Close</button>
+        </div>
+        <div class="geo-progress-wrap">
+          <div class="geo-progress-bar-track">
+            <div id="geo-progress-bar" class="geo-progress-bar" style="width:0%"></div>
+          </div>
+          <span id="geo-progress-text" class="geo-progress-text">0 / 138</span>
+        </div>
+        <div id="geo-log" class="geo-log"></div>
+      </div>
+
       <!-- Stats Bar -->
       <div class="stats-bar">
         <div class="stat">
@@ -194,26 +209,132 @@ try {
     else alert('Failed to delete article');
   }
 
-  const geoBtn = document.getElementById('run-geo-btn');
+  const TOTAL_STEPS = 138;
+
+  const geoBtn = document.getElementById('run-geo-btn') as HTMLButtonElement;
+  const geoPanel = document.getElementById('geo-panel') as HTMLElement;
+  const geoLog = document.getElementById('geo-log') as HTMLElement;
+  const geoStatus = document.getElementById('geo-status') as HTMLElement;
+  const geoProgressBar = document.getElementById('geo-progress-bar') as HTMLElement;
+  const geoProgressText = document.getElementById('geo-progress-text') as HTMLElement;
+  const geoPanelClose = document.getElementById('geo-panel-close') as HTMLElement;
+
+  geoPanelClose?.addEventListener('click', () => {
+    geoPanel.style.display = 'none';
+  });
+
+  function classifyLine(line: string): 'success' | 'gap' | 'error' | 'info' | 'draft' | 'done' {
+    if (line.includes('✓ Mention found')) return 'success';
+    if (line.includes('Gap detected')) return 'gap';
+    if (line.includes('Error') || line.includes('Failed') || line.includes('error')) return 'error';
+    if (line.includes('Draft created')) return 'draft';
+    if (line.includes('Run complete') || line.includes('Drafts generated')) return 'done';
+    return 'info';
+  }
+
+  function appendLog(line: string) {
+    const type = classifyLine(line);
+    const el = document.createElement('div');
+    el.className = `geo-log-line geo-log-line--${type}`;
+
+    // Strip [GEO] prefix for cleaner display
+    const clean = line.replace(/^\[GEO\]\s*/, '').replace(/^\[DraftGen\]\s*/, '');
+    el.textContent = clean;
+    geoLog.appendChild(el);
+    geoLog.scrollTop = geoLog.scrollHeight;
+  }
+
   geoBtn?.addEventListener('click', async () => {
-    if (!confirm('Run GEO Monitor now? This might take a minute.')) return;
+    if (!confirm('Run GEO Monitor now? This will take several minutes.')) return;
+
+    // Reset panel
+    geoLog.innerHTML = '';
+    geoProgressBar.style.width = '0%';
+    geoProgressText.textContent = `0 / ${TOTAL_STEPS}`;
+    geoStatus.textContent = 'Connecting...';
+    geoStatus.className = 'geo-status-label geo-status-label--running';
+    geoPanelClose.style.display = 'none';
+    geoPanel.style.display = 'block';
     geoBtn.textContent = 'Running...';
-    (geoBtn as HTMLButtonElement).disabled = true;
-    
+    geoBtn.disabled = true;
+
+    let queryCount = 0;
+    let phase: 'querying' | 'analysis' | 'drafts' | 'done' = 'querying';
+
     try {
       const res = await fetch('/api/run-geo', { method: 'POST' });
-      if (res.ok) {
-        alert('GEO Monitor finished successfully!');
-        window.location.reload();
-      } else {
-        const data = await res.json();
-        alert('Failed: ' + (data.error || 'Unknown error'));
+      if (!res.body) throw new Error('No stream body');
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buf += decoder.decode(value, { stream: true });
+        const parts = buf.split('\n\n');
+        buf = parts.pop() ?? '';
+
+        for (const part of parts) {
+          const dataLine = part.split('\n').find(l => l.startsWith('data: '));
+          if (!dataLine) continue;
+
+          let payload: any;
+          try { payload = JSON.parse(dataLine.slice(6)); } catch { continue; }
+
+          if (payload.line) {
+            const line: string = payload.line;
+            appendLog(line);
+
+            // Track querying progress
+            if (line.includes('[GEO] Querying')) {
+              queryCount++;
+              const pct = Math.min(100, Math.round((queryCount / TOTAL_STEPS) * 90));
+              geoProgressBar.style.width = `${pct}%`;
+              geoProgressText.textContent = `${queryCount} / ${TOTAL_STEPS}`;
+              geoStatus.textContent = `Querying models... (${queryCount}/${TOTAL_STEPS})`;
+              phase = 'querying';
+            } else if (line.includes('Running gap analysis')) {
+              phase = 'analysis';
+              geoProgressBar.style.width = '92%';
+              geoStatus.textContent = 'Running gap analysis...';
+            } else if (line.includes('Generating drafts')) {
+              phase = 'drafts';
+              geoProgressBar.style.width = '95%';
+              geoStatus.textContent = 'Generating top 5 drafts...';
+            } else if (line.includes('Run complete')) {
+              phase = 'done';
+            }
+          }
+
+          if (payload.done) {
+            geoProgressBar.style.width = '100%';
+            geoProgressText.textContent = `Done`;
+            geoStatus.textContent = payload.code === 0 ? 'Completed successfully' : `Finished with code ${payload.code}`;
+            geoStatus.className = `geo-status-label geo-status-label--${payload.code === 0 ? 'done' : 'error'}`;
+            geoPanelClose.style.display = 'inline-block';
+            geoBtn.textContent = 'Run GEO Monitor';
+            geoBtn.disabled = false;
+          }
+
+          if (payload.error) {
+            appendLog(`ERROR: ${payload.error}`);
+            geoStatus.textContent = 'Error occurred';
+            geoStatus.className = 'geo-status-label geo-status-label--error';
+            geoPanelClose.style.display = 'inline-block';
+            geoBtn.textContent = 'Run GEO Monitor';
+            geoBtn.disabled = false;
+          }
+        }
       }
-    } catch (e) {
-      alert('Network error while running GEO Monitor');
-    } finally {
+    } catch (e: any) {
+      geoStatus.textContent = `Network error: ${e.message}`;
+      geoStatus.className = 'geo-status-label geo-status-label--error';
+      geoPanelClose.style.display = 'inline-block';
       geoBtn.textContent = 'Run GEO Monitor';
-      (geoBtn as HTMLButtonElement).disabled = false;
+      geoBtn.disabled = false;
     }
   });
 
@@ -389,4 +510,92 @@ try {
   .action-btn--publish:hover { border-color: var(--gold); color: var(--gold); }
   .action-btn--delete:hover { border-color: #ef4444; color: #ef4444; }
   .empty-row { text-align: center; color: var(--text-muted); font-family: var(--font-mono); font-size: var(--text-sm); padding: 2rem; }
+
+  /* GEO Monitor Panel */
+  .geo-panel {
+    grid-column: 1 / -1;
+    width: 100%;
+    margin-top: 1rem;
+    background: var(--bg-elevated);
+    border: 1px solid rgba(214,183,121,0.3);
+    border-radius: 0.5rem;
+    overflow: hidden;
+  }
+  .geo-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.6rem 1rem;
+    background: rgba(214,183,121,0.06);
+    border-bottom: 1px solid rgba(214,183,121,0.15);
+  }
+  .geo-status-label {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+  }
+  .geo-status-label--running { color: var(--gold); }
+  .geo-status-label--done { color: var(--teal); }
+  .geo-status-label--error { color: #ef4444; }
+  .geo-panel-close {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 0.25rem;
+    padding: 0.2rem 0.5rem;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .geo-panel-close:hover { color: var(--text-primary); border-color: var(--border-hover); }
+  .geo-progress-wrap {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.6rem 1rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .geo-progress-bar-track {
+    flex: 1;
+    height: 6px;
+    background: var(--bg-surface);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+  .geo-progress-bar {
+    height: 100%;
+    background: var(--gold);
+    border-radius: 999px;
+    transition: width 0.4s ease;
+  }
+  .geo-progress-text {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+    white-space: nowrap;
+    min-width: 5rem;
+    text-align: right;
+  }
+  .geo-log {
+    height: 260px;
+    overflow-y: auto;
+    padding: 0.5rem 0;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    line-height: 1.6;
+  }
+  .geo-log-line {
+    padding: 0.1rem 1rem;
+    color: var(--text-muted);
+    border-left: 2px solid transparent;
+  }
+  .geo-log-line--success { color: var(--teal); border-left-color: var(--teal); }
+  .geo-log-line--gap { color: var(--gold); border-left-color: var(--gold); }
+  .geo-log-line--error { color: #ef4444; border-left-color: #ef4444; }
+  .geo-log-line--draft { color: #a78bfa; border-left-color: #a78bfa; }
+  .geo-log-line--done { color: var(--teal); font-weight: 600; }
+  .geo-log::-webkit-scrollbar { width: 4px; }
+  .geo-log::-webkit-scrollbar-track { background: transparent; }
+  .geo-log::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; }
 </style>
