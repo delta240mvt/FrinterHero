@@ -103,10 +103,18 @@ try {
           </form>
         </div>
 
+        <!-- Bulk action toolbar -->
+        <div id="bulk-toolbar" class="bulk-toolbar" style="display:none">
+          <span id="bulk-count" class="bulk-count">0 selected</span>
+          <button id="bulk-delete-btn" class="bulk-delete-btn">Delete selected</button>
+          <button id="bulk-cancel-btn" class="bulk-cancel-btn">Cancel</button>
+        </div>
+
         <div class="table-wrapper">
           <table class="articles-table">
             <thead>
               <tr>
+                <th class="checkbox-col"><input type="checkbox" id="select-all" class="row-checkbox" /></th>
                 <th>Title</th>
                 <th>Slug</th>
                 <th>Status</th>
@@ -117,10 +125,13 @@ try {
             <tbody>
               {allArticles.length === 0 ? (
                 <tr>
-                  <td colspan="5" class="empty-row">No articles found.</td>
+                  <td colspan="6" class="empty-row">No articles found.</td>
                 </tr>
               ) : allArticles.map(article => (
-                <tr class={`article-row article-row--${article.status}`}>
+                <tr class={`article-row article-row--${article.status}`} data-id={article.id}>
+                  <td class="checkbox-col">
+                    <input type="checkbox" class="row-checkbox article-checkbox" data-id={article.id} />
+                  </td>
                   <td class="article-title-cell">
                     <a href={`/admin/article/${article.id}`} class="article-link">{article.title}</a>
                   </td>
@@ -340,6 +351,71 @@ try {
 
   (window as any).publishArticle = publishArticle;
   (window as any).deleteArticle = deleteArticle;
+
+  // --- Multi-select & bulk delete ---
+  const selectAll = document.getElementById('select-all') as HTMLInputElement;
+  const bulkToolbar = document.getElementById('bulk-toolbar') as HTMLElement;
+  const bulkCount = document.getElementById('bulk-count') as HTMLElement;
+  const bulkDeleteBtn = document.getElementById('bulk-delete-btn') as HTMLButtonElement;
+  const bulkCancelBtn = document.getElementById('bulk-cancel-btn') as HTMLButtonElement;
+
+  function getChecked(): number[] {
+    return [...document.querySelectorAll<HTMLInputElement>('.article-checkbox:checked')]
+      .map(cb => parseInt(cb.dataset.id || '0'))
+      .filter(Boolean);
+  }
+
+  function updateToolbar() {
+    const ids = getChecked();
+    if (ids.length > 0) {
+      bulkToolbar.style.display = 'flex';
+      bulkCount.textContent = `${ids.length} selected`;
+    } else {
+      bulkToolbar.style.display = 'none';
+    }
+  }
+
+  selectAll?.addEventListener('change', () => {
+    document.querySelectorAll<HTMLInputElement>('.article-checkbox').forEach(cb => {
+      cb.checked = selectAll.checked;
+    });
+    updateToolbar();
+  });
+
+  document.querySelectorAll<HTMLInputElement>('.article-checkbox').forEach(cb => {
+    cb.addEventListener('change', () => {
+      const all = document.querySelectorAll<HTMLInputElement>('.article-checkbox');
+      selectAll.checked = [...all].every(c => c.checked);
+      selectAll.indeterminate = !selectAll.checked && [...all].some(c => c.checked);
+      updateToolbar();
+    });
+  });
+
+  bulkCancelBtn?.addEventListener('click', () => {
+    document.querySelectorAll<HTMLInputElement>('.article-checkbox, #select-all').forEach(cb => {
+      (cb as HTMLInputElement).checked = false;
+      (cb as HTMLInputElement).indeterminate = false;
+    });
+    bulkToolbar.style.display = 'none';
+  });
+
+  bulkDeleteBtn?.addEventListener('click', async () => {
+    const ids = getChecked();
+    if (!confirm(`Delete ${ids.length} article(s)? This cannot be undone.`)) return;
+    bulkDeleteBtn.disabled = true;
+    bulkDeleteBtn.textContent = 'Deleting...';
+    const res = await fetch('/api/articles/bulk-delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids }),
+    });
+    if (res.ok) window.location.reload();
+    else {
+      alert('Failed to delete articles');
+      bulkDeleteBtn.disabled = false;
+      bulkDeleteBtn.textContent = 'Delete selected';
+    }
+  });
 </script>
 
 <style>
@@ -510,6 +586,47 @@ try {
   .action-btn--publish:hover { border-color: var(--gold); color: var(--gold); }
   .action-btn--delete:hover { border-color: #ef4444; color: #ef4444; }
   .empty-row { text-align: center; color: var(--text-muted); font-family: var(--font-mono); font-size: var(--text-sm); padding: 2rem; }
+  .checkbox-col { width: 2.5rem; text-align: center; }
+  .row-checkbox { accent-color: var(--teal); width: 1rem; height: 1rem; cursor: pointer; }
+  .article-row.selected td { background: rgba(74,141,131,0.06); }
+  .bulk-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.6rem 1rem;
+    margin-bottom: 0.75rem;
+    background: rgba(74,141,131,0.08);
+    border: 1px solid rgba(74,141,131,0.25);
+    border-radius: 0.375rem;
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+  }
+  .bulk-count { color: var(--teal); font-weight: 600; }
+  .bulk-delete-btn {
+    padding: 0.3rem 0.75rem;
+    background: transparent;
+    color: #ef4444;
+    border: 1px solid #ef4444;
+    border-radius: 0.25rem;
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .bulk-delete-btn:hover { background: rgba(239,68,68,0.1); }
+  .bulk-delete-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .bulk-cancel-btn {
+    padding: 0.3rem 0.75rem;
+    background: transparent;
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+    border-radius: 0.25rem;
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .bulk-cancel-btn:hover { color: var(--text-primary); border-color: var(--border-hover); }
 
   /* GEO Monitor Panel */
   .geo-panel {
