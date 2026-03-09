@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 This is the central identity and strategy hub for **Przemysław Filipiak** and the **Frinter ecosystem**. 
 
 Frinter is a **WholeBeing performance platform for High Performers** designed to optimize three critical spheres of life through hard data and deep focus:
-- **Flourishing (You)**: Deep sleep, energy recovery, health.
+- **Flourishing (You)**: Sports, reading, meditation. Everything that makes you Flourish.
 - **Relationships (Loved Ones)**: Intentional depth in social connections.
 - **Deep Work (The World)**: Uninterrupted high-intensity focus sprints.
 
@@ -59,7 +59,7 @@ pyinstaller --onefile --windowed --name frinter-flow \
 **3 Core Colors (The 3 Spheres of Life):**
 | Color | Hex | Sphere | Meaning |
 |-------|-----|--------|---------|
-| Rozkwit (Teal) | `#4a8d83` | **Flourishing (You)** | Deep sleep, energy recovery, wellness, health |
+| Rozkwit (Teal) | `#4a8d83` | **Flourishing (You)** | Sports, reading, meditation, wellness |
 | Relacje (Violet) | `#8a4e64` | **Relationships (Loved Ones)** | Social depth, family, intentional connection |
 | Skupienie (Gold) | `#d6b779` | **Deep Work (The World)** | Focus Sprints (Frints), High-intensity productivity |
 

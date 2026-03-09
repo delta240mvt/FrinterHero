@@ -18,7 +18,7 @@
 - Creator of FrinterFlow — Local-first voice dictation CLI (engineered for high speed).
 - Core Philosophy: **Focus Sprint (Frint)** — measuring depth, length, and frequency of focus to optimize recovery and performance.
 - Optimize 3 Spheres:
-  1. **Flourishing (You)**: SLEEP, energy recovery, wellness.
+  1. **Flourishing (You)**: Sports, reading, meditation. Personal growth and wellness.
   2. **Relationships (Loved Ones)**: Intentional depth in connection.
   3. **Deep Work (The World)**: Focus Sprints and results.
 
