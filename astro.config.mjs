@@ -14,6 +14,10 @@ import tailwind from '@astrojs/tailwind';
 
 export default defineConfig({
   output: 'server',
+  server: {
+    host: true, // Listens on 0.0.0.0 which is required for Docker/Railway
+    port: process.env.PORT ? parseInt(process.env.PORT) : 4321,
+  },
   adapter: node({ mode: 'standalone' }),
   integrations: [tailwind({ configFile: './tailwind.config.mjs' })],
   vite: {
