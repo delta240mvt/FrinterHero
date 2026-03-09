@@ -61,6 +61,8 @@ try {
           <span class="stat-label">Archived</span>
         </div>
         <button id="run-geo-btn" class="geo-btn">Run GEO Monitor</button>
+        <a href="/admin/content-gaps" class="nav-link-btn">Content Gaps</a>
+        <a href="/admin/knowledge-base" class="nav-link-btn">Knowledge Base</a>
         <a href="/admin/article/new" class="new-article-btn">+ New Article</a>
       </div>
 
@@ -284,6 +286,18 @@ try {
   }
   .geo-btn:hover { background: rgba(214,183,121,0.1); }
   .geo-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .nav-link-btn {
+    padding: 0.6rem 1.25rem;
+    background: transparent;
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+    border-radius: 0.375rem;
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    text-decoration: none;
+    transition: all 0.15s;
+  }
+  .nav-link-btn:hover { border-color: var(--teal); color: var(--teal); }
   .admin-section { margin-bottom: 3rem; }
   .section-toolbar {
     display: flex;

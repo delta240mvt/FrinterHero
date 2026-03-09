@@ -1,0 +1,76 @@
+---
+interface Props {
+  lastRunAt?: Date | null;
+  totalGapsInRun?: number;
+  gapsAcknowledged?: number;
+  gapsArchived?: number;
+  nextRunCountdownMinutes?: number;
+}
+
+const { lastRunAt, totalGapsInRun = 0, gapsAcknowledged = 0, gapsArchived = 0, nextRunCountdownMinutes = 0 } = Astro.props;
+
+function formatDate(d?: Date | null) {
+  if (!d) return 'Never';
+  return new Date(d).toLocaleString('pl-PL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+}
+---
+
+<div class="stats-widget">
+  <div class="widget-header">
+    <span class="widget-title">Content Gap Analysis</span>
+    <span class="widget-badge">AI Engine</span>
+  </div>
+  <div class="stats-grid">
+    <div class="stat-item">
+      <span class="stat-label">Last Run</span>
+      <span class="stat-value">{formatDate(lastRunAt)}</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-label">Gaps Found</span>
+      <span class="stat-value highlight">{totalGapsInRun}</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-label">Acknowledged</span>
+      <span class="stat-value">{gapsAcknowledged}</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-label">Archived</span>
+      <span class="stat-value muted">{gapsArchived}</span>
+    </div>
+    <div class="stat-item next-run">
+      <span class="stat-label">Next Run</span>
+      <span class="stat-value countdown" id="countdown-display">
+        {nextRunCountdownMinutes > 0 ? `in ${Math.floor(nextRunCountdownMinutes/60)}h ${nextRunCountdownMinutes%60}m` : 'Today at 7:00 AM'}
+      </span>
+    </div>
+  </div>
+</div>
+
+<script define:vars={{ nextRunCountdownMinutes }}>
+  let remaining = nextRunCountdownMinutes * 60; // seconds
+  const el = document.getElementById('countdown-display');
+  if (el && remaining > 0) {
+    const update = () => {
+      remaining = Math.max(0, remaining - 60);
+      const h = Math.floor(remaining / 3600);
+      const m = Math.floor((remaining % 3600) / 60);
+      el.textContent = remaining > 0 ? `in ${h}h ${m}m` : 'Running soon...';
+    };
+    setInterval(update, 60000);
+  }
+</script>
+
+<style>
+  .stats-widget { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 0.5rem; padding: 1.25rem; }
+  .widget-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+  .widget-title { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--text-primary); font-weight: 600; }
+  .widget-badge { padding: 0.2rem 0.5rem; background: rgba(74,141,131,0.15); color: var(--teal); border-radius: 0.25rem; font-family: var(--font-mono); font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.05em; }
+  .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.875rem; }
+  .stat-item { display: flex; flex-direction: column; gap: 0.2rem; }
+  .next-run { grid-column: 1 / -1; }
+  .stat-label { font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+  .stat-value { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--text-secondary); }
+  .stat-value.highlight { color: var(--gold); font-weight: 600; }
+  .stat-value.muted { color: var(--text-muted); }
+  .stat-value.countdown { color: var(--teal); }
+</style>

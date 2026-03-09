@@ -9,6 +9,8 @@
     "preview": "astro preview",
     "db:push": "drizzle-kit push",
     "geo:monitor": "tsx scripts/geo-monitor.ts",
+    "geo:daily": "node --loader tsx ./scripts/geo-monitor.ts",
+    "gap:analyze": "node --loader tsx ./scripts/gap-analysis.ts",
     "db:seed": "tsx scripts/seed-articles.ts"
   },
   "dependencies": {

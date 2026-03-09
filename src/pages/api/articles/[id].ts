@@ -55,7 +55,10 @@ export const PUT: APIRoute = async ({ request, params }) => {
 
     await db.update(articles).set(updateData).where(eq(articles.id, id));
 
-    return new Response(JSON.stringify({ success: true }), {
+    // Return updated article including AI generation metadata (sourceGapId, generatedByModel are immutable)
+    const [updated] = await db.select().from(articles).where(eq(articles.id, id)).limit(1);
+
+    return new Response(JSON.stringify(updated || { success: true }), {
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (err) {

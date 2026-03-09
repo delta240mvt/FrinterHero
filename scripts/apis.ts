@@ -30,7 +30,7 @@ async function query(model: string, prompt: string): Promise<string> {
     }),
     TIMEOUT_MS
   );
-  return response.choices[0]?.message?.content || '';
+  return (response as any).choices[0]?.message?.content || '';
 }
 
 export async function queryOpenAI(prompt: string): Promise<string> {

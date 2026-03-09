@@ -1,0 +1,647 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "FrinterHero AI-Driven Content Engine API",
+    "version": "1.0.0",
+    "description": "API for knowledge base, content gap analysis, and AI-powered draft generation"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:4321",
+      "description": "Development server"
+    },
+    {
+      "url": "https://frinter-blog.railway.app",
+      "description": "Production server"
+    }
+  ],
+  "paths": {
+    "/api/knowledge-base": {
+      "get": {
+        "tags": ["Knowledge Base"],
+        "summary": "List KB entries with search and filtering",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "schema": { "type": "string" },
+            "description": "Full-text search term"
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "schema": { "type": "string" },
+            "description": "Comma-separated tags (AND filter)"
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": ["project_spec", "published_article", "external_research", "personal_note"]
+            }
+          },
+          {
+            "name": "sort_by",
+            "in": "query",
+            "schema": { "type": "string", "enum": ["importance", "recency"] },
+            "description": "Sort order (default: importance)"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": { "type": "integer", "default": 20, "maximum": 100 }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": { "type": "integer", "default": 0 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of KB entries",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "entries": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/KnowledgeEntry" }
+                    },
+                    "pagination": {
+                      "type": "object",
+                      "properties": {
+                        "total": { "type": "integer" },
+                        "limit": { "type": "integer" },
+                        "offset": { "type": "integer" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "description": "Invalid query parameters" }
+        }
+      },
+      "post": {
+        "tags": ["Knowledge Base"],
+        "summary": "Create or import KB entry",
+        "security": [{ "session": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateKnowledgeEntryRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "KB entry created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/KnowledgeEntry" }
+              }
+            }
+          },
+          "400": { "description": "Validation failed" },
+          "401": { "description": "Unauthorized" },
+          "409": { "description": "Duplicate entry detected" }
+        }
+      }
+    },
+    "/api/knowledge-base/{id}": {
+      "get": {
+        "tags": ["Knowledge Base"],
+        "summary": "Retrieve single KB entry",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "KB entry",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/KnowledgeEntry" }
+              }
+            }
+          },
+          "404": { "description": "Entry not found" }
+        }
+      }
+    },
+    "/api/content-gaps": {
+      "get": {
+        "tags": ["Content Gaps"],
+        "summary": "List recent gaps for dashboard",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": ["new", "acknowledged", "archived", "in_progress"]
+            }
+          },
+          {
+            "name": "confidence_min",
+            "in": "query",
+            "schema": { "type": "integer", "minimum": 0, "maximum": 100 }
+          },
+          {
+            "name": "confidence_max",
+            "in": "query",
+            "schema": { "type": "integer", "minimum": 0, "maximum": 100 }
+          },
+          {
+            "name": "sort_by",
+            "in": "query",
+            "schema": { "type": "string", "enum": ["confidence", "recency"] }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": { "type": "integer", "default": 20 }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": { "type": "integer", "default": 0 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of gaps with stats",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ListContentGapsResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/content-gaps/{id}/acknowledge": {
+      "post": {
+        "tags": ["Content Gaps"],
+        "summary": "Approve gap and trigger draft generation",
+        "security": [{ "session": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/AcknowledgeGapRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Gap acknowledged",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AcknowledgeGapResponse" }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized" },
+          "404": { "description": "Gap not found" },
+          "409": { "description": "Gap already acknowledged" }
+        }
+      }
+    },
+    "/api/content-gaps/{id}/archive": {
+      "post": {
+        "tags": ["Content Gaps"],
+        "summary": "Archive gap (hide from active view)",
+        "security": [{ "session": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ArchiveGapRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Gap archived",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "gap_id": { "type": "integer" },
+                    "status": { "type": "string", "enum": ["archived"] },
+                    "archived_at": { "type": "string", "format": "date-time" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized" },
+          "404": { "description": "Gap not found" }
+        }
+      }
+    },
+    "/api/generate-draft": {
+      "post": {
+        "tags": ["Draft Generation"],
+        "summary": "Generate AI-powered article draft from curated gap",
+        "security": [{ "session": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/GenerateDraftRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Draft generated successfully",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/GenerateDraftResponse" }
+              }
+            }
+          },
+          "202": {
+            "description": "Draft generation started (async)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "job_id": { "type": "string" },
+                    "status": { "type": "string", "enum": ["queued"] },
+                    "started_at": { "type": "string", "format": "date-time" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "description": "Invalid gap_id or gap not acknowledged" },
+          "401": { "description": "Unauthorized" },
+          "422": { "description": "Generation failed (allow retry)" },
+          "429": { "description": "Rate limit exceeded" }
+        }
+      }
+    },
+    "/api/generate-draft/{job_id}": {
+      "get": {
+        "tags": ["Draft Generation"],
+        "summary": "Check status of async draft generation",
+        "security": [{ "session": [] }],
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Job status",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/DraftGenerationJobStatus" }
+              }
+            }
+          },
+          "404": { "description": "Job not found" }
+        }
+      }
+    },
+    "/api/articles/{id}": {
+      "put": {
+        "tags": ["Articles"],
+        "summary": "Edit article (existing endpoint, enhanced for generated content)",
+        "security": [{ "session": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": { "type": "string" },
+                  "description": { "type": "string" },
+                  "content": { "type": "string" },
+                  "tags": { "type": "array", "items": { "type": "string" } },
+                  "featured": { "type": "boolean" },
+                  "status": { "type": "string", "enum": ["draft", "published", "archived"] }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Article updated",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ArticleResponse" }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized" },
+          "404": { "description": "Article not found" }
+        }
+      }
+    },
+    "/api/articles/{id}/publish": {
+      "post": {
+        "tags": ["Articles"],
+        "summary": "Publish draft article",
+        "security": [{ "session": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "publishedAt": { "type": "string", "format": "date-time" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Article published",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": { "type": "integer" },
+                    "status": { "type": "string", "enum": ["published"] },
+                    "publishedAt": { "type": "string", "format": "date-time" },
+                    "url": { "type": "string", "format": "uri" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized" },
+          "404": { "description": "Article not found" }
+        }
+      }
+    },
+    "/api/article-generations": {
+      "get": {
+        "tags": ["Articles"],
+        "summary": "View generation history (admin-only)",
+        "security": [{ "session": [] }],
+        "parameters": [
+          {
+            "name": "article_id",
+            "in": "query",
+            "schema": { "type": "integer" }
+          },
+          {
+            "name": "gap_id",
+            "in": "query",
+            "schema": { "type": "integer" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Generation history",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "generations": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/ArticleGenerationSummary" }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "KnowledgeEntry": {
+        "type": "object",
+        "required": ["id", "type", "title", "content", "tags", "importance_score", "created_at"],
+        "properties": {
+          "id": { "type": "integer" },
+          "type": { "type": "string", "enum": ["project_spec", "published_article", "external_research", "personal_note"] },
+          "title": { "type": "string" },
+          "content": { "type": "string" },
+          "source_url": { "type": "string", "format": "uri" },
+          "tags": { "type": "array", "items": { "type": "string" } },
+          "importance_score": { "type": "integer", "minimum": 0, "maximum": 100 },
+          "created_at": { "type": "string", "format": "date-time" },
+          "source_id": { "type": "integer" }
+        }
+      },
+      "CreateKnowledgeEntryRequest": {
+        "type": "object",
+        "required": ["type", "title", "content", "tags", "importance_score"],
+        "properties": {
+          "type": { "type": "string", "enum": ["project_spec", "published_article", "external_research", "personal_note"] },
+          "title": { "type": "string", "minLength": 1 },
+          "content": { "type": "string", "minLength": 50 },
+          "source_url": { "type": "string", "format": "uri" },
+          "tags": { "type": "array", "items": { "type": "string" } },
+          "importance_score": { "type": "integer", "minimum": 0, "maximum": 100 }
+        }
+      },
+      "ContentGap": {
+        "type": "object",
+        "required": ["id", "gap_title", "gap_description", "confidence_score", "status"],
+        "properties": {
+          "id": { "type": "integer" },
+          "gap_title": { "type": "string" },
+          "gap_description": { "type": "string" },
+          "confidence_score": { "type": "integer", "minimum": 0, "maximum": 100 },
+          "suggested_angle": { "type": "string" },
+          "related_queries": { "type": "array", "items": { "type": "string" } },
+          "source_models": { "type": "array", "items": { "type": "string" } },
+          "author_notes": { "type": "string" },
+          "status": { "type": "string", "enum": ["new", "acknowledged", "archived", "in_progress"] },
+          "created_at": { "type": "string", "format": "date-time" },
+          "acknowledged_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "ListContentGapsResponse": {
+        "type": "object",
+        "properties": {
+          "gaps": { "type": "array", "items": { "$ref": "#/components/schemas/ContentGap" } },
+          "recent_run": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "integer" },
+              "runAt": { "type": "string", "format": "date-time" },
+              "queriesCount": { "type": "integer" },
+              "gapsFound": { "type": "integer" },
+              "gapsDeduped": { "type": "integer" }
+            }
+          },
+          "stats": {
+            "type": "object",
+            "properties": {
+              "total_new": { "type": "integer" },
+              "total_acknowledged": { "type": "integer" },
+              "total_archived": { "type": "integer" }
+            }
+          }
+        }
+      },
+      "AcknowledgeGapRequest": {
+        "type": "object",
+        "required": ["author_notes", "selected_models", "action"],
+        "properties": {
+          "author_notes": { "type": "string" },
+          "selected_models": { "type": "array", "items": { "type": "string" } },
+          "action": { "type": "string", "enum": ["generate_draft", "snooze", "archive"] }
+        }
+      },
+      "AcknowledgeGapResponse": {
+        "type": "object",
+        "properties": {
+          "gap_id": { "type": "integer" },
+          "status": { "type": "string" },
+          "author_notes": { "type": "string" },
+          "acknowledged_at": { "type": "string", "format": "date-time" },
+          "draft_generation_started": { "type": "boolean" },
+          "draft_id": { "type": "integer" }
+        }
+      },
+      "ArchiveGapRequest": {
+        "type": "object",
+        "required": ["reason"],
+        "properties": {
+          "reason": { "type": "string" }
+        }
+      },
+      "GenerateDraftRequest": {
+        "type": "object",
+        "required": ["gap_id", "author_notes", "model"],
+        "properties": {
+          "gap_id": { "type": "integer" },
+          "author_notes": { "type": "string" },
+          "model": { "type": "string" }
+        }
+      },
+      "GenerateDraftResponse": {
+        "type": "object",
+        "properties": {
+          "article_id": { "type": "integer" },
+          "gap_id": { "type": "integer" },
+          "status": { "type": "string", "enum": ["draft"] },
+          "title": { "type": "string" },
+          "slug": { "type": "string" },
+          "description": { "type": "string" },
+          "content": { "type": "string" },
+          "tags": { "type": "array", "items": { "type": "string" } },
+          "reading_time": { "type": "integer" },
+          "generated_by_model": { "type": "string" },
+          "generation_timestamp": { "type": "string", "format": "date-time" },
+          "kb_entries_used": { "type": "array", "items": { "type": "integer" } },
+          "featured": { "type": "boolean" }
+        }
+      },
+      "DraftGenerationJobStatus": {
+        "type": "object",
+        "properties": {
+          "job_id": { "type": "string" },
+          "status": { "type": "string", "enum": ["queued", "generating", "complete", "failed"] },
+          "progress": { "type": "string" },
+          "started_at": { "type": "string", "format": "date-time" },
+          "completed_at": { "type": "string", "format": "date-time" },
+          "error_reason": { "type": "string" }
+        }
+      },
+      "ArticleResponse": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "title": { "type": "string" },
+          "slug": { "type": "string" },
+          "content": { "type": "string" },
+          "tags": { "type": "array", "items": { "type": "string" } },
+          "status": { "type": "string" },
+          "source_gap_id": { "type": "integer" },
+          "generated_by_model": { "type": "string" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "ArticleGenerationSummary": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "article_id": { "type": "integer" },
+          "gap_id": { "type": "integer" },
+          "generated_by_model": { "type": "string" },
+          "generation_timestamp": { "type": "string", "format": "date-time" },
+          "publication_timestamp": { "type": "string", "format": "date-time" },
+          "content_changed": { "type": "boolean" },
+          "kb_entries_used_count": { "type": "integer" },
+          "original_content_length": { "type": "integer" },
+          "final_content_length": { "type": "integer" },
+          "author_notes": { "type": "string" }
+        }
+      }
+    },
+    "securitySchemes": {
+      "session": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "session",
+        "description": "Session cookie (set by /api/auth endpoint)"
+      }
+    }
+  }
+}
