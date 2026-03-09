@@ -2,23 +2,25 @@ import dotenv from 'dotenv';
 dotenv.config({ path: '.env.local' });
 
 import { db } from '../src/db/client';
-import { articles, geoQueries, geoRuns } from '../src/db/schema';
+import { articles, geoQueries, geoRuns, contentGaps } from '../src/db/schema';
 import queriesBank from './queries.json';
-import { queryOpenAI, queryClaude, queryPerplexity, queryGemini } from './apis';
-import { detectMention, generateDraft, generateSlugFromQuery } from './analysis';
+import { queryOpenAI, queryClaude, queryGemini } from './apis';
+import { detectMention } from './analysis';
 import { detectGaps, type GeoQueryResult } from './gap-analysis';
+import { generateDraft } from './draft-generator';
 import { notifyDiscord } from './notifier';
 import { parseMarkdown, calculateReadingTime } from '../src/utils/markdown';
-import { eq } from 'drizzle-orm';
+import { eq, desc, inArray } from 'drizzle-orm';
 
-const MODELS = ['openai', 'claude', 'perplexity', 'gemini'] as const;
+const MAX_AUTO_DRAFTS = 5;
+
+const MODELS = ['openai', 'claude', 'gemini'] as const;
 type Model = typeof MODELS[number];
 
 async function queryModel(model: Model, query: string): Promise<string> {
   switch (model) {
     case 'openai': return queryOpenAI(query);
     case 'claude': return queryClaude(query);
-    case 'perplexity': return queryPerplexity(query);
     case 'gemini': return queryGemini(query);
   }
 }
@@ -66,31 +68,6 @@ async function runGeoMonitor(): Promise<void> {
           console.log(`[GEO] ✓ Mention found in ${model} response`);
         } else {
           console.log(`[GEO] Gap detected for "${query.slice(0, 40)}..." on ${model}`);
-
-          // Legacy draft generation (kept for backward compat, gap-based drafts come later)
-          try {
-            const draft = await generateDraft(query, response, model);
-            const slug = generateSlugFromQuery(query);
-            const htmlContent = parseMarkdown(draft.content);
-            const readingTime = calculateReadingTime(htmlContent);
-            const uniqueSlug = `${slug}-${Date.now()}`;
-
-            await db.insert(articles).values({
-              slug: uniqueSlug,
-              title: draft.title,
-              description: draft.description,
-              content: htmlContent,
-              tags: draft.tags,
-              status: 'draft',
-              readingTime,
-              author: 'Przemysław Filipiak',
-            });
-
-            draftsGenerated++;
-            console.log(`[GEO] Draft created: "${draft.title.slice(0, 50)}..."`);
-          } catch (draftErr) {
-            console.error(`[GEO] Failed to generate draft for "${query}":`, draftErr);
-          }
         }
       } catch (apiErr) {
         console.error(`[GEO] Error querying ${model} for "${query}":`, apiErr);
@@ -100,8 +77,50 @@ async function runGeoMonitor(): Promise<void> {
 
   // Stage 2: Run gap analysis on collected results
   console.log('[GEO] Running gap analysis...');
-  const { gapsFound, gapsDeduped } = await detectGaps(geoQueryResults, geoRun.id);
+  const { gapsFound, gapsDeduped, gapIds } = await detectGaps(geoQueryResults, geoRun.id);
   console.log(`[GEO] Gaps persisted: ${gapsFound}, deduped: ${gapsDeduped}`);
+
+  // Stage 3: Generate drafts for top N gaps by confidence score
+  if (gapIds.length > 0) {
+    console.log(`[GEO] Generating drafts for top ${MAX_AUTO_DRAFTS} gaps...`);
+    const topGaps = await db
+      .select({ id: contentGaps.id })
+      .from(contentGaps)
+      .where(inArray(contentGaps.id, gapIds))
+      .orderBy(desc(contentGaps.confidenceScore))
+      .limit(MAX_AUTO_DRAFTS);
+
+    for (const gap of topGaps) {
+      try {
+        const result = await generateDraft({
+          gap_id: gap.id,
+          author_notes: '',
+          model: 'anthropic/claude-sonnet-4-6',
+        });
+
+        if (result.success && result.draft && result.htmlContent) {
+          const uniqueSlug = `${result.slug}-${Date.now()}`;
+          await db.insert(articles).values({
+            slug: uniqueSlug,
+            title: result.draft.title,
+            description: result.draft.description,
+            content: result.htmlContent,
+            tags: result.draft.tags,
+            status: 'draft',
+            readingTime: result.readingTime,
+            author: 'Przemysław Filipiak',
+            sourceGapId: gap.id,
+          });
+          draftsGenerated++;
+          console.log(`[GEO] Draft created: "${result.draft.title.slice(0, 60)}..."`);
+        } else {
+          console.error(`[GEO] Draft failed for gap ${gap.id}:`, result.error?.message);
+        }
+      } catch (draftErr) {
+        console.error(`[GEO] Draft generation error for gap ${gap.id}:`, draftErr);
+      }
+    }
+  }
 
   // Update geoRun with final counts
   await db.update(geoRuns)

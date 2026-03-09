@@ -1,6 +1,8 @@
 import dotenv from 'dotenv';
 dotenv.config({ path: '.env.local' });
 
+import OpenAI from 'openai';
+
 const TIMEOUT_MS = 30000;
 
 async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
@@ -13,7 +15,6 @@ async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
 }
 
 function createClient() {
-  const { OpenAI } = require('openai');
   return new OpenAI({
     apiKey: process.env.OPENROUTER_API_KEY,
     baseURL: 'https://openrouter.ai/api/v1',
