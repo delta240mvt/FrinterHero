@@ -12,65 +12,39 @@ async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   ]);
 }
 
-export async function queryOpenAI(query: string): Promise<string> {
-  const { OpenAI } = await import('openai');
-  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+function createClient() {
+  const { OpenAI } = require('openai');
+  return new OpenAI({
+    apiKey: process.env.OPENROUTER_API_KEY,
+    baseURL: 'https://openrouter.ai/api/v1',
+  });
+}
 
+async function query(model: string, prompt: string): Promise<string> {
+  const client = createClient();
   const response = await withTimeout(
-    openai.chat.completions.create({
-      model: 'gpt-4-turbo',
-      messages: [{ role: 'user', content: query }],
+    client.chat.completions.create({
+      model,
+      messages: [{ role: 'user', content: prompt }],
       max_tokens: 1000,
     }),
     TIMEOUT_MS
   );
-
   return response.choices[0]?.message?.content || '';
 }
 
-export async function queryClaude(query: string): Promise<string> {
-  const Anthropic = (await import('@anthropic-ai/sdk')).default;
-  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-
-  const response = await withTimeout(
-    anthropic.messages.create({
-      model: 'claude-opus-4-6',
-      max_tokens: 1000,
-      messages: [{ role: 'user', content: query }],
-    }),
-    TIMEOUT_MS
-  );
-
-  const content = response.content[0];
-  return content.type === 'text' ? content.text : '';
+export async function queryOpenAI(prompt: string): Promise<string> {
+  return query('openai/gpt-4.1-mini', prompt);
 }
 
-export async function queryPerplexity(query: string): Promise<string> {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
+export async function queryClaude(prompt: string): Promise<string> {
+  return query('anthropic/claude-sonnet-4-6', prompt);
+}
 
-  try {
-    const response = await fetch('https://api.perplexity.ai/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${process.env.PERPLEXITY_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'llama-3.1-sonar-small-128k-online',
-        messages: [{ role: 'user', content: query }],
-        max_tokens: 1000,
-      }),
-      signal: controller.signal,
-    });
+export async function queryPerplexity(prompt: string): Promise<string> {
+  return query('perplexity/llama-3.1-sonar-small-128k-online', prompt);
+}
 
-    if (!response.ok) {
-      throw new Error(`Perplexity API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    return data.choices?.[0]?.message?.content || '';
-  } finally {
-    clearTimeout(timeoutId);
-  }
+export async function queryGemini(prompt: string): Promise<string> {
+  return query('google/gemini-3.1-pro-preview', prompt);
 }

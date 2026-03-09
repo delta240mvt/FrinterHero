@@ -153,9 +153,7 @@ None
   ```
   DATABASE_URL=postgresql://user:pass@host/dbname
   ADMIN_PASSWORD_HASH=bcrypt_hash_here
-  OPENAI_API_KEY=sk-...
-  ANTHROPIC_API_KEY=sk-ant-...
-  PERPLEXITY_API_KEY=pplx-...
+  OPENROUTER_API_KEY=sk-or-...
   DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/...
   ```
 
@@ -1091,16 +1089,21 @@ export { runGeoMonitor };
 ```
 
 **5.3 – API Query Wrappers (`scripts/apis.ts`)**
+
+All three models routed via a single OpenRouter key (`OPENROUTER_API_KEY`).
+OpenRouter is OpenAI-compatible — uses `openai` SDK with `baseURL: 'https://openrouter.ai/api/v1'`.
+
 ```typescript
 import { OpenAI } from 'openai';
-import { Anthropic } from '@anthropic-ai/sdk';
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const client = new OpenAI({
+  apiKey: process.env.OPENROUTER_API_KEY,
+  baseURL: 'https://openrouter.ai/api/v1',
+});
 
 export async function queryOpenAI(query: string): Promise<string> {
-  const response = await openai.chat.completions.create({
-    model: 'gpt-4-turbo',
+  const response = await client.chat.completions.create({
+    model: 'openai/gpt-4-turbo',
     messages: [{ role: 'user', content: query }],
     max_tokens: 1000
   });
@@ -1108,26 +1111,15 @@ export async function queryOpenAI(query: string): Promise<string> {
 }
 
 export async function queryClaude(query: string): Promise<string> {
-  const response = await anthropic.messages.create({
-    model: 'claude-3-opus-20240229',
-    max_tokens: 1000,
-    messages: [{ role: 'user', content: query }]
-  });
-  return response.content[0].type === 'text' ? response.content[0].text : '';
+  return query('anthropic/claude-sonnet-4-5', query);
 }
 
 export async function queryPerplexity(query: string): Promise<string> {
-  // Perplexity API (jeśli dostępny)
-  const response = await fetch('https://api.perplexity.ai/chat/completions', {
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${process.env.PERPLEXITY_API_KEY}` },
-    body: JSON.stringify({
-      model: 'pplx-7b-online',
-      messages: [{ role: 'user', content: query }]
-    })
-  });
-  const data = await response.json();
-  return data.choices[0].message.content;
+  return query('perplexity/llama-3.1-sonar-small-128k-online', query);
+}
+
+export async function queryGemini(query: string): Promise<string> {
+  return query('google/gemini-2.0-flash-001', query);
 }
 ```
 
@@ -1240,9 +1232,7 @@ export async function notifyEmail(summary: RunSummary): Promise<void> {
         - run: npx tsx scripts/geo-monitor.ts
           env:
             DATABASE_URL: ${{ secrets.DATABASE_URL }}
-            OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-            ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-            PERPLEXITY_API_KEY: ${{ secrets.PERPLEXITY_API_KEY }}
+            OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
             DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
   ```
 
@@ -1254,14 +1244,14 @@ export async function notifyEmail(summary: RunSummary): Promise<void> {
 {
   "scripts": {
     "geo:monitor": "tsx scripts/geo-monitor.ts",
-    "geo:monitor:test": "OPENAI_API_KEY=test npm run geo:monitor"
+    "geo:monitor:test": "OPENROUTER_API_KEY=test npm run geo:monitor"
   }
 }
 ```
 
 ### Success Criteria
 - ✅ Query bank zawiera min. 20 zapytań EN + 10 PL
-- ✅ Script odpytuje 3 modele (OpenAI, Claude, Perplexity)
+- ✅ Script odpytuje 4 modele (GPT-4.1 Mini, Claude Sonnet 4.6, Perplexity, Gemini 3.1 Pro Preview)
 - ✅ Gap detection działa (finds missing mentions)
 - ✅ Draft articles generowane i saved w DB ze statusem `draft`
 - ✅ GEO runs tracked w `geo_runs` tabeli
@@ -1570,10 +1560,8 @@ DATABASE_URL=postgresql://user:password@host:5432/database
 # Admin Auth
 ADMIN_PASSWORD_HASH=bcrypt_hash_of_password
 
-# GEO Monitor APIs
-OPENAI_API_KEY=sk-...
-ANTHROPIC_API_KEY=sk-ant-...
-PERPLEXITY_API_KEY=pplx-...
+# GEO Monitor APIs (via OpenRouter)
+OPENROUTER_API_KEY=sk-or-...
 
 # Notifications
 DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/...

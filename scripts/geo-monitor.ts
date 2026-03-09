@@ -4,12 +4,12 @@ dotenv.config({ path: '.env.local' });
 import { db } from '../src/db/client';
 import { articles, geoQueries, geoRuns } from '../src/db/schema';
 import queriesBank from './queries.json';
-import { queryOpenAI, queryClaude, queryPerplexity } from './apis';
+import { queryOpenAI, queryClaude, queryPerplexity, queryGemini } from './apis';
 import { detectMention, generateDraft, generateSlugFromQuery } from './analysis';
 import { notifyDiscord } from './notifier';
 import { parseMarkdown, calculateReadingTime } from '../src/utils/markdown';
 
-const MODELS = ['openai', 'claude', 'perplexity'] as const;
+const MODELS = ['openai', 'claude', 'perplexity', 'gemini'] as const;
 type Model = typeof MODELS[number];
 
 async function queryModel(model: Model, query: string): Promise<string> {
@@ -17,6 +17,7 @@ async function queryModel(model: Model, query: string): Promise<string> {
     case 'openai': return queryOpenAI(query);
     case 'claude': return queryClaude(query);
     case 'perplexity': return queryPerplexity(query);
+    case 'gemini': return queryGemini(query);
   }
 }
 
