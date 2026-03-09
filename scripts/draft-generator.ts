@@ -226,7 +226,7 @@ async function callOpenRouter(model: string, prompt: string): Promise<string> {
       headers: {
         'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
         'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://frinterhere.app',
+        'HTTP-Referer': 'https://frinter.app',
         'X-Title': 'FrinterHero Draft Generator',
       },
       body: JSON.stringify({
