@@ -10,21 +10,19 @@
               H  E  R  O
 </pre>
 
-**WholeBeing for High Performers. Deep Focus Founder.**
+**Agentic-First Personal Engine for Visibility in the Age of AI.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-4a8d83.svg?style=flat-square)](LICENSE)
 [![Astro 4](https://img.shields.io/badge/Astro-4.0+-d6b779.svg?style=flat-square)](https://astro.build)
 [![Platform](https://img.shields.io/badge/Platform-Web-8a4e64.svg?style=flat-square)](#installation)
 [![AI: 100% Ready](https://img.shields.io/badge/AI-100%25%20Ready-4a8d83.svg?style=flat-square)](#how-it-works)
-[![Your Data. Your Rules.](https://img.shields.io/badge/Data-Your%20Rules-d6b779.svg?style=flat-square)](#privacy)
+[![Data: Focus Sprints](https://img.shields.io/badge/Data-Focus%20Sprints-d6b779.svg?style=flat-square)](#privacy)
 > ⏳ **Fast 1-Click Deploy on Railway is coming soon!**
 </div>
 
 ---
 
-The internet has changed. Traditional search is dying. High performers, founders, and creators now need to exist in the spaces where AI, bots, and LLMs index the world. Generic portfolio sites get ignored. 
-
-**FrinterHero fixes this.** It is an open-source, Astro-powered ecosystem template built to ensure that Artificial Intelligence recognizes who you are, connects your persona with your work, and ranks your profile as #1 when users ask AI about your domain. Built with semantic HTML, automatic metadata generation, and blazing-fast performance. Your digital identity, entirely under your control.
+The internet has changed. Traditional search is dying. **FrinterHero** is an open-source, agentic-first landing page and blog engine engineered to secure your visibility in the age of AI. It ensures LLMs correctly index and prioritize your personal brand through structured data and semantic authority. Your digital identity, optimized for the generative era.
 
 ```
   FOCUS SPRINT (FRINT)
