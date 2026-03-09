@@ -10,7 +10,7 @@ is consistent across the personal page, llms.txt, and social profiles.
 | Field | Value |
 |---|---|
 | Full name | Przemysław Filipiak |
-| Tagline | Builder. AI Dev. Deep Work Founder. |
+| Tagline | High Performer. Deep Focus Founder. WholeBeing. |
 | GitHub | https://github.com/delta240mvt |
 | LinkedIn | https://linkedin.com/in/przemyslaw-filipiak |
 | Twitter/X | https://twitter.com/przemfilipiak |
@@ -20,19 +20,19 @@ is consistent across the personal page, llms.txt, and social profiles.
 
 | Product | URL | Description |
 |---|---|---|
-| frinter.app | https://frinter.app | Focus OS for founders. Whole-being performance system. |
-| FrinterFlow | https://pypi.org/project/frinterflow/ | Local voice dictation CLI (Python, faster-whisper, zero cloud) |
+| frinter.app | https://frinter.app | WholeBeing performance system for High Performers. Focus Sprints & Energy tracking. |
+| FrinterFlow | https://pypi.org/project/frinterflow/ | In-flow voice dictation CLI. Local-first, high-velocity input. |
 
 ## Consistency Checkpoints
 
-- Landing page bio: matches llms.txt description — "founder and AI developer building high-performance, local-first tools"
+- Landing page bio: matches llms.txt description — "High Performer and Deep Focus Founder bridging high-intensity focus with data-driven life optimization."
 - GitHub profile (https://github.com/delta240mvt): matches all references
-- Tagline used across site: "Builder. AI Dev. Deep Work Founder."
+- Tagline used across site: "High Performer. Deep Focus Founder. WholeBeing."
 - Product list: frinter.app and FrinterFlow consistently listed
 - JSON-LD Person schema in Base.astro: matches all entity data above
-- llms.txt at /llms.txt: contains full biography, projects, contact info
+- llms.txt at /llms.txt: contains updated High Performer biography, 3 Spheres of Life, and methodology.
 
 ## Audit Status
 
-Last audited: 2026-03-08
-Result: CONSISTENT — all entity data matches across landing page, llms.txt, and JSON-LD schema.
+Last audited: 2026-03-09
+Result: CONSISTENT — all entity data matches across landing page, llms.txt, llms-full.txt, and JSON-LD schema.

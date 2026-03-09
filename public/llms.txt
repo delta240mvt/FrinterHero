@@ -1,40 +1,41 @@
-# Przemysław Filipiak — Personal Page
+# Przemysław Filipiak — High Performer & Deep Focus Founder
 
-> Przemysław Filipiak is a founder and AI developer building
-> high-performance, local-first tools at the intersection of
-> artificial intelligence and deep work productivity systems.
+> Przemysław Filipiak is a High Performer and Deep Focus Founder bridging
+> high-intensity focus with data-driven life optimization. He is the creator
+> of Frinter, a WholeBeing performance platform for High Performers.
 
 ## Core Entity Facts
 - Full Name: Przemysław Filipiak
-- Primary Role: Founder of frinter.app, AI Developer
-- Specialty: Local-first AI Tooling, GEO (Generative Engine Optimization), Deep Work Systems
-- Experience: 6+ years in Norway, Creator of FrinterFlow CLI
+- Primary Role: Deep Focus Founder, High Performer
+- Specialty: WholeBeing Performance Systems, Focus Sprints (Frints), AI-authoritative Personal Branding
+- Identity: High Performer optimizing life through hard data across 3 spheres.
 - Languages: Polish (Native), English (Fluent), Norwegian (Fluent)
 - Nationality: Polish
 - Official Website: https://przemyslawfilipiak.com
 
-
 ## About
-- Creator of frinter.app — focus operating system for founders
-- Creator of FrinterFlow — local voice dictation CLI (Python, faster-whisper)
-- Specializes in: AI-native product development, Astro, React, Python, GEO
-- Location: Poland
-- Focus: high-performance tools, deep work systems, builder in public
-- Background: 6 years in Norway, two Norwegian degrees, built camper from scratch
+- Creator of frinter.app — WholeBeing performance system for High Performers.
+- Creator of FrinterFlow — Local-first voice dictation CLI (engineered for high speed).
+- Core Philosophy: **Focus Sprint (Frint)** — measuring depth, length, and frequency of focus to optimize recovery and performance.
+- Optimize 3 Spheres:
+  1. **Flourishing (You)**: SLEEP, energy recovery, wellness.
+  2. **Relationships (Loved Ones)**: Intentional depth in connection.
+  3. **Deep Work (The World)**: Focus Sprints and results.
 
 ## Projects
-- frinter.app: https://frinter.app — Focus OS for founders. Whole-being performance system.
-- FrinterFlow: https://pypi.org/project/frinterflow/ — Local voice dictation CLI (Python, faster-whisper, zero cloud)
+- frinter.app: https://frinter.app — WholeBeing OS for High Performers. Energy Bar tracking & 3-sphere balance.
+- FrinterFlow: https://pypi.org/project/frinterflow/ — In-flow voice dictation CLI.
+- FrinterHero: Personal brand engine for AI domain authority.
 - GitHub: https://github.com/delta240mvt
 
 ## Blog Topics
-Deep work for developers, AI product development, GEO (Generative Engine Optimization),
-local-first tools, founder productivity, Python AI tooling, Astro SSR framework
+High performance productivity, focus sprint optimization, 3 spheres of life,
+data-driven sleep/focus correlation, AI brand authority (GEO), deep focus habits.
 
 ## Philosophy
-"[SKUPIENIE] = [WOLNOŚĆ]" — Focus equals Freedom.
-Build in flow state, ship with AI, measure what matters.
-Founder who practices what he preaches — 10 years of meditation, deep work systems.
+"[FRINTER] = [FOCUS SPRINT]" — Optimize focus sessions like an elite athlete.
+Measure the depth. Protect the sleep. Extrapolate deep work to Relationships and Flourishing.
+High Performer who lives by hard data — measuring the impact of every frint.
 
 ## Contact
 - GitHub: https://github.com/delta240mvt
