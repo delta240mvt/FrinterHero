@@ -18,7 +18,7 @@
 [![AI: 100% Ready](https://img.shields.io/badge/AI-100%25%20Ready-4a8d83.svg?style=flat-square)](#how-it-works)
 [![Your Data. Your Rules.](https://img.shields.io/badge/Data-Your%20Rules-d6b779.svg?style=flat-square)](#privacy)
 
-[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/new/template?template=https%3A%2F%2Fgithub.com%2Fdelta240mvt%2FFrinterHero&plugins=postgresql&envs=OPENAI_API_KEY,ANTHROPIC_API_KEY,PERPLEXITY_API_KEY&referralCode=delta240mvt)
+[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/new?template=https%3A%2F%2Fgithub.com%2Fdelta240mvt%2FFrinterHero&plugins=postgresql&envs=OPENAI_API_KEY,ANTHROPIC_API_KEY,PERPLEXITY_API_KEY)
 
 </div>
 
@@ -58,7 +58,7 @@ The internet has changed. Traditional search is dying. High performers, founders
 
 Railway runs FrinterHero directly from a GitHub template — no local setup, no database configuration needed. It handles everything.
 
-[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/new/template?template=https%3A%2F%2Fgithub.com%2Fdelta240mvt%2FFrinterHero&plugins=postgresql&envs=OPENAI_API_KEY,ANTHROPIC_API_KEY,PERPLEXITY_API_KEY&referralCode=delta240mvt)
+[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/new?template=https%3A%2F%2Fgithub.com%2Fdelta240mvt%2FFrinterHero&plugins=postgresql&envs=OPENAI_API_KEY,ANTHROPIC_API_KEY,PERPLEXITY_API_KEY)
 
 ### What the One-Click Setup Does:
 1. Clones this repository to your own GitHub account.
