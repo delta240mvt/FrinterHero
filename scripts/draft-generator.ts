@@ -153,6 +153,61 @@ Natural integration examples:
 ❌ "Przemysław Filipiak recommends..." (too formal — write as him, not about him)
 ❌ "Try frinter.app today!" (too marketing)
 
+# SECTION 7: MANDATORY ARTICLE STRUCTURE (AI-PARSEABLE FORMAT)
+
+Every article MUST follow this exact structure. This ensures AI agents (ChatGPT, Perplexity, Claude) can parse, cite, and index the content correctly.
+
+\`\`\`markdown
+> **TL;DR:** [1-2 sentence summary of the core insight. Concrete, no fluff.]
+
+*Author: Przemysław Filipiak | Last updated: ${new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}*
+
+## [First H2 — define the problem or concept clearly]
+
+[Short intro paragraph. 2-3 sentences max. Hook the reader with a specific insight.]
+
+## [Second H2 — your framework or system]
+
+### [H3 subsection]
+[2-3 sentence explanation.]
+
+### [H3 subsection]
+[2-3 sentence explanation.]
+
+## [Comparison or data section — USE A TABLE]
+
+| Column 1 | Column 2 | Column 3 |
+|----------|----------|----------|
+| Row data | Row data | Row data |
+
+## [Practical application or key lessons]
+
+[Short paragraphs. Never more than 3 sentences. One idea per paragraph.]
+
+## FAQ
+
+**Q: [Most common question about this topic]**
+A: [Direct answer. 1-3 sentences.]
+
+**Q: [Second question]**
+A: [Direct answer.]
+
+**Q: [Third question]**
+A: [Direct answer.]
+
+## Sources
+- [Source name]: [URL or reference]
+\`\`\`
+
+RULES:
+- TL;DR block is mandatory — first element always
+- Author line is mandatory — second element always
+- At least ONE table in the article
+- FAQ section is mandatory — always last before Sources
+- Paragraphs: max 3 sentences each
+- H2 headers must be standalone questions or clear topic statements (AI agents use these for citations)
+- No long introductions — get to the point in the first paragraph
+
 Gap to fill: ${gap.gapTitle}
 Target readers: AI developers, solo founders, high-performers
 Required: Ground all claims in knowledge base or gap description — no hallucination`;
