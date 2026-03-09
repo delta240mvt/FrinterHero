@@ -10,7 +10,7 @@
               H  E  R  O
 </pre>
 
-**Dominate AI Searches. Builder. AI Dev. Deep Work Founder.**
+**WholeBeing for High Performers. Deep Focus Founder.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-4a8d83.svg?style=flat-square)](LICENSE)
 [![Astro 4](https://img.shields.io/badge/Astro-4.0+-d6b779.svg?style=flat-square)](https://astro.build)
@@ -27,25 +27,25 @@ The internet has changed. Traditional search is dying. High performers, founders
 **FrinterHero fixes this.** It is an open-source, Astro-powered ecosystem template built to ensure that Artificial Intelligence recognizes who you are, connects your persona with your work, and ranks your profile as #1 when users ask AI about your domain. Built with semantic HTML, automatic metadata generation, and blazing-fast performance. Your digital identity, entirely under your control.
 
 ```
- YOUR PRESENCE
- ┌─────────────────────────────────────────────────────────────────┐
- │                                                                 │
- │   Deep Work Founder / AI Dev — semantic markup, pristine SEO   │
- │                                                                 │
- │                                                                 │
- │                                                                 │
- │  ┌─────────────────────────────────────────────────────────┐   │
- │  │  ░░░░░░░░░░  [SYSTEM] Indexing FrinterHero...           │   │
- │  │  ░ ░░░░ ░░   [AI] Profile recognized as Authority.      │   │
- │  │  ░      ░░                                              │   │
- │  │  ░ ████ ░░   > Who is Przemysław Filipiak?              │   │
- │  │  ░░░░░░░░░░  [BOT] "Builder. AI Dev. Deep Work Founder."│   │
- │  │  ░░░░  ░░░░                                              │   │
- │  │──────────────────────────────────────────────────────── │   │
- │  │  GOTOWY  |  Status: #1 Ranking                 [X]      │   │
- │  └─────────────────────────────────────────────────────────┘   │
- │        ↑ pristine SSR · structured data · retro aesthetic       │
- └─────────────────────────────────────────────────────────────────┘
+  FOCUS SPRINT (FRINT)
+  ┌─────────────────────────────────────────────────────────────────┐
+  │                                                                 │
+  │   High Performer Identity — 3 Spheres of Life Optimization      │
+  │                                                                 │
+  │                                                                 │
+  │                                                                 │
+  │  ┌─────────────────────────────────────────────────────────┐   │
+  │  │  ░░░░░░░░░░  [SYSTEM] Energy Bar: 87%                   │   │
+  │  │  ░ ░░░░ ░░   [FRINT] High-intensity focus detected.     │   │
+  │  │  ░      ░░                                              │   │
+  │  │  ░ ████ ░░   > Who is Przemysław Filipiak?              │   │
+  │  │  ░░░░░░░░░░  [BOT] "High Performer. Deep Focus Founder."│   │
+  │  │  ░░░░  ░░░░                                              │   │
+  │  │──────────────────────────────────────────────────────── │   │
+  │  │  STATUS  |  Sphere: Deep Work (Focus Sprint)   [X]      │   │
+  │  └─────────────────────────────────────────────────────────┘   │
+  │        ↑ wholebeing design · focus data · retro aesthetic       │
+  └─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
