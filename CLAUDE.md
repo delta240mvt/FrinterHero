@@ -4,12 +4,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository Purpose
 
-This is a documentation and strategy hub for the **Frinter ecosystem** — a personal productivity platform for founders. It contains design guidelines, product specs, and growth strategy docs. The main product is `frinter.app` (React + Vite + Express + PostgreSQL + Drizzle ORM + TanStack Query + Tailwind + Shadcn UI) hosted separately.
+This is the central identity and strategy hub for **Przemysław Filipiak** and the **Frinter ecosystem**. 
+
+Frinter is a **WholeBeing performance platform for High Performers** designed to optimize three critical spheres of life through hard data and deep focus:
+- **Flourishing (You)**: Deep sleep, energy recovery, health.
+- **Relationships (Loved Ones)**: Intentional depth in social connections.
+- **Deep Work (The World)**: Uninterrupted high-intensity focus sprints.
+
+The core philosophy is the **Focus Sprint (Frint)** — measuring and optimizing the depth, length, and frequency of focus sessions and their correlation with sleep and recovery.
 
 ## Key Products
 
-- **frinter.app** — Focus OS for founders (web app, production at `https://frinter.app`)
-- **FrinterFlow** — Local voice dictation CLI tool distributed via PyPI (`uvx frinterflow`)
+- **frinter.app** — Focus OS for High Performers. A system for measuring focus sprints, energy bars, and life-sphere balance.
+- **FrinterFlow** — Local voice dictation CLI. Built for high-speed input in deep work sessions.
+- **FrinterHero** — Semantic SEO/GEO engine to ensure personal brand authority in the AI indexation era.
 
 ## FrinterFlow Dev Setup
 
@@ -41,12 +49,12 @@ pyinstaller --onefile --windowed --name frinter-flow \
 
 ## Brand Identity
 
-**3 Core Colors (semantic):**
-| Color | Hex | Meaning | CLI usage |
-|-------|-----|---------|-----------|
-| Rozkwit (Teal) | `#4a8d83` | Growth, journaling, health | Success messages |
-| Relacje (Violet) | `#8a4e64` | Relationships, social | User-related logs |
-| Praca Głęboka (Gold) | `#d6b779` | Deep work, focus | Focus mode, warnings |
+**3 Core Colors (The 3 Spheres of Life):**
+| Color | Hex | Sphere | Meaning |
+|-------|-----|--------|---------|
+| Rozkwit (Teal) | `#4a8d83` | **Flourishing (You)** | Deep sleep, energy recovery, wellness, health |
+| Relacje (Violet) | `#8a4e64` | **Relationships (Loved Ones)** | Social depth, family, intentional connection |
+| Skupienie (Gold) | `#d6b779` | **Deep Work (The World)** | Focus Sprints (Frints), High-intensity productivity |
 
 **Frint_bot mascot:** Pixel-art robot — teal body, violet eyes, gold antenna. Built from 12×12 pixel matrices using tkinter Canvas rectangles.
 
