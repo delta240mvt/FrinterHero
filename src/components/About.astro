@@ -64,14 +64,15 @@ import PixelIcon from './PixelIcon.astro';
   }
   .about-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 3rem;
+    grid-template-columns: 1.6fr 1fr;
+    gap: 4rem;
     align-items: start;
   }
   .about-text {
     color: var(--text-secondary);
-    margin-bottom: 1rem;
+    margin-bottom: 1.25rem;
     line-height: 1.7;
+    max-width: 65ch;
   }
   .spheres-list {
     list-style: none;
@@ -79,19 +80,22 @@ import PixelIcon from './PixelIcon.astro';
     margin: 0 0 1.5rem 0;
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
+    gap: 1rem;
   }
   .spheres-list li {
     display: flex;
-    align-items: center;
-    gap: 0.75rem;
+    align-items: flex-start;
+    gap: 0.85rem;
     color: var(--text-secondary);
     font-size: var(--text-sm);
+    line-height: 1.5;
   }
   .sphere-dot {
     width: 8px;
     height: 8px;
     border-radius: 2px;
+    margin-top: 0.45rem;
+    flex-shrink: 0;
   }
   .sphere-dot.teal { background: var(--teal); box-shadow: 0 0 8px var(--teal-glow); }
   .sphere-dot.violet { background: var(--violet); box-shadow: 0 0 8px var(--violet-glow); }
