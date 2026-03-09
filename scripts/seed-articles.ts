@@ -7,7 +7,7 @@ import { parseMarkdown, calculateReadingTime } from '../src/utils/markdown';
 
 const seedArticles = [
   {
-    slug: 'deep-work-dla-ai-developerow-kompletny-system-2026',
+    slug: 'deep-work-for-ai-developers-complete-system-2026',
     title: 'Deep Work for AI Developers — Complete System 2026',
     description: 'How an AI builder can work deeply without burnout. Complete system with energy tracking, focus sprints, and the philosophy behind frinter.app.',
     tags: ['deep-work', 'ai-dev', 'productivity', 'focus'],
@@ -67,7 +67,7 @@ A: frinter.app uses count-up (not countdown) timing — you build a streak, not 
 `,
   },
   {
-    slug: 'frinter-app-12-miesiecy-builowania-w-publiku',
+    slug: 'frinter-app-12-months-building-in-public',
     title: 'frinter.app — 12 Months of Building in Public',
     description: 'The honest story of building a focus OS for founders. What worked, what failed, and what I learned shipping in public for a year.',
     tags: ['build-in-public', 'founder', 'frinter', 'journey'],
@@ -146,7 +146,7 @@ A: Follow on [GitHub](https://github.com/delta240mvt) or subscribe to the [RSS f
 `,
   },
   {
-    slug: 'astro-ssr-dla-developer-personal-site-dlaczego-wybralem',
+    slug: 'astro-ssr-for-developer-personal-site-why-i-chose-it',
     title: 'Astro SSR for Developer Personal Site — Why I Chose It and Don\'t Regret It',
     description: 'Technical deep dive: why Astro SSR with PostgreSQL beats Next.js, Hugo, and Gatsby for a developer personal site with a blog and admin panel.',
     tags: ['astro', 'ssr', 'web-dev', 'performance', 'postgresql'],
