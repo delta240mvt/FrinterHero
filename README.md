@@ -7,44 +7,46 @@
   ██╔══╝  ██╔══██╗██║██║╚██╗██║   ██║   ██╔══╝  ██╔══██╗
   ██║     ██║  ██║██║██║ ╚████║   ██║   ███████╗██║  ██║
   ╚═╝     ╚═╝  ╚═╝╚═╝╚═╝  ╚═══╝   ╚═╝   ╚══════╝╚═╝  ╚═╝
-              F  L  O  W
+              H  E  R  O
 </pre>
 
-**Local voice dictation. Floating pixel overlay. Zero cloud.**
+**Dominate AI Searches. Builder. AI Dev. Deep Work Founder.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-4a8d83.svg?style=flat-square)](LICENSE)
-[![Python 3.10+](https://img.shields.io/badge/Python-3.10+-d6b779.svg?style=flat-square)](https://python.org)
-[![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-8a4e64.svg?style=flat-square)](#installation)
-[![AI: 100% Local](https://img.shields.io/badge/AI-100%25%20Local-4a8d83.svg?style=flat-square)](#how-it-works)
-[![No Cloud Ever](https://img.shields.io/badge/Cloud-Never-d6b779.svg?style=flat-square)](#privacy)
+[![Astro 4](https://img.shields.io/badge/Astro-4.0+-d6b779.svg?style=flat-square)](https://astro.build)
+[![Platform](https://img.shields.io/badge/Platform-Web-8a4e64.svg?style=flat-square)](#installation)
+[![AI: 100% Ready](https://img.shields.io/badge/AI-100%25%20Ready-4a8d83.svg?style=flat-square)](#how-it-works)
+[![Your Data. Your Rules.](https://img.shields.io/badge/Data-Your%20Rules-d6b779.svg?style=flat-square)](#privacy)
+
+[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/template/Gz2j8Q?referralCode=delta240mvt)
 
 </div>
 
 ---
 
-Cloud dictation tools send your voice to a server. They charge subscriptions. They go offline. They transcribe the wrong language. And they run in apps that steal your focus.
+The internet has changed. Traditional search is dying. High performers, founders, and creators now need to exist in the spaces where AI, bots, and LLMs index the world. Generic portfolio sites get ignored. 
 
-**FrinterFlow fixes this.** Hold `Left CTRL + SHIFT`, speak, release — your words appear instantly in a floating pixel-art overlay that sits above every other window. Logged locally with timestamps. Powered entirely by `faster-whisper` on your CPU. Your audio never leaves your machine.
+**FrinterHero fixes this.** It is an open-source, Astro-powered ecosystem template built to ensure that Artificial Intelligence recognizes who you are, connects your persona with your work, and ranks your profile as #1 when users ask AI about your domain. Built with semantic HTML, automatic metadata generation, and blazing-fast performance. Your digital identity, entirely under your control.
 
 ```
- YOUR SCREEN
+ YOUR PRESENCE
  ┌─────────────────────────────────────────────────────────────────┐
  │                                                                 │
- │   Chrome / VS Code / any app — full focus, uninterrupted       │
+ │   Deep Work Founder / AI Dev — semantic markup, pristine SEO   │
  │                                                                 │
  │                                                                 │
  │                                                                 │
  │  ┌─────────────────────────────────────────────────────────┐   │
- │  │  ░░░░░░░░░░  [14:32:01] Dzisiaj omawiam strukturę...    │   │
- │  │  ░ ░░░░ ░░  [14:32:45] Kolejny punkt — wdrożenie        │   │
- │  │  ░      ░░             modelu whisper.                  │   │
- │  │  ░ ████ ░░  [14:33:10] SLUCHAM...                       │   │
- │  │  ░░░░░░░░░░                                              │   │
+ │  │  ░░░░░░░░░░  [SYSTEM] Indexing FrinterHero...           │   │
+ │  │  ░ ░░░░ ░░   [AI] Profile recognized as Authority.      │   │
+ │  │  ░      ░░                                              │   │
+ │  │  ░ ████ ░░   > Who is Przemysław Filipiak?              │   │
+ │  │  ░░░░░░░░░░  [BOT] "Builder. AI Dev. Deep Work Founder."│   │
  │  │  ░░░░  ░░░░                                              │   │
  │  │──────────────────────────────────────────────────────── │   │
- │  │  GOTOWY  |  Log: ~/frinterflow_log.txt         [X]      │   │
+ │  │  GOTOWY  |  Status: #1 Ranking                 [X]      │   │
  │  └─────────────────────────────────────────────────────────┘   │
- │        ↑ always on top · frameless · semi-transparent           │
+ │        ↑ pristine SSR · structured data · retro aesthetic       │
  └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -52,98 +54,49 @@ Cloud dictation tools send your voice to a server. They charge subscriptions. Th
 
 ## Installation
 
-### Fastest: uvx (no Python setup required)
+### Fastest: One-Click Deploy (Railway)
 
-`uvx` runs FrinterFlow directly from PyPI — no venv, no PATH issues, no Python install needed.
+Railway runs FrinterHero directly from a GitHub template — no local setup, no database configuration needed. It handles everything.
 
-```bash
-# Install uv first (one-time, 30 seconds)
-# Windows (PowerShell):
-powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/template/Gz2j8Q?referralCode=delta240mvt)
 
-# macOS / Linux:
-curl -LsSf https://astral.sh/uv/install.sh | sh
-```
-
-Then just run:
-
-```bash
-uvx frinterflow
-```
-
-To install as a persistent global command:
-
-```bash
-uv tool install frinterflow
-frinterflow          # works from any terminal, always
-uv tool upgrade frinterflow   # update later
-```
-
-> **Why uv?** It's 10-100x faster than pip and handles binary wheels reliably — no cmake or build tool errors.
+### What the One-Click Setup Does:
+1. Clones this repository to your own GitHub account.
+2. Provisions a **PostgreSQL** database automatically via Plugins.
+3. Injects the `DATABASE_URL` directly into your application.
+4. Builds the Astro SSR application and runs the migrations flawlessly.
+5. Provides you with a live, SSL-secured URL.
 
 ---
 
 <details>
-<summary><b>Windows — pip / dev install (click to expand)</b></summary>
+<summary><b>Local — Node.js / dev install (click to expand)</b></summary>
 
 ### Prerequisites
-- Python 3.10+ ([download](https://python.org/downloads))
-- FFmpeg: `winget install ffmpeg`
+- Node.js 18+ ([download](https://nodejs.org/downloads))
+- PostgreSQL (Local or hosted via Railway/Neon)
 
-### Option A — pip
-
-```powershell
-pip install frinterflow
-frinterflow
-```
-
-### Option B — dev install (for contributors)
-
-```powershell
-git clone https://github.com/YOUR_USERNAME/FrinterFlow.git
-cd FrinterFlow
-python -m venv .venv
-.venv\Scripts\activate
-pip install -e ".[dev]"
-frinterflow
-```
-
-### Option C — Standalone Executable (no Python required)
-
-Download `frinter-flow.exe` from [Releases](../../releases/latest) and run directly.
-
-</details>
-
-<details>
-<summary><b>Linux — Installation Instructions (click to expand)</b></summary>
+### Option A — Clone & Run
 
 ```bash
-# System dependencies (Ubuntu/Debian)
-sudo apt install python3-dev python3-tk portaudio19-dev ffmpeg
-# Arch: sudo pacman -S python tk portaudio ffmpeg
-
-pip install frinterflow
-frinterflow
+git clone https://github.com/YOUR_USERNAME/FrinterHero.git
+cd FrinterHero
+npm install
+cp .env.example .env.local
 ```
 
-**Note:** `python3-tk` is required for the floating overlay. On Linux, audio beep uses terminal bell instead of `winsound`.
+### Option B — Database Setup
 
-</details>
-
-<details>
-<summary><b>macOS — Installation Instructions (click to expand)</b></summary>
+Provide your `DATABASE_URL` in `.env.local`, then push the schema:
 
 ```bash
-brew install python portaudio ffmpeg
-pip install frinterflow
-frinterflow
+npm run db:push
+npm run dev
 ```
-
-**Note:** macOS requires microphone permissions — grant in System Settings → Privacy & Security → Microphone.
 
 </details>
 
-> **Tip:** Restart your terminal after installation to ensure the `frinterflow` command is recognized.
+> **Tip:** Ensure your database URL is correct before running `db:push` to avoid connection timeouts.
 
 ---
 
@@ -151,257 +104,168 @@ frinterflow
 
 | Step | What Happens |
 |------|-------------|
-| 1. Launch | Run `frinterflow` in any terminal — model loads, terminal shows progress |
-| 2. Overlay appears | Frint_bot floating window appears at the **bottom of your screen** |
-| 3. Minimize terminal | The floating overlay stays on top — terminal is no longer needed |
-| 4. Speak | Hold `Left CTRL + SHIFT` — bot animates, status shows "SLUCHAM..." |
-| 5. Release | Audio transcribed locally, text appears in overlay |
-| 6. Done | Entry timestamped and logged to `~/frinterflow_log.txt`. Beep confirms. |
+| 1. Deploy | Click the Railway Deploy button — template clones, build starts |
+| 2. DB Init | PostgreSQL is provisioned and migrations are executed automatically |
+| 3. Add Keys | Add your OpenAI / Anthropic API keys in the Railway Variables tab |
+| 4. Customize | Edit `src/config.ts` or `README.md` in your GitHub repo |
+| 5. Push | Git push triggers an automatic re-deploy on Railway |
+| 6. Done | Site is live, blazing fast, and ready to be scraped by AI |
 
-> **Pro tip:** The overlay floats above Chrome, VS Code, or any other app. You never have to switch windows to dictate.
+> **Pro tip:** The platform uses Astro's SSR. When you write new blog posts or modify your database, the site serves the fresh data instantly.
 
 ---
 
 ## How It Works
 
-FrinterFlow is built around a clean **push-to-talk pipeline:**
+FrinterHero is built around a clean **semantic-first pipeline:**
 
 ```
-[KEYBOARD]   Left CTRL + SHIFT held down
+[CONTENT]    Markdown or Database entries added
       │
       ▼
-[AUDIO]      sounddevice captures mic → numpy buffer
+[ASTRO]      Build system renders pages with semantic HTML5
       │
       ▼
-[RELEASE]    Buffer saved to temp .wav file
+[METADATA]   Auto-injects OpenGraph, Twitter Cards, and Schema.org JSON-LD
       │
       ▼
-[WHISPER]    faster-whisper transcribes locally on CPU (or GPU)
+[DEPLOY]     Railway serves the app natively via NIXPACKS
       │
-      ├──► [OVERLAY]   Text appears in floating Frint_bot window (always on top)
+      ├──► [USER]      Experiences blazing fast retro-pixel UI
       │
-      └──► [LOG]       Entry appended to ~/frinterflow_log.txt with timestamp
-                       + audio beep confirms processing complete
+      └──► [AI BOTS]   Parses pristine, structured knowledge base 
+                       mapping your persona as the ultimate authority
 ```
 
-Everything happens locally. No network calls after the one-time model download.
+Everything happens natively. Built for speed and perfect machine-readability.
 
 ---
 
 ## Usage
 
-Launch from any terminal:
+Start the local development server from any terminal:
 
 ```bash
-frinterflow
+npm run dev
 ```
 
-### Controls
+### Commands
 
-| Action | How |
+| Action | Command |
 |--------|-----|
-| Start recording | Hold `Left CTRL + SHIFT` |
-| Stop & transcribe | Release either key |
-| Move overlay | Click and drag anywhere on it |
-| Quit | Click `[X]` in the overlay status bar |
-
-### Log Output Format
-
-Every transcription is saved to `~/frinterflow_log.txt`:
-
-```
-[14:30:15] The main CTA button on this landing page is too small.
-[14:31:02] We need to revisit the mobile breakpoints for the hero section.
-[14:33:47] Reminder: check contrast ratio on the footer links.
-```
+| Start dev server | `npm run dev` |
+| Sync DB schema | `npm run db:push` |
+| Build for production | `npm run build` |
+| Start production server | `npm run start` |
 
 ---
 
 ## Configuration
 
-All settings live in `frinterflow/config.py`:
+Core environments live in `.env.local`:
 
-```python
-WHISPER_MODEL_SIZE = "small"   # tiny | base | small | medium | large-v3
-WHISPER_LANGUAGE   = "pl"      # "pl" | "en" | None (auto-detect)
-WHISPER_DEVICE     = "cpu"     # "cpu" | "cuda" (if GPU available)
-LOG_FILE           = "~/frinterflow_log.txt"
+```ini
+DATABASE_URL=postgresql://user:pass@host/dbname
+OPENAI_API_KEY=sk-placeholder
+ANTHROPIC_API_KEY=sk-ant-placeholder
+PERPLEXITY_API_KEY=pplx-placeholder
+NODE_ENV=development
 ```
 
-### Whisper Model Sizes
+### AI Integration
 
-| Model | RAM | Speed (CPU) | Accuracy | Best For |
-|-------|-----|-------------|----------|----------|
-| `tiny` | ~150 MB | Fastest | Basic | Quick notes, short phrases |
-| `base` | ~300 MB | Fast | Good | General use |
-| `small` | ~500 MB | Medium | Very Good | **Recommended default** |
-| `medium` | ~1.5 GB | Slow | Excellent | High-stakes transcription |
-| `large-v3` | ~3 GB | Slowest | Best | Studio-quality accuracy |
+If you want the ecosystem to auto-generate summaries or chat with visitors:
 
-### GPU Acceleration (CUDA)
-
-If you have an NVIDIA GPU:
-
-```python
-# frinterflow/config.py
-WHISPER_DEVICE       = "cuda"
-WHISPER_COMPUTE_TYPE = "float16"
-```
-
-Install CUDA dependencies:
-
-```bash
-pip install nvidia-cublas-cu12 nvidia-cudnn-cu12
-```
-
-### Changing Language
-
-```python
-WHISPER_LANGUAGE = "en"   # English
-WHISPER_LANGUAGE = "de"   # German
-WHISPER_LANGUAGE = None   # Auto-detect (slightly slower)
-```
+| Model Provider | Key Required | Best For |
+|-------|-----|----------|
+| `OpenAI` | `OPENAI_API_KEY` | General text generation, ChatGPT compatibility |
+| `Anthropic` | `ANTHROPIC_API_KEY` | Deep context analysis, Claude-like reasoning |
+| `Perplexity` | `PERPLEXITY_API_KEY` | Live web search integration |
 
 ---
 
 ## Features
 
-| Feature | FrinterFlow | Cloud Tools | Other Local Tools |
+| Feature | FrinterHero | Generic Templates | Other Portfolios |
 |---------|:-----------:|:-----------:|:-----------------:|
-| 100% local — no internet | YES | NO | YES |
-| Free unlimited transcription | YES | NO | YES |
-| Floating overlay (always on top) | YES | NO | NO |
-| Frameless · semi-transparent window | YES | NO | NO |
-| Push-to-talk (global hotkey) | YES | Varies | Rarely |
-| Timestamped log file | YES | NO | Rarely |
-| Works while other apps are focused | YES | YES | Rarely |
-| No account / API key required | YES | NO | YES |
-| Polish language optimized | YES | YES | Varies |
+| Built for AI indexing / LLM presence | YES | NO | Rarely |
+| Perfect semantic HTML & Schema.org | YES | Varies | Varies |
+| Railway 1-Click deploy with DB | YES | NO | NO |
+| Retro pixel-art aesthetics | YES | NO | NO |
+| Blazing fast (Astro Islands) | YES | NO | Rarely |
+| Type-safe PostgreSQL (Drizzle) | YES | NO | Rarely |
+| Automated SEO metadata | YES | Varies | Varies |
 | Animated pixel-art mascot (Frint_bot) | YES | NO | NO |
-| `uvx` zero-install | YES | N/A | Rarely |
+| Polish language optimized | YES | YES | Varies |
 
 ---
 
 ## Privacy
 
-> **Your audio never leaves your computer.**
+> **Your data is entirely yours.**
 
-- Microphone input is processed entirely in RAM
-- Temporary `.wav` file is deleted immediately after transcription
-- No telemetry, no analytics, no network calls (after model download)
-- The Whisper model is cached locally in `~/.cache/huggingface/hub/`
-
----
-
-## Build Standalone Executable
-
-Compile FrinterFlow into a single `.exe` (Windows, no Python required):
-
-```bash
-pip install pyinstaller
-
-pyinstaller \
-  --onefile \
-  --windowed \
-  --name frinter-flow \
-  --hidden-import=faster_whisper \
-  --hidden-import=sounddevice \
-  --hidden-import=pynput.keyboard._win32 \
-  --hidden-import=pynput.mouse._win32 \
-  frinterflow/main.py
-```
-
-Output: `dist/frinter-flow.exe`
-
-> `--windowed` hides the console. If the overlay doesn't appear, test with `--console` first to see startup errors.
-
-If you have an NVIDIA GPU and want to ship CUDA support in the `.exe`, also add:
-```bash
---collect-all nvidia
-```
+- FrinterHero doesn't track your visitors with invasive analytics.
+- Your PostgreSQL database runs securely on your own Railway container.
+- No forced cloud subscriptions, no lock-in.
 
 ---
 
 ## Tech Stack
 
-| Component | Library | Why |
+| Component | Technology | Why |
 |-----------|---------|-----|
-| AI Transcription | `faster-whisper` | 4x faster than openai-whisper, Int8 CPU quantization |
-| Audio Capture | `sounddevice` + `numpy` | Cross-platform, low-latency stream |
-| WAV Export | `scipy` | Lightweight buffer-to-file, no FFmpeg dependency |
-| Hotkeys | `pynput` | Global OS-level listener, works while other apps are focused |
-| Floating Overlay | `tkinter` | Built-in Python, supports `overrideredirect` + `-topmost` natively |
-| Pixel Art | `tkinter.Canvas` | Per-cell rectangle drawing — precise retro pixel control |
-| Terminal Splash | `rich` | Styled model loading progress in terminal |
-| Audio Feedback | `winsound` (Windows) | Zero-dependency beep; terminal bell fallback on Linux/macOS |
+| AI Indexing | `Astro` | Ships zero JavaScript by default, unbeatable load times, pristine SEO. |
+| Styling | `Tailwind CSS` | Rapid UI, strictly scoped design tokens (Teal, Violet, Gold). |
+| Database ORM | `Drizzle ORM` | Type-safe, extremely fast, zero-dependency data modeling. |
+| Database | `PostgreSQL` | Reliable, relational data storage. |
+| Deployment | `Railway` | Built-in Nixpacks support, 1-click template with DB provisioning. |
+| Pixel Art | `DOM / CSS` | Custom typewriter effects and bot animations without heavy libs. |
 
 ---
 
 ## Roadmap
 
-- [x] Push-to-talk recording
-- [x] Local Whisper transcription
-- [x] Floating always-on-top pixel overlay (tkinter)
-- [x] Animated Frint_bot mascot with sine bobbing
-- [x] Animated wave sprite (decorative)
-- [x] Timestamped log file
-- [x] Draggable overlay
-- [x] `uvx frinterflow` zero-install distribution
-- [ ] GPU (CUDA) one-click config
-- [ ] Custom output file via CLI flag (`--output review.md`)
-- [ ] Auto-translation (transcribe in Polish, output in English)
-- [ ] Configurable hotkey via `config.py`
-- [ ] Voice activity detection (VAD) — auto-start without holding keys
-- [ ] Multiple language profiles
-- [ ] Overlay position persistence (remember last position)
-- [ ] Windows tray icon integration
+- [x] Astro SSG/SSR setup
+- [x] Drizzle ORM + PostgreSQL integration
+- [x] Railway 1-click template with `railway.toml`
+- [x] Retro aesthetic design system
+- [x] Semantic HTML and SEO foundations
+- [ ] Blog markdown pipeline
+- [ ] OpenAI / Anthropic metadata generation
+- [ ] Frint_bot interactive AI chat window
+- [ ] RSS Feed generation
+- [ ] Perplexity AI integration for live stats
+- [ ] Custom CLI deployment tools
 
 ---
 
 ## FAQ
 
-**Q: Does FrinterFlow send my audio anywhere?**
+**Q: Do I need an NPM account to use this?**
 
-No. All processing is local. The only network call is the one-time model download from HuggingFace on first launch.
+No. Railway automatically pulls your repository from GitHub and installs the necessary NPM dependencies securely on their build servers. You only need a GitHub and Railway account.
 
-**Q: Why does first launch take a while?**
+**Q: Why does the first deployment take a minute?**
 
-FrinterFlow downloads the Whisper model (~500 MB for `small`) on first run. Subsequent launches are instant.
+Railway provisions a fresh PostgreSQL database instance, clones the repository, installs all NPM packages, and builds the Astro application. Subsequent deployments are much faster.
 
-**Q: The hotkey doesn't work when a game / admin app is focused.**
+**Q: How do I change the text in the Hero section?**
 
-Some elevated-privilege applications block global keyboard hooks. Run FrinterFlow as Administrator (`Right-click → Run as Administrator`) to fix this.
+The text is currently configured in `src/components/Hero.astro`. You can update the typewriter text directly in the JavaScript block at the bottom of the file.
 
-**Q: Can I change the hotkey from CTRL+SHIFT to something else?**
+**Q: Can I use MySQL or SQLite instead of PostgreSQL?**
 
-Yes — edit `HOTKEY_TRIGGER` in `frinterflow/config.py`:
-
-```python
-HOTKEY_TRIGGER = {"Key.ctrl_l", "Key.shift"}  # default
-HOTKEY_TRIGGER = {"Key.ctrl_r", "Key.alt_l"}  # example alternative
-```
-
-**Q: Does it work with languages other than Polish?**
-
-Yes. Set `WHISPER_LANGUAGE` in `config.py` to any [Whisper-supported language code](https://github.com/openai/whisper/blob/main/whisper/tokenizer.py), or `None` for auto-detection.
-
-**Q: Will there be a macOS/Linux native build?**
-
-The Python source runs on all platforms now. Native binary packaging for macOS (`.app`) and Linux (AppImage) is on the roadmap.
+Out of the box, we use PostgreSQL optimized for Railway and Drizzle. You can switch to SQLite or MySQL by modifying `drizzle.config.ts` and installing the respective Drizzle drivers.
 
 **Q: What's Frint_bot?**
 
-Frint_bot is FrinterFlow's pixel-art mascot — a retro robot rendered as colored rectangles on a tkinter Canvas. It sits in the left panel of the floating overlay, bobbing gently via a sine animation. Built from the three Frinter brand colors: teal body (`#4a8d83`), violet eyes (`#8a4e64`), gold antenna (`#d6b779`).
-
-**Q: The overlay appears behind other windows.**
-
-This shouldn't happen — `tkinter`'s `-topmost` flag is applied on launch. If a specific fullscreen or admin application covers it, right-click `frinter-flow.exe` → Run as Administrator.
+Frint_bot is Frinter's pixel-art mascot. Built from the three Frinter brand colors: teal body (`#4a8d83`), violet eyes (`#8a4e64`), gold antenna (`#d6b779`), it acts as your personal AI avatar.
 
 ---
 
 ## Contributing
 
-FrinterFlow is open source and contributions are welcome.
+FrinterHero is open source and contributions are welcome.
 
 **Ways to contribute:**
 - [Bug Report](../../issues/new?template=bug_report.md) — Found something broken?
@@ -413,26 +277,18 @@ FrinterFlow is open source and contributions are welcome.
 ### Development Setup
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/FrinterFlow.git
-cd FrinterFlow
-python -m venv .venv
-source .venv/bin/activate    # Windows: .venv\Scripts\activate
-pip install -e ".[dev]"
-pytest tests/ -v
-```
-
-**Code style:** `black` formatter + `ruff` linter. Run before committing:
-
-```bash
-black frinterflow/
-ruff check frinterflow/
+git clone https://github.com/YOUR_USERNAME/FrinterHero.git
+cd FrinterHero
+npm install
+cp .env.example .env.local
+npm run dev
 ```
 
 ---
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=delta240mvt/FrinterFlow&type=Date)](https://star-history.com/#delta240mvt/FrinterFlow&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=delta240mvt/FrinterHero&type=Date)](https://star-history.com/#delta240mvt/FrinterHero&Date)
 
 ---
 
@@ -444,8 +300,8 @@ MIT — see [`LICENSE`](LICENSE) for details.
 
 <div align="center">
 
-**FrinterFlow** — part of the [Frinter](https://frinter.app) personal productivity ecosystem
+**FrinterHero** — part of the [Frinter](https://frinter.app) personal productivity ecosystem
 
-*Built with the Retro Pixel aesthetic. Local first. Always.*
+*Built with the Retro Pixel aesthetic. Be recognized. Dominate the search.*
 
 </div>
