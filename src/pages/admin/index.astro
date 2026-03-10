@@ -150,7 +150,7 @@ function pageUrl(p: number) {
           <div class="geo-track">
             <div id="geo-progress-bar" class="geo-bar" style="width:0%"></div>
           </div>
-          <span id="geo-progress-text" class="geo-progress-text">0 / 138</span>
+          <span id="geo-progress-text" class="geo-progress-text">0 / 45</span>
         </div>
         <div id="geo-log" class="geo-log"></div>
       </div>
@@ -218,7 +218,7 @@ function pageUrl(p: number) {
                   <span class={`status-badge status-badge--${a.status}`}>{a.status}</span>
                 </td>
                 <td class="td-date">
-                  {new Date(a.createdAt).toLocaleDateString('en-GB', { day:'2-digit', month:'2-digit', year:'2-digit' })}
+                  {new Date(a.createdAt).toLocaleDateString('en-US', { day:'2-digit', month:'2-digit', year:'2-digit' })}
                 </td>
                 <td class="td-actions">
                   <a href={`/admin/article/${a.id}`} class="action-btn action-btn--edit">✏️ Edit</a>
@@ -271,7 +271,7 @@ function pageUrl(p: number) {
               {recentRuns.map(run => (
                 <tr>
                   <td class="td-date">
-                    {new Date(run.runAt).toLocaleString('en-GB', { day:'2-digit', month:'2-digit', year:'2-digit', hour:'2-digit', minute:'2-digit' })}
+                    {new Date(run.runAt).toLocaleString('en-US', { day:'2-digit', month:'2-digit', year:'2-digit', hour:'2-digit', minute:'2-digit' })}
                   </td>
                   <td class="td-num">{run.queriesCount}</td>
                   <td class="td-num">
@@ -322,7 +322,7 @@ function pageUrl(p: number) {
 </div>
 
 <script>
-  const TOTAL_STEPS = 138;
+  const TOTAL_STEPS = 45;
 
   // ─── GEO Monitor ───────────────────────────────────────────
   const geoBtn      = document.getElementById('run-geo-btn')       as HTMLButtonElement;

@@ -400,7 +400,7 @@ const entriesJson = JSON.stringify(entries.map(e => ({
                     {(e.tags || []).length > 3 && <span class="tag-more">+{e.tags.length - 3}</span>}
                   </td>
                   <td class="td-date">
-                    {new Date(e.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' })}
+                    {new Date(e.createdAt).toLocaleDateString('en-US', { day: '2-digit', month: '2-digit', year: '2-digit' })}
                   </td>
                   <td class="td-actions">
                     <button class="action-btn action-btn--preview" data-preview-id={e.id} title="Preview">👁</button>
@@ -502,7 +502,7 @@ const entriesJson = JSON.stringify(entries.map(e => ({
     (document.getElementById('prev-score') as HTMLElement).textContent = `Score: ${e.importanceScore}/100`;
     const d = new Date(e.createdAt);
     (document.getElementById('prev-date') as HTMLElement).textContent =
-      d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+      d.toLocaleDateString('en-US', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
     const tagsEl = document.getElementById('prev-tags')!;
     tagsEl.innerHTML = (e.tags || []).map((t: string) => `<span class="tag">${t}</span>`).join('');

@@ -11,7 +11,7 @@ const { lastRunAt, totalGapsInRun = 0, gapsAcknowledged = 0, gapsArchived = 0, n
 
 function formatDate(d?: Date | null) {
   if (!d) return 'Never';
-  return new Date(d).toLocaleString('pl-PL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+  return new Date(d).toLocaleString('en-US', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
 ---
 

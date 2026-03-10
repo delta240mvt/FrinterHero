@@ -29,7 +29,7 @@ async function runGeoMonitor(): Promise<void> {
   const startTime = new Date();
   console.log(`[GEO] Starting monitor run at ${startTime.toISOString()}`);
 
-  const allQueries = [...queriesBank.en, ...queriesBank.pl];
+  const allQueries = [...queriesBank.en];
   let draftsGenerated = 0;
   let queriesProcessed = 0;
   const geoQueryResults: GeoQueryResult[] = [];
@@ -99,7 +99,7 @@ It should resemble the final article but highly condensed. Include:
 1. Proposed Title
 2. Short TL;DR
 3. 2-3 H2 headers with a 1-sentence description of what will be written there.
-Do NOT write the whole article. Be concise. Write in the primary language of the query.`;
+Do NOT write the whole article. Be concise. Write in American English (en-US).`;
 
         const shortProposal = await queryClaude(prompt);
 

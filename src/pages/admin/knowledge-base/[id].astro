@@ -42,10 +42,10 @@ const TYPE_LABELS: Record<string, string> = {
   personal_note     : 'Personal Note',
 };
 
-const createdDate = new Date(entry.createdAt).toLocaleDateString('en-GB', {
+const createdDate = new Date(entry.createdAt).toLocaleDateString('en-US', {
   day: '2-digit', month: 'long', year: 'numeric',
 });
-const updatedDate = new Date(entry.updatedAt).toLocaleDateString('en-GB', {
+const updatedDate = new Date(entry.updatedAt).toLocaleDateString('en-US', {
   day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit',
 });
 

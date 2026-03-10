@@ -68,7 +68,7 @@ const isAIGenerated = !!article.sourceGapId;
               {article.generationTimestamp && (
                 <div class="banner-row">
                   <span class="banner-label">Generated:</span>
-                  <span class="banner-value">{new Date(article.generationTimestamp).toLocaleString('en-GB')}</span>
+                  <span class="banner-value">{new Date(article.generationTimestamp).toLocaleString('en-US')}</span>
                 </div>
               )}
               {kbHints.length > 0 && (
@@ -147,8 +147,8 @@ const isAIGenerated = !!article.sourceGapId;
           <h3 class="gen-history-title">Generation History</h3>
           <div class="gen-record">
             <div class="gen-row"><span class="gen-label">Model:</span><span class="gen-value">{generation.generatedByModel}</span></div>
-            <div class="gen-row"><span class="gen-label">Generated:</span><span class="gen-value">{new Date(generation.generationTimestamp).toLocaleString('en-GB')}</span></div>
-            {generation.publicationTimestamp && <div class="gen-row"><span class="gen-label">Published:</span><span class="gen-value">{new Date(generation.publicationTimestamp).toLocaleString('en-GB')}</span></div>}
+            <div class="gen-row"><span class="gen-label">Generated:</span><span class="gen-value">{new Date(generation.generationTimestamp).toLocaleString('en-US')}</span></div>
+            {generation.publicationTimestamp && <div class="gen-row"><span class="gen-label">Published:</span><span class="gen-value">{new Date(generation.publicationTimestamp).toLocaleString('en-US')}</span></div>}
             <div class="gen-row"><span class="gen-label">Content Changed:</span><span class="gen-value">{generation.contentChanged ? 'Yes (author edited)' : 'No (original AI draft)'}</span></div>
             <div class="gen-row"><span class="gen-label">KB Entries Used:</span><span class="gen-value">{generation.kbEntriesUsed?.length || 0}</span></div>
           </div>
@@ -262,7 +262,7 @@ const isAIGenerated = !!article.sourceGapId;
     });
 
     if (res.ok) {
-      const now = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+      const now = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
       statusEl.textContent = `Autosaved at ${now}`;
       statusEl.style.color = 'var(--text-muted)';
       setTimeout(() => { statusEl.textContent = ''; }, 3000);

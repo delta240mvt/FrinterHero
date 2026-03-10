@@ -15,7 +15,7 @@
 import { spawn } from 'child_process';
 import { EventEmitter } from 'events';
 
-export const GEO_TOTAL_STEPS = 138; // 46 queries × 3 models
+export const GEO_TOTAL_STEPS = 45; // 15 queries × 3 models
 const MAX_LINES = 8_000;
 
 export type JobStatus = 'idle' | 'running' | 'done' | 'error';
