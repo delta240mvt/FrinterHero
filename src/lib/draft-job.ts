@@ -3,6 +3,9 @@
  */
 import { spawn } from 'child_process';
 import { EventEmitter } from 'events';
+import { db } from '@/db/client';
+import { contentGaps } from '@/db/schema';
+import { eq } from 'drizzle-orm';
 
 export type JobStatus = 'idle' | 'running' | 'done' | 'error';
 
@@ -101,10 +104,18 @@ class DraftJobManager extends EventEmitter {
 
     this._child.on('close', (code: number) => {
       if (bufArr.trim()) pushLine(bufArr);
+      const wasGapId = this._gapId;
       this._status = code === 0 ? 'done' : 'error';
       this._finishedAt = Date.now();
       const exitMsg = code === 0 ? '[DRAFT] Process completed successfully.' : `[DRAFT] Process exited with code ${code}`;
       pushLine(exitMsg);
+
+      // If failed, revert DB status
+      if (code !== 0 && wasGapId) {
+        db.update(contentGaps).set({ status: 'new' }).where(eq(contentGaps.id, wasGapId))
+          .catch(e => console.error("[DRAFT] Revert status error:", e));
+      }
+
       this._child = null;
       this.emit('done', { code });
     });
@@ -125,6 +136,13 @@ class DraftJobManager extends EventEmitter {
       if (typeof this._child.kill === 'function') {
         this._child.kill('SIGTERM');
       }
+      
+      const gapId = this._gapId;
+      if (gapId) {
+        db.update(contentGaps).set({ status: 'new' }).where(eq(contentGaps.id, gapId))
+          .catch(e => console.error("[DRAFT] Failed to revert status on stop:", e));
+      }
+
       this._status = 'idle';
       this._child = null;
       const entry: DraftLogEntry = { line: '[DRAFT] Process aborted by user.', ts: Date.now() };

@@ -322,12 +322,19 @@ function lastRunLabel(d: any) {
     const bodyEl     = document.getElementById(`console-body-${gapId}`);
     const statusEl   = document.getElementById(`console-status-${gapId}`);
 
-    if (btn) btn.disabled = true;
+    if (btn) { btn.disabled = true; btn.textContent = 'In Progress...'; }
     if (consoleEl) consoleEl.style.display = 'flex';
     if (bodyEl) bodyEl.innerHTML = '<div class="console-line">Starting background process...</div>';
     if (statusEl) statusEl.textContent = 'Initializing...';
 
     try {
+      // Mark as in_progress in DB
+      await fetch(`/api/content-gaps/${gapId}/acknowledge`, {
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'generate_draft', author_notes: notes }),
+      });
+
       const res = await fetch('/api/generate-draft', {
         method: 'POST', 
         headers: { 'Content-Type': 'application/json' },
@@ -344,7 +351,7 @@ function lastRunLabel(d: any) {
     } catch (err) {
       if (bodyEl) bodyEl.innerHTML += `<div class="console-line" style="color:#ef4444">Error: ${err.message}</div>`;
       if (statusEl) { statusEl.textContent = 'Error'; statusEl.style.color = '#ef4444'; }
-      if (btn) btn.disabled = false;
+      if (btn) { btn.disabled = false; btn.textContent = 'Approve & Generate Draft'; }
     }
   }
 
@@ -390,17 +397,23 @@ function lastRunLabel(d: any) {
           bodyEl.scrollTop = bodyEl.scrollHeight;
         }
 
-        if (data.status === 'done' || data.status === 'error') {
-          clearInterval(pollIntervals[gapId]);
-          delete pollIntervals[gapId];
+        if (data.status === 'done' || data.status === 'error' || (data.status === 'idle' && data.lines.length > 0)) {
+          // If idle but has lines, it was likely aborted
+          if (data.status === 'idle' || data.status === 'error') {
+             if (btn) { btn.disabled = false; btn.textContent = 'Approve & Generate Draft'; }
+          }
+
+          if (data.status !== 'running') {
+            clearInterval(pollIntervals[gapId]);
+            delete pollIntervals[gapId];
+          }
           
           if (data.status === 'done' && data.result) {
             if (footerEl) footerEl.style.display = 'block';
             if (linkEl) linkEl.href = `/admin/article/${data.result.article_id}`;
             if (statusEl) statusEl.style.color = 'var(--teal)';
-          } else {
+          } else if (data.status === 'error') {
             if (statusEl) { statusEl.textContent = 'FAILED'; statusEl.style.color = '#ef4444'; }
-            if (btn) btn.disabled = false;
           }
         }
       } catch (e) {}

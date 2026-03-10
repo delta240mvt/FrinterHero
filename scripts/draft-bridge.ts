@@ -1,6 +1,7 @@
 import { generateDraft } from './draft-generator';
 import { db } from '../src/db/client';
-import { articles, articleGenerations } from '../src/db/schema';
+import { articles, articleGenerations, contentGaps } from '../src/db/schema';
+import { eq } from 'drizzle-orm';
 
 async function run() {
   const gapId = parseInt(process.env.GAP_ID || '0');
@@ -53,6 +54,13 @@ async function run() {
     console.log("RESULT_JSON:" + JSON.stringify({ article_id: article.id, title: result.draft.title }));
   } catch (err: any) {
     console.error("[DRAFT] CRITICAL ERROR: " + err.message);
+    // Revert status to 'new' on failure so user can try again
+    try {
+      await db.update(contentGaps).set({ status: 'new' }).where(eq(contentGaps.id, gapId));
+      console.log("[DRAFT] Status reverted to 'new'");
+    } catch (dbErr) {
+      console.error("[DRAFT] Failed to revert status:", dbErr);
+    }
     process.exit(1);
   }
 }
