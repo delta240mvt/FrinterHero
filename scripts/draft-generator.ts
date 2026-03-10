@@ -218,7 +218,7 @@ async function callOpenRouter(model: string, prompt: string): Promise<string> {
   if (!OPENROUTER_API_KEY) throw new Error('OPENROUTER_API_KEY not configured');
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 55000); // 55s timeout
+  const timeout = setTimeout(() => controller.abort(), 180000); // 180s timeout (bulletproof)
 
   try {
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {

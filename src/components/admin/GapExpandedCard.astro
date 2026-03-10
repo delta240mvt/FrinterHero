@@ -97,7 +97,17 @@ const confidenceColor = gap.confidenceScore >= 70 ? 'var(--teal)' : gap.confiden
     <button class="btn-arch" onclick={`archiveGap(${gap.id})`}>Archive</button>
     <button class="btn-close" onclick={`closeExpanded(${gap.id})`}>&#x2715; Close</button>
   </div>
-  <div id={`gen-status-${gap.id}`} class="gen-status" style="display:none"></div>
+
+  <div id={`gen-console-${gap.id}`} class="gen-console" style="display:none">
+    <div class="console-header">
+      <span class="console-title">Draft Generation Logs</span>
+      <span class="console-status" id={`console-status-${gap.id}`}>Running...</span>
+    </div>
+    <div class="console-body" id={`console-body-${gap.id}`}></div>
+    <div class="console-footer" id={`console-footer-${gap.id}`} style="display:none">
+       <a id={`console-link-${gap.id}`} href="#" class="btn-edit-article">Edit Generated Article →</a>
+    </div>
+  </div>
 </div>
 
 <style>
@@ -134,5 +144,14 @@ const confidenceColor = gap.confidenceScore >= 70 ? 'var(--teal)' : gap.confiden
   .btn-snooze { padding: 0.5rem 0.875rem; background: none; border: 1px solid var(--border); color: var(--text-secondary); border-radius: 0.375rem; font-family: var(--font-mono); font-size: var(--text-xs); cursor: pointer; }
   .btn-arch { padding: 0.5rem 0.875rem; background: none; border: 1px solid rgba(239,68,68,0.2); color: rgba(239,68,68,0.7); border-radius: 0.375rem; font-family: var(--font-mono); font-size: var(--text-xs); cursor: pointer; }
   .btn-close { padding: 0.5rem 0.875rem; background: none; border: 1px solid var(--border); color: var(--text-muted); border-radius: 0.375rem; font-family: var(--font-mono); font-size: var(--text-xs); cursor: pointer; margin-left: auto; }
-  .gen-status { padding: 0.75rem 1.5rem; font-family: var(--font-mono); font-size: var(--text-xs); }
+  
+  .gen-console { margin: 0 1.5rem 1.5rem; background: #000; border: 1px solid var(--border); border-radius: 0.5rem; overflow: hidden; display: flex; flex-direction: column; }
+  .console-header { padding: 0.5rem 1rem; background: #111; border-bottom: 1px solid #222; display: flex; justify-content: space-between; align-items: center; }
+  .console-title { font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; }
+  .console-status { font-family: var(--font-mono); font-size: 0.65rem; color: var(--teal); }
+  .console-body { padding: 0.75rem 1rem; font-family: var(--font-mono); font-size: 0.7rem; color: #a1a1aa; max-height: 200px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.25rem; line-height: 1.4; }
+  .console-line { white-space: pre-wrap; word-break: break-all; }
+  .console-line--ts { color: #52525b; margin-right: 0.5rem; }
+  .console-footer { padding: 0.75rem 1rem; background: #111; border-top: 1px solid #222; text-align: center; }
+  .btn-edit-article { display: inline-block; padding: 0.5rem 1rem; background: var(--teal); color: #fff; border-radius: 0.25rem; font-family: var(--font-mono); font-size: var(--text-xs); text-decoration: none; font-weight: 600; }
 </style>

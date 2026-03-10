@@ -219,7 +219,6 @@ export async function detectGaps(
         gapTitle,
         gapDescription: description,
         confidenceScore: score,
-        suggestedAngle,
         relatedQueries: queries,
         sourceModels: models,
         geoRunId,

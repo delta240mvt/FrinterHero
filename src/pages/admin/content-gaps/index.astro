@@ -275,119 +275,110 @@ function lastRunLabel(d: any) {
   </main>
 </div>
 
-<!-- DRAFT GENERATION MODAL -->
-<div id="gen-modal" class="modal-backdrop" style="display:none" role="dialog" aria-modal="true">
-  <div class="modal-box">
-    <div class="modal-spinner" id="modal-spinner"></div>
-    <h3 class="modal-title" id="modal-title">Generating draft…</h3>
-    <p class="modal-desc"  id="modal-desc">This may take up to 60 seconds. Please wait.</p>
-    <div id="modal-result" style="display:none">
-      <a id="modal-link" href="#" class="btn-modal-cta">Open in editor →</a>
-    </div>
-  </div>
-</div>
-
-<script define:vars={{ countdownMin }}>
-  // Countdown timer
-  let remaining = countdownMin * 60;
-  const el = document.getElementById('countdown-display');
-  if (el && remaining > 0) {
-    setInterval(() => {
-      remaining = Math.max(0, remaining - 60);
-      const h = Math.floor(remaining / 3600);
-      const m = Math.floor((remaining % 3600) / 60);
-      el.textContent = remaining > 0 ? `in ${h}h ${m}m` : 'Soon…';
-    }, 60000);
-  }
-
-  // Gap interaction functions
-  function expandGap(gapId) {
-    const container = document.getElementById(`expanded-container-${gapId}`);
-    if (!container) return;
-    const isOpen = container.style.display !== 'none';
-    container.style.display = isOpen ? 'none' : 'block';
-  }
-
-  async function archiveGap(gapId) {
-    if (!confirm('Archive this gap?')) return;
-    const res = await fetch(`/api/content-gaps/${gapId}/archive`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}),
-    });
-    if (res.ok) {
-      const entry = document.getElementById(`entry-${gapId}`);
-      if (entry) { entry.style.opacity = '0.4'; entry.style.pointerEvents = 'none'; }
-    }
-  }
-
-  async function snoozeGap(gapId) {
-    const res = await fetch(`/api/content-gaps/${gapId}/acknowledge`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'snooze' }),
-    });
-    if (res.ok) {
-      const entry = document.getElementById(`entry-${gapId}`);
-      if (entry) { entry.style.display = 'none'; }
-    }
-  }
-
-  function approveGap(gapId) {
-    const container = document.getElementById(`expanded-container-${gapId}`);
-    if (container) container.style.display = 'block';
-    document.getElementById(`notes-${gapId}`)?.focus();
-  }
-
-  function closeExpanded(gapId) {
-    const container = document.getElementById(`expanded-container-${gapId}`);
-    if (container) container.style.display = 'none';
-  }
-
   async function generateDraft(gapId) {
     const notes      = document.getElementById(`notes-${gapId}`)?.value || '';
     const modelInput = document.querySelector(`input[name="model-${gapId}"]:checked`);
     const model      = modelInput?.value || 'anthropic/claude-sonnet-4-6';
     const btn        = document.getElementById(`gen-btn-${gapId}`);
+    const consoleEl  = document.getElementById(`gen-console-${gapId}`);
+    const bodyEl     = document.getElementById(`console-body-${gapId}`);
+    const statusEl   = document.getElementById(`console-status-${gapId}`);
 
-    await fetch(`/api/content-gaps/${gapId}/acknowledge`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'generate_draft', author_notes: notes, selected_models: [model] }),
-    });
+    if (btn) btn.disabled = true;
+    if (consoleEl) consoleEl.style.display = 'flex';
+    if (bodyEl) bodyEl.innerHTML = '<div class="console-line">Starting background process...</div>';
+    if (statusEl) statusEl.textContent = 'Initializing...';
 
-    const modal      = document.getElementById('gen-modal');
-    const spinner    = document.getElementById('modal-spinner');
-    const modalTitle = document.getElementById('modal-title');
-    const modalDesc  = document.getElementById('modal-desc');
-    const modalResult= document.getElementById('modal-result');
-    const modalLink  = document.getElementById('modal-link');
+    try {
+      const res = await fetch('/api/generate-draft', {
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gap_id: gapId, author_notes: notes, model }),
+      });
 
-    modal.style.display = 'flex';
-    if (btn) { btn.textContent = 'Generating…'; btn.disabled = true; }
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to start');
+      }
 
-    const res = await fetch('/api/generate-draft', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ gap_id: gapId, author_notes: notes, model }),
-    });
-
-    if (res.ok) {
-      const data = await res.json();
-      if (spinner) spinner.style.display = 'none';
-      modalTitle.textContent     = '✓ Draft generated!';
-      modalDesc.textContent      = `"${data.title}" — ${data.reading_time || '?'} min read`;
-      modalLink.href             = `/admin/article/${data.article_id}`;
-      modalResult.style.display  = 'block';
-    } else {
-      const err = await res.json();
-      if (spinner) spinner.style.display = 'none';
-      modalTitle.textContent = '✗ Generation failed';
-      modalDesc.textContent  = err.error || 'Unknown error. Please try again.';
-      if (btn) { btn.textContent = 'Try again'; btn.disabled = false; }
+      // Start polling
+      startPolling(gapId);
+    } catch (err) {
+      if (bodyEl) bodyEl.innerHTML += `<div class="console-line" style="color:#ef4444">Error: ${err.message}</div>`;
+      if (statusEl) { statusEl.textContent = 'Error'; statusEl.style.color = '#ef4444'; }
+      if (btn) btn.disabled = false;
     }
-
-    modal.addEventListener('click', (e) => {
-      if (e.target === modal) modal.style.display = 'none';
-    });
   }
 
-  // Expose globally (used by GapCard / GapExpandedCard components)
+  const pollIntervals = {};
+
+  function startPolling(gapId) {
+    if (pollIntervals[gapId]) clearInterval(pollIntervals[gapId]);
+
+    pollIntervals[gapId] = setInterval(async () => {
+      try {
+        const res = await fetch('/api/generate-draft');
+        if (!res.ok) return;
+        
+        const data = await res.json();
+        const consoleEl = document.getElementById(`gen-console-${gapId}`);
+        const bodyEl    = document.getElementById(`console-body-${gapId}`);
+        const statusEl  = document.getElementById(`console-status-${gapId}`);
+        const footerEl  = document.getElementById(`console-footer-${gapId}`);
+        const linkEl    = document.getElementById(`console-link-${gapId}`);
+        const btn       = document.getElementById(`gen-btn-${gapId}`);
+
+        if (data.gapId !== gapId && data.status !== 'idle') {
+           // Another job is running, but not for this gap
+           return;
+        }
+
+        if (statusEl) statusEl.textContent = data.status.toUpperCase();
+        
+        if (bodyEl && data.lines) {
+          bodyEl.innerHTML = data.lines.map(l => {
+            const time = new Date(l.ts).toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            return `<div class="console-line"><span class="console-line--ts">[${time}]</span>${l.line}</div>`;
+          }).join('');
+          bodyEl.scrollTop = bodyEl.scrollHeight;
+        }
+
+        if (data.status === 'done' || data.status === 'error') {
+          clearInterval(pollIntervals[gapId]);
+          delete pollIntervals[gapId];
+          
+          if (data.status === 'done' && data.result) {
+            if (footerEl) footerEl.style.display = 'block';
+            if (linkEl) linkEl.href = `/admin/article/${data.result.article_id}`;
+            if (statusEl) statusEl.style.color = 'var(--teal)';
+          } else {
+            if (statusEl) { statusEl.textContent = 'FAILED'; statusEl.style.color = '#ef4444'; }
+            if (btn) btn.disabled = false;
+          }
+        }
+      } catch (e) {}
+    }, 2000);
+  }
+
+  // Check for running jobs on mount
+  async function checkActiveJob() {
+    try {
+      const res = await fetch('/api/generate-draft');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.status === 'running' && data.gapId) {
+          const consoleEl = document.getElementById(`gen-console-${data.gapId}`);
+          if (consoleEl) {
+            consoleEl.style.display = 'flex';
+            startPolling(data.gapId);
+          }
+        }
+      }
+    } catch {}
+  }
+  checkActiveJob();
+
+  // Expose globally
   window.expandGap     = expandGap;
   window.archiveGap    = archiveGap;
   window.snoozeGap     = snoozeGap;
@@ -395,7 +386,7 @@ function lastRunLabel(d: any) {
   window.closeExpanded = closeExpanded;
   window.generateDraft = generateDraft;
 
-  // Auto-refresh count every 30s
+  // Auto-refresh stats counts
   setInterval(async () => {
     try {
       const u   = new URL(window.location.href);
