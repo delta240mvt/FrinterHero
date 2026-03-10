@@ -101,7 +101,7 @@ It should resemble the final article but highly condensed. Include:
 3. 2-3 H2 headers with a 1-sentence description of what will be written there.
 Do NOT write the whole article. Be concise. Write in the primary language of the query.`;
 
-        const shortProposal = await queryOpenAI(prompt);
+        const shortProposal = await queryClaude(prompt);
 
         await db.update(contentGaps)
           .set({ suggestedAngle: shortProposal })
