@@ -4,3 +4,4 @@ dist/
 !.env.example
 .astro/
 .DS_Store
+.claude/
