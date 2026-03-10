@@ -1,162 +1,287 @@
 ---
 import Base from '@/components/layouts/Base.astro';
 import { db } from '@/db/client';
-import { articles, geoRuns } from '@/db/schema';
-import { desc, eq, count } from 'drizzle-orm';
+import { articles, geoRuns, contentGaps, knowledgeEntries } from '@/db/schema';
+import { desc, eq, count, sql } from 'drizzle-orm';
 
 let allArticles: any[] = [];
-let recentRuns: any[] = [];
+let recentRuns: any[]  = [];
 let stats = { draft: 0, published: 0, archived: 0 };
+let gapStats = { new: 0, in_progress: 0 };
+let kbTotal  = 0;
+let total    = 0;
 
-const page = parseInt(Astro.url.searchParams.get('page') || '1');
-const search = Astro.url.searchParams.get('search') || '';
+const page         = parseInt(Astro.url.searchParams.get('page') || '1');
+const search       = Astro.url.searchParams.get('search') || '';
 const statusFilter = Astro.url.searchParams.get('status') || '';
-const LIMIT = 20;
+const LIMIT        = 25;
 
 try {
   const { like, and } = await import('drizzle-orm');
   let query = db.select().from(articles).$dynamic();
 
-  const conditions = [];
+  const conditions: any[] = [];
   if (statusFilter) conditions.push(eq(articles.status, statusFilter as any));
-  if (search) conditions.push(like(articles.title, `%${search}%`));
-
+  if (search)       conditions.push(like(articles.title, `%${search}%`));
   if (conditions.length === 1) query = query.where(conditions[0]);
   else if (conditions.length > 1) query = query.where(and(...conditions));
 
-  allArticles = await query.orderBy(desc(articles.createdAt)).limit(LIMIT).offset((page - 1) * LIMIT);
+  const [
+    rows,
+    draftCount, pubCount, archCount, totalCount,
+    gapNew, gapProg,
+    kbCount,
+    runs,
+  ] = await Promise.all([
+    query.orderBy(desc(articles.createdAt)).limit(LIMIT).offset((page - 1) * LIMIT),
+    db.select({ c: count() }).from(articles).where(eq(articles.status, 'draft')),
+    db.select({ c: count() }).from(articles).where(eq(articles.status, 'published')),
+    db.select({ c: count() }).from(articles).where(eq(articles.status, 'archived')),
+    db.select({ c: count() }).from(articles),
+    db.select({ c: count() }).from(contentGaps).where(eq(contentGaps.status, 'new')),
+    db.select({ c: count() }).from(contentGaps).where(eq(contentGaps.status, 'in_progress')),
+    db.select({ c: count() }).from(knowledgeEntries),
+    db.select().from(geoRuns).orderBy(desc(geoRuns.runAt)).limit(8),
+  ]);
 
-  const [draftCount] = await db.select({ c: count() }).from(articles).where(eq(articles.status, 'draft'));
-  const [pubCount] = await db.select({ c: count() }).from(articles).where(eq(articles.status, 'published'));
-  const [archCount] = await db.select({ c: count() }).from(articles).where(eq(articles.status, 'archived'));
-  stats = { draft: draftCount.c, published: pubCount.c, archived: archCount.c };
-
-  recentRuns = await db.select().from(geoRuns).orderBy(desc(geoRuns.runAt)).limit(10);
+  allArticles = rows;
+  stats       = { draft: draftCount[0].c, published: pubCount[0].c, archived: archCount[0].c };
+  total       = totalCount[0].c;
+  gapStats    = { new: gapNew[0].c, in_progress: gapProg[0].c };
+  kbTotal     = kbCount[0].c;
+  recentRuns  = runs;
 } catch (e) {
   console.error('[Admin]', e);
+}
+
+const totalPages = Math.ceil(total / LIMIT);
+
+function pageUrl(p: number) {
+  const u = new URL(Astro.url.toString());
+  u.searchParams.set('page', String(p));
+  return u.pathname + u.search;
 }
 ---
 
 <Base title="Admin Dashboard — Przemysław Filipiak" description="Admin panel">
-  <div class="admin-layout">
-    <header class="admin-header">
-      <a href="/" class="admin-logo">P·F</a>
-      <h1 class="admin-title">Admin Panel</h1>
-      <a href="/api/logout" class="logout-btn">Logout</a>
-    </header>
+<div class="admin-layout">
 
-    <main class="admin-main">
-      <!-- GEO Monitor Log Panel -->
-      <div id="geo-panel" class="geo-panel" style="display:none">
-        <div class="geo-panel-header">
-          <span id="geo-status" class="geo-status-label">Initializing...</span>
-          <button id="geo-panel-close" class="geo-panel-close" style="display:none">✕ Close</button>
+  <!-- HEADER -->
+  <header class="admin-header">
+    <a href="/" class="admin-logo">P·F</a>
+    <nav class="breadcrumb">
+      <span class="bc-current">Admin Dashboard</span>
+    </nav>
+    <div class="header-actions">
+      <a href="/admin/article/new" class="btn-primary">+ Nowy artykuł</a>
+      <a href="/api/logout" class="btn-logout">Logout</a>
+    </div>
+  </header>
+
+  <main class="admin-main">
+
+    <!-- ===== STATS BANNER ===== -->
+    <section class="stats-banner" aria-label="Statystyki">
+      <div class="stat-card stat-card--published">
+        <span class="stat-number">{stats.published}</span>
+        <span class="stat-label">Opublikowane</span>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat-card stat-card--draft">
+        <span class="stat-number">{stats.draft}</span>
+        <span class="stat-label">Szkice</span>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat-card stat-card--archived">
+        <span class="stat-number">{stats.archived}</span>
+        <span class="stat-label">Archiwum</span>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat-card">
+        <span class="stat-number">{total}</span>
+        <span class="stat-label">Razem artykułów</span>
+      </div>
+    </section>
+
+    <!-- ===== HUB NAVIGATION ===== -->
+    <section class="hub-grid" aria-label="Nawigacja modułów">
+      <a href="/admin/content-gaps" class="hub-card hub-card--gaps">
+        <div class="hub-icon">🔍</div>
+        <div class="hub-body">
+          <div class="hub-title">Content Gaps</div>
+          <div class="hub-meta">
+            <span class="hub-badge hub-badge--gold">{gapStats.new} nowych</span>
+            {gapStats.in_progress > 0 && <span class="hub-badge hub-badge--teal">{gapStats.in_progress} w trakcie</span>}
+          </div>
+          <div class="hub-desc">Luki w widoczności AI — generuj artykuły z gaps</div>
         </div>
-        <div class="geo-progress-wrap">
-          <div class="geo-progress-bar-track">
-            <div id="geo-progress-bar" class="geo-progress-bar" style="width:0%"></div>
+        <span class="hub-arrow">→</span>
+      </a>
+      <a href="/admin/knowledge-base" class="hub-card hub-card--kb">
+        <div class="hub-icon">🧠</div>
+        <div class="hub-body">
+          <div class="hub-title">Knowledge Base</div>
+          <div class="hub-meta">
+            <span class="hub-badge hub-badge--violet">{kbTotal} wpisów</span>
+          </div>
+          <div class="hub-desc">Baza wiedzy — kontekst dla AI generatora artykułów</div>
+        </div>
+        <span class="hub-arrow">→</span>
+      </a>
+    </section>
+
+    <!-- ===== GEO MONITOR ===== -->
+    <section class="admin-section">
+      <div class="section-header-row">
+        <div class="section-title-block">
+          <h2 class="section-title">🛰 GEO Monitor</h2>
+          <p class="section-subtitle">Reverse RAG Loop — analiza widoczności Frintera w modelach AI</p>
+        </div>
+        <button id="run-geo-btn" class="btn-geo">Uruchom GEO Monitor</button>
+      </div>
+
+      <!-- GEO streaming panel (hidden by default) -->
+      <div id="geo-panel" class="geo-panel" style="display:none">
+        <div class="geo-panel-top">
+          <span id="geo-status" class="geo-status">Inicjalizacja...</span>
+          <button id="geo-panel-close" class="geo-close-btn" style="display:none">✕ Zamknij</button>
+        </div>
+        <div class="geo-progress-row">
+          <div class="geo-track">
+            <div id="geo-progress-bar" class="geo-bar" style="width:0%"></div>
           </div>
           <span id="geo-progress-text" class="geo-progress-text">0 / 138</span>
         </div>
         <div id="geo-log" class="geo-log"></div>
       </div>
+    </section>
 
-      <!-- Stats Bar -->
-      <div class="stats-bar">
-        <div class="stat">
-          <span class="stat-value">{stats.published}</span>
-          <span class="stat-label">Published</span>
+    <!-- ===== ARTICLES ===== -->
+    <section class="admin-section">
+      <div class="section-header-row">
+        <div class="section-title-block">
+          <h2 class="section-title">📰 Artykuły</h2>
         </div>
-        <div class="stat">
-          <span class="stat-value" style="color: var(--gold)">{stats.draft}</span>
-          <span class="stat-label">Drafts</span>
-        </div>
-        <div class="stat">
-          <span class="stat-value" style="color: var(--text-secondary)">{stats.archived}</span>
-          <span class="stat-label">Archived</span>
-        </div>
-        <button id="run-geo-btn" class="geo-btn">Run GEO Monitor</button>
-        <a href="/admin/content-gaps" class="nav-link-btn">Content Gaps</a>
-        <a href="/admin/knowledge-base" class="nav-link-btn">Knowledge Base</a>
-        <a href="/admin/article/new" class="new-article-btn">+ New Article</a>
+        <form method="GET" class="filter-row">
+          <input type="text" name="search" value={search} placeholder="Szukaj po tytule…" class="filter-input" />
+          <select name="status" class="filter-input">
+            <option value="" selected={!statusFilter}>Wszystkie statusy</option>
+            <option value="draft"     selected={statusFilter==='draft'}>Szkice</option>
+            <option value="published" selected={statusFilter==='published'}>Opublikowane</option>
+            <option value="archived"  selected={statusFilter==='archived'}>Archiwum</option>
+          </select>
+          <button type="submit" class="btn-filter">Filtruj</button>
+          {(search || statusFilter) && <a href="/admin" class="btn-ghost-sm">Wyczyść</a>}
+        </form>
       </div>
 
-      <!-- Articles Section -->
+      <!-- Bulk toolbar -->
+      <div id="bulk-toolbar" class="bulk-toolbar" style="display:none">
+        <span id="bulk-count" class="bulk-count">0 zaznaczonych</span>
+        <button id="bulk-delete-btn" class="btn-bulk-delete">Usuń zaznaczone</button>
+        <button id="bulk-cancel-btn" class="btn-bulk-cancel">Anuluj</button>
+      </div>
+
+      <div class="table-wrapper">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th class="th-check"><input type="checkbox" id="select-all" class="row-checkbox" /></th>
+              <th class="th-title">Tytuł</th>
+              <th class="th-slug">Slug</th>
+              <th class="th-status">Status</th>
+              <th class="th-date">Data</th>
+              <th class="th-actions">Akcje</th>
+            </tr>
+          </thead>
+          <tbody>
+            {allArticles.length === 0 ? (
+              <tr>
+                <td colspan="6" class="td-empty">
+                  {search || statusFilter
+                    ? <>Brak artykułów dla podanych filtrów. <a href="/admin">Wyczyść</a></>
+                    : <>Brak artykułów. <a href="/admin/article/new">Utwórz pierwszy</a></>
+                  }
+                </td>
+              </tr>
+            ) : allArticles.map(a => (
+              <tr class={`article-row article-row--${a.status}`} data-id={a.id}>
+                <td class="td-check">
+                  <input type="checkbox" class="row-checkbox article-checkbox" data-id={a.id} />
+                </td>
+                <td class="td-title">
+                  <a href={`/admin/article/${a.id}`} class="article-link">{a.title}</a>
+                  {a.featured && <span class="featured-badge">⭐</span>}
+                </td>
+                <td class="td-slug"><code class="slug-code">{a.slug}</code></td>
+                <td class="td-status">
+                  <span class={`status-badge status-badge--${a.status}`}>{a.status}</span>
+                </td>
+                <td class="td-date">
+                  {new Date(a.createdAt).toLocaleDateString('pl-PL', { day:'2-digit', month:'2-digit', year:'2-digit' })}
+                </td>
+                <td class="td-actions">
+                  <a href={`/admin/article/${a.id}`} class="action-btn action-btn--edit">✏️ Edytuj</a>
+                  {a.status !== 'published' && (
+                    <button class="action-btn action-btn--publish"
+                      data-publish-id={a.id} data-publish-title={a.title}>
+                      🚀 Publikuj
+                    </button>
+                  )}
+                  <button class="action-btn action-btn--delete"
+                    data-delete-id={a.id} data-delete-title={a.title}>
+                    🗑 Usuń
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {totalPages > 1 && (
+        <nav class="pagination">
+          {page > 1 && <a href={pageUrl(page - 1)} class="page-btn">‹ Poprzednia</a>}
+          <span class="page-info">Strona {page} z {totalPages}</span>
+          {page < totalPages && <a href={pageUrl(page + 1)} class="page-btn">Następna ›</a>}
+        </nav>
+      )}
+    </section>
+
+    <!-- ===== GEO RUNS ===== -->
+    {recentRuns.length > 0 && (
       <section class="admin-section">
-        <div class="section-toolbar">
-          <h2 class="admin-section-title">Articles</h2>
-          <form method="GET" class="search-form">
-            <input
-              type="text"
-              name="search"
-              value={search}
-              placeholder="Search titles..."
-              class="search-input"
-            />
-            <select name="status" class="filter-select">
-              <option value="" selected={!statusFilter}>All Status</option>
-              <option value="draft" selected={statusFilter === 'draft'}>Draft</option>
-              <option value="published" selected={statusFilter === 'published'}>Published</option>
-              <option value="archived" selected={statusFilter === 'archived'}>Archived</option>
-            </select>
-            <button type="submit" class="filter-btn">Filter</button>
-          </form>
+        <div class="section-header-row">
+          <div class="section-title-block">
+            <h2 class="section-title">📊 Ostatnie uruchomienia GEO</h2>
+          </div>
         </div>
-
-        <!-- Bulk action toolbar -->
-        <div id="bulk-toolbar" class="bulk-toolbar" style="display:none">
-          <span id="bulk-count" class="bulk-count">0 selected</span>
-          <button id="bulk-delete-btn" class="bulk-delete-btn">Delete selected</button>
-          <button id="bulk-cancel-btn" class="bulk-cancel-btn">Cancel</button>
-        </div>
-
         <div class="table-wrapper">
-          <table class="articles-table">
+          <table class="data-table">
             <thead>
               <tr>
-                <th class="checkbox-col"><input type="checkbox" id="select-all" class="row-checkbox" /></th>
-                <th>Title</th>
-                <th>Slug</th>
-                <th>Status</th>
-                <th>Created</th>
-                <th>Actions</th>
+                <th>Data</th>
+                <th>Zapytań</th>
+                <th>Gaps znalezionych</th>
+                <th>Propozycji wygenerowanych</th>
+                <th>Akcje</th>
               </tr>
             </thead>
             <tbody>
-              {allArticles.length === 0 ? (
+              {recentRuns.map(run => (
                 <tr>
-                  <td colspan="6" class="empty-row">No articles found.</td>
-                </tr>
-              ) : allArticles.map(article => (
-                <tr class={`article-row article-row--${article.status}`} data-id={article.id}>
-                  <td class="checkbox-col">
-                    <input type="checkbox" class="row-checkbox article-checkbox" data-id={article.id} />
+                  <td class="td-date">
+                    {new Date(run.runAt).toLocaleString('pl-PL', { day:'2-digit', month:'2-digit', year:'2-digit', hour:'2-digit', minute:'2-digit' })}
                   </td>
-                  <td class="article-title-cell">
-                    <a href={`/admin/article/${article.id}`} class="article-link">{article.title}</a>
+                  <td class="td-num">{run.queriesCount}</td>
+                  <td class="td-num">
+                    <span style={run.gapsFound > 0 ? 'color:var(--gold);font-weight:600' : ''}>{run.gapsFound}</span>
                   </td>
-                  <td class="slug-cell">
-                    <code class="slug-code">{article.slug}</code>
+                  <td class="td-num">
+                    <span style={run.draftsGenerated > 0 ? 'color:var(--teal);font-weight:600' : ''}>{run.draftsGenerated}</span>
                   </td>
-                  <td>
-                    <span class={`status-badge status-badge--${article.status}`}>{article.status}</span>
-                  </td>
-                  <td class="date-cell">
-                    {new Date(article.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                  </td>
-                  <td class="actions-cell">
-                    <a href={`/admin/article/${article.id}`} class="action-btn action-btn--edit">Edit</a>
-                    {article.status !== 'published' && (
-                      <button
-                        class="action-btn action-btn--publish"
-                        data-id={article.id}
-                        onclick={`publishArticle(${article.id})`}
-                      >Publish</button>
-                    )}
-                    <button
-                      class="action-btn action-btn--delete"
-                      onclick={`deleteArticle(${article.id}, '${article.title.replace(/'/g, "\\'")}')`}
-                    >Delete</button>
+                  <td class="td-actions">
+                    <a href={`/admin/geo/${run.id}`} class="action-btn action-btn--edit">Szczegóły</a>
                   </td>
                 </tr>
               ))}
@@ -164,79 +289,55 @@ try {
           </table>
         </div>
       </section>
+    )}
 
-      <!-- GEO Runs Section -->
-      {recentRuns.length > 0 && (
-        <section class="admin-section">
-          <h2 class="admin-section-title">GEO Monitor — Recent Runs</h2>
-          <div class="table-wrapper">
-            <table class="articles-table">
-              <thead>
-                <tr>
-                  <th>Run At</th>
-                  <th>Queries</th>
-                  <th>Gaps Found</th>
-                  <th>Proposals Generated</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recentRuns.map(run => (
-                  <tr>
-                    <td class="date-cell">{new Date(run.runAt).toLocaleString('en-US')}</td>
-                    <td>{run.queriesCount}</td>
-                    <td style={run.gapsFound > 0 ? 'color: var(--gold)' : ''}>{run.gapsFound}</td>
-                    <td style={run.draftsGenerated > 0 ? 'color: var(--teal)' : ''}>{run.draftsGenerated}</td>
-                    <td>
-                      <a href={`/admin/geo/${run.id}`} class="action-btn action-btn--edit">View Details</a>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      )}
-    </main>
+  </main>
+</div>
+
+<!-- DELETE MODAL -->
+<div id="delete-modal" class="modal-backdrop" style="display:none" role="dialog" aria-modal="true">
+  <div class="modal-box">
+    <h3 class="modal-title">Usuń artykuł</h3>
+    <p class="modal-desc">Czy na pewno chcesz usunąć:</p>
+    <p id="delete-modal-name" class="modal-item-name"></p>
+    <p class="modal-warn">Operacja nieodwracalna.</p>
+    <div class="modal-actions">
+      <button id="delete-confirm-btn" class="btn-danger">Usuń</button>
+      <button id="delete-cancel-btn"  class="btn-ghost-sm">Anuluj</button>
+    </div>
   </div>
-</Base>
+</div>
+
+<!-- PUBLISH MODAL -->
+<div id="publish-modal" class="modal-backdrop" style="display:none" role="dialog" aria-modal="true">
+  <div class="modal-box">
+    <h3 class="modal-title">Opublikuj artykuł</h3>
+    <p class="modal-desc">Czy opublikować artykuł:</p>
+    <p id="publish-modal-name" class="modal-item-name"></p>
+    <div class="modal-actions">
+      <button id="publish-confirm-btn" class="btn-publish">🚀 Publikuj</button>
+      <button id="publish-cancel-btn"  class="btn-ghost-sm">Anuluj</button>
+    </div>
+  </div>
+</div>
 
 <script>
-  async function publishArticle(id: number) {
-    if (!confirm('Publish this article?')) return;
-    const res = await fetch(`/api/articles/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: 'published' }),
-    });
-    if (res.ok) window.location.reload();
-    else alert('Failed to publish article');
-  }
-
-  async function deleteArticle(id: number, title: string) {
-    if (!confirm(`Delete "${title}"? This cannot be undone.`)) return;
-    const res = await fetch(`/api/articles/${id}`, { method: 'DELETE' });
-    if (res.ok) window.location.reload();
-    else alert('Failed to delete article');
-  }
-
   const TOTAL_STEPS = 138;
 
-  const geoBtn = document.getElementById('run-geo-btn') as HTMLButtonElement;
-  const geoPanel = document.getElementById('geo-panel') as HTMLElement;
-  const geoLog = document.getElementById('geo-log') as HTMLElement;
-  const geoStatus = document.getElementById('geo-status') as HTMLElement;
-  const geoProgressBar = document.getElementById('geo-progress-bar') as HTMLElement;
-  const geoProgressText = document.getElementById('geo-progress-text') as HTMLElement;
-  const geoPanelClose = document.getElementById('geo-panel-close') as HTMLElement;
+  // ─── GEO Monitor ───────────────────────────────────────────
+  const geoBtn      = document.getElementById('run-geo-btn')       as HTMLButtonElement;
+  const geoPanel    = document.getElementById('geo-panel')         as HTMLElement;
+  const geoLog      = document.getElementById('geo-log')           as HTMLElement;
+  const geoStatus   = document.getElementById('geo-status')        as HTMLElement;
+  const geoBar      = document.getElementById('geo-progress-bar')  as HTMLElement;
+  const geoBarText  = document.getElementById('geo-progress-text') as HTMLElement;
+  const geoClose    = document.getElementById('geo-panel-close')   as HTMLElement;
 
-  geoPanelClose?.addEventListener('click', () => {
-    geoPanel.style.display = 'none';
-  });
+  geoClose?.addEventListener('click', () => { geoPanel.style.display = 'none'; });
 
-  function classifyLine(line: string): 'success' | 'gap' | 'error' | 'info' | 'draft' | 'done' {
-    if (line.includes('✓ Mention found')) return 'success';
-    if (line.includes('Gap detected')) return 'gap';
+  function classifyLine(line: string): string {
+    if (line.includes('✓ Mention found'))  return 'success';
+    if (line.includes('Gap detected'))     return 'gap';
     if (line.includes('Error') || line.includes('Failed') || line.includes('error')) return 'error';
     if (line.includes('Proposal created')) return 'draft';
     if (line.includes('Run complete') || line.includes('Proposals generated')) return 'done';
@@ -244,46 +345,37 @@ try {
   }
 
   function appendLog(line: string) {
-    const type = classifyLine(line);
-    const el = document.createElement('div');
+    const type  = classifyLine(line);
+    const el    = document.createElement('div');
     el.className = `geo-log-line geo-log-line--${type}`;
-
-    // Strip [GEO] prefix for cleaner display
-    const clean = line.replace(/^\[GEO\]\s*/, '').replace(/^\[DraftGen\]\s*/, '');
-    el.textContent = clean;
+    el.textContent = line.replace(/^\[GEO\]\s*/, '').replace(/^\[DraftGen\]\s*/, '');
     geoLog.appendChild(el);
     geoLog.scrollTop = geoLog.scrollHeight;
   }
 
   geoBtn?.addEventListener('click', async () => {
-    if (!confirm('Run GEO Monitor now? This will take several minutes.')) return;
-
-    // Reset panel
-    geoLog.innerHTML = '';
-    geoProgressBar.style.width = '0%';
-    geoProgressText.textContent = `0 / ${TOTAL_STEPS}`;
-    geoStatus.textContent = 'Connecting...';
-    geoStatus.className = 'geo-status-label geo-status-label--running';
-    geoPanelClose.style.display = 'none';
+    if (!confirm('Uruchomić GEO Monitor? Zajmie kilka minut.')) return;
+    geoLog.innerHTML     = '';
+    geoBar.style.width   = '0%';
+    geoBarText.textContent = `0 / ${TOTAL_STEPS}`;
+    geoStatus.textContent  = 'Łączenie...';
+    geoStatus.className    = 'geo-status geo-status--running';
+    geoClose.style.display = 'none';
     geoPanel.style.display = 'block';
-    geoBtn.textContent = 'Running...';
-    geoBtn.disabled = true;
+    geoBtn.textContent     = 'Działa...';
+    geoBtn.disabled        = true;
 
     let queryCount = 0;
-    let phase: 'querying' | 'analysis' | 'drafts' | 'done' = 'querying';
-
     try {
       const res = await fetch('/api/run-geo', { method: 'POST' });
       if (!res.body) throw new Error('No stream body');
-
-      const reader = res.body.getReader();
+      const reader  = res.body.getReader();
       const decoder = new TextDecoder();
       let buf = '';
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-
         buf += decoder.decode(value, { stream: true });
         const parts = buf.split('\n\n');
         buf = parts.pop() ?? '';
@@ -291,101 +383,148 @@ try {
         for (const part of parts) {
           const dataLine = part.split('\n').find(l => l.startsWith('data: '));
           if (!dataLine) continue;
-
           let payload: any;
           try { payload = JSON.parse(dataLine.slice(6)); } catch { continue; }
 
           if (payload.line) {
             const line: string = payload.line;
             appendLog(line);
-
-            // Track querying progress
             if (line.includes('[GEO] Querying')) {
               queryCount++;
               const pct = Math.min(100, Math.round((queryCount / TOTAL_STEPS) * 90));
-              geoProgressBar.style.width = `${pct}%`;
-              geoProgressText.textContent = `${queryCount} / ${TOTAL_STEPS}`;
-              geoStatus.textContent = `Querying models... (${queryCount}/${TOTAL_STEPS})`;
-              phase = 'querying';
+              geoBar.style.width     = `${pct}%`;
+              geoBarText.textContent = `${queryCount} / ${TOTAL_STEPS}`;
+              geoStatus.textContent  = `Odpytywanie modeli… (${queryCount}/${TOTAL_STEPS})`;
             } else if (line.includes('Running gap analysis')) {
-              phase = 'analysis';
-              geoProgressBar.style.width = '92%';
-              geoStatus.textContent = 'Running gap analysis...';
+              geoBar.style.width    = '92%';
+              geoStatus.textContent = 'Analiza luk…';
             } else if (line.includes('Generating proposals')) {
-              phase = 'drafts';
-              geoProgressBar.style.width = '95%';
-              geoStatus.textContent = 'Generating top proposals...';
-            } else if (line.includes('Run complete')) {
-              phase = 'done';
+              geoBar.style.width    = '95%';
+              geoStatus.textContent = 'Generowanie propozycji…';
             }
           }
 
           if (payload.done) {
-            geoProgressBar.style.width = '100%';
-            geoProgressText.textContent = `Done`;
-            geoStatus.textContent = payload.code === 0 ? 'Completed successfully' : `Finished with code ${payload.code}`;
-            geoStatus.className = `geo-status-label geo-status-label--${payload.code === 0 ? 'done' : 'error'}`;
-            geoPanelClose.style.display = 'inline-block';
-            geoBtn.textContent = 'Run GEO Monitor';
-            geoBtn.disabled = false;
+            geoBar.style.width     = '100%';
+            geoBarText.textContent = 'Gotowe';
+            geoStatus.textContent  = payload.code === 0 ? 'Zakończono pomyślnie' : `Zakończono z kodem ${payload.code}`;
+            geoStatus.className    = `geo-status geo-status--${payload.code === 0 ? 'done' : 'error'}`;
+            geoClose.style.display = 'inline-block';
+            geoBtn.textContent     = 'Uruchom GEO Monitor';
+            geoBtn.disabled        = false;
           }
 
           if (payload.error) {
             appendLog(`ERROR: ${payload.error}`);
-            geoStatus.textContent = 'Error occurred';
-            geoStatus.className = 'geo-status-label geo-status-label--error';
-            geoPanelClose.style.display = 'inline-block';
-            geoBtn.textContent = 'Run GEO Monitor';
-            geoBtn.disabled = false;
+            geoStatus.textContent  = 'Wystąpił błąd';
+            geoStatus.className    = 'geo-status geo-status--error';
+            geoClose.style.display = 'inline-block';
+            geoBtn.textContent     = 'Uruchom GEO Monitor';
+            geoBtn.disabled        = false;
           }
         }
       }
     } catch (e: any) {
-      geoStatus.textContent = `Network error: ${e.message}`;
-      geoStatus.className = 'geo-status-label geo-status-label--error';
-      geoPanelClose.style.display = 'inline-block';
-      geoBtn.textContent = 'Run GEO Monitor';
-      geoBtn.disabled = false;
+      geoStatus.textContent  = `Błąd sieci: ${e.message}`;
+      geoStatus.className    = 'geo-status geo-status--error';
+      geoClose.style.display = 'inline-block';
+      geoBtn.textContent     = 'Uruchom GEO Monitor';
+      geoBtn.disabled        = false;
     }
   });
 
-  (window as any).publishArticle = publishArticle;
-  (window as any).deleteArticle = deleteArticle;
+  // ─── Delete Modal ──────────────────────────────────────────
+  let pendingDeleteId: number | null = null;
+  const deleteModal   = document.getElementById('delete-modal')!;
+  const deleteConfirm = document.getElementById('delete-confirm-btn')!;
+  const deleteCancel  = document.getElementById('delete-cancel-btn')!;
+  const deleteNameEl  = document.getElementById('delete-modal-name')!;
 
-  // --- Multi-select & bulk delete ---
-  const selectAll = document.getElementById('select-all') as HTMLInputElement;
-  const bulkToolbar = document.getElementById('bulk-toolbar') as HTMLElement;
-  const bulkCount = document.getElementById('bulk-count') as HTMLElement;
-  const bulkDeleteBtn = document.getElementById('bulk-delete-btn') as HTMLButtonElement;
-  const bulkCancelBtn = document.getElementById('bulk-cancel-btn') as HTMLButtonElement;
+  document.addEventListener('click', (e) => {
+    const btn = (e.target as HTMLElement).closest('[data-delete-id]') as HTMLElement | null;
+    if (btn) {
+      pendingDeleteId      = parseInt(btn.dataset.deleteId || '0');
+      deleteNameEl.textContent = `"${btn.dataset.deleteTitle || ''}"`;
+      deleteModal.style.display = 'flex';
+    }
+  });
+  deleteCancel.addEventListener('click', () => { deleteModal.style.display = 'none'; pendingDeleteId = null; });
+  deleteConfirm.addEventListener('click', async () => {
+    if (!pendingDeleteId) return;
+    deleteConfirm.textContent = 'Usuwam…';
+    deleteConfirm.setAttribute('disabled', 'true');
+    const res = await fetch(`/api/articles/${pendingDeleteId}`, { method: 'DELETE' });
+    if (res.ok) window.location.reload();
+    else { alert('Błąd usuwania'); deleteConfirm.textContent = 'Usuń'; deleteConfirm.removeAttribute('disabled'); }
+  });
+
+  // ─── Publish Modal ─────────────────────────────────────────
+  let pendingPublishId: number | null = null;
+  const publishModal   = document.getElementById('publish-modal')!;
+  const publishConfirm = document.getElementById('publish-confirm-btn')!;
+  const publishCancel  = document.getElementById('publish-cancel-btn')!;
+  const publishNameEl  = document.getElementById('publish-modal-name')!;
+
+  document.addEventListener('click', (e) => {
+    const btn = (e.target as HTMLElement).closest('[data-publish-id]') as HTMLElement | null;
+    if (btn) {
+      pendingPublishId      = parseInt(btn.dataset.publishId || '0');
+      publishNameEl.textContent = `"${btn.dataset.publishTitle || ''}"`;
+      publishModal.style.display = 'flex';
+    }
+  });
+  publishCancel.addEventListener('click', () => { publishModal.style.display = 'none'; pendingPublishId = null; });
+  publishConfirm.addEventListener('click', async () => {
+    if (!pendingPublishId) return;
+    publishConfirm.textContent = 'Publikuję…';
+    publishConfirm.setAttribute('disabled', 'true');
+    const res = await fetch(`/api/articles/${pendingPublishId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'published' }),
+    });
+    if (res.ok) window.location.reload();
+    else { alert('Błąd publikacji'); publishConfirm.textContent = '🚀 Publikuj'; publishConfirm.removeAttribute('disabled'); }
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      deleteModal.style.display  = 'none';
+      publishModal.style.display = 'none';
+    }
+  });
+
+  // ─── Multi-select & bulk delete ───────────────────────────
+  const selectAll    = document.getElementById('select-all')    as HTMLInputElement;
+  const bulkToolbar  = document.getElementById('bulk-toolbar')  as HTMLElement;
+  const bulkCount    = document.getElementById('bulk-count')    as HTMLElement;
+  const bulkDeleteBtn= document.getElementById('bulk-delete-btn') as HTMLButtonElement;
+  const bulkCancelBtn= document.getElementById('bulk-cancel-btn') as HTMLButtonElement;
 
   function getChecked(): number[] {
     return [...document.querySelectorAll<HTMLInputElement>('.article-checkbox:checked')]
-      .map(cb => parseInt(cb.dataset.id || '0'))
-      .filter(Boolean);
+      .map(cb => parseInt(cb.dataset.id || '0')).filter(Boolean);
   }
 
   function updateToolbar() {
     const ids = getChecked();
     if (ids.length > 0) {
       bulkToolbar.style.display = 'flex';
-      bulkCount.textContent = `${ids.length} selected`;
+      bulkCount.textContent = `${ids.length} zaznaczon${ids.length === 1 ? 'y' : 'ych'}`;
     } else {
       bulkToolbar.style.display = 'none';
     }
   }
 
   selectAll?.addEventListener('change', () => {
-    document.querySelectorAll<HTMLInputElement>('.article-checkbox').forEach(cb => {
-      cb.checked = selectAll.checked;
-    });
+    document.querySelectorAll<HTMLInputElement>('.article-checkbox').forEach(cb => { cb.checked = selectAll.checked; });
     updateToolbar();
   });
 
   document.querySelectorAll<HTMLInputElement>('.article-checkbox').forEach(cb => {
     cb.addEventListener('change', () => {
       const all = document.querySelectorAll<HTMLInputElement>('.article-checkbox');
-      selectAll.checked = [...all].every(c => c.checked);
+      selectAll.checked       = [...all].every(c => c.checked);
       selectAll.indeterminate = !selectAll.checked && [...all].some(c => c.checked);
       updateToolbar();
     });
@@ -401,9 +540,9 @@ try {
 
   bulkDeleteBtn?.addEventListener('click', async () => {
     const ids = getChecked();
-    if (!confirm(`Delete ${ids.length} article(s)? This cannot be undone.`)) return;
-    bulkDeleteBtn.disabled = true;
-    bulkDeleteBtn.textContent = 'Deleting...';
+    if (!confirm(`Usunąć ${ids.length} artykuł(y)? Nieodwracalne.`)) return;
+    bulkDeleteBtn.disabled    = true;
+    bulkDeleteBtn.textContent = 'Usuwam…';
     const res = await fetch('/api/articles/bulk-delete', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -411,308 +550,234 @@ try {
     });
     if (res.ok) window.location.reload();
     else {
-      alert('Failed to delete articles');
-      bulkDeleteBtn.disabled = false;
-      bulkDeleteBtn.textContent = 'Delete selected';
+      alert('Błąd usuwania');
+      bulkDeleteBtn.disabled    = false;
+      bulkDeleteBtn.textContent = 'Usuń zaznaczone';
     }
   });
 </script>
 
 <style>
-  .admin-layout { min-height: 100vh; background: var(--bg-base); }
-  .admin-header {
-    display: flex;
-    align-items: center;
-    gap: 1.5rem;
-    padding: 0.875rem 1.5rem;
-    background: var(--bg-elevated);
-    border-bottom: 1px solid var(--border);
-    position: sticky;
-    top: 0;
-    z-index: 10;
-  }
-  .admin-logo { font-family: var(--font-mono); font-weight: 700; color: var(--teal); text-decoration: none; font-size: 1.1rem; }
-  .admin-title { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--text-secondary); flex: 1; }
-  .logout-btn {
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    color: var(--text-muted);
-    text-decoration: none;
-    padding: 0.35rem 0.75rem;
-    border: 1px solid var(--border);
-    border-radius: 0.25rem;
-    transition: all 0.15s;
-  }
-  .logout-btn:hover { color: var(--text-primary); border-color: var(--border-hover); }
-  .admin-main { max-width: 1200px; margin: 0 auto; padding: 2rem 1.5rem; }
-  .stats-bar {
-    display: flex;
-    align-items: center;
-    gap: 2rem;
-    margin-bottom: 2rem;
-    padding: 1.25rem 1.5rem;
-    background: var(--bg-surface);
-    border-radius: 0.5rem;
-    border: 1px solid var(--border);
-  }
-  .stat { text-align: center; }
-  .stat-value { display: block; font-family: var(--font-mono); font-size: 1.5rem; font-weight: 700; color: var(--teal); }
-  .stat-label { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; }
-  .new-article-btn {
-    margin-left: auto;
-    padding: 0.6rem 1.25rem;
-    background: var(--teal);
-    color: #fff;
-    border-radius: 0.375rem;
-    font-family: var(--font-mono);
-    font-size: var(--text-sm);
-    text-decoration: none;
-    transition: opacity 0.15s;
-  }
-  .new-article-btn:hover { opacity: 0.9; }
-  .geo-btn {
-    padding: 0.6rem 1.25rem;
-    background: transparent;
-    color: var(--gold);
-    border: 1px solid var(--gold);
-    border-radius: 0.375rem;
-    font-family: var(--font-mono);
-    font-size: var(--text-sm);
-    cursor: pointer;
-    transition: all 0.15s;
-  }
-  .geo-btn:hover { background: rgba(214,183,121,0.1); }
-  .geo-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-  .nav-link-btn {
-    padding: 0.6rem 1.25rem;
-    background: transparent;
-    color: var(--text-primary);
-    border: 1px solid var(--border-hover);
-    border-radius: 0.375rem;
-    font-family: var(--font-mono);
-    font-size: var(--text-sm);
-    text-decoration: none;
-    transition: all 0.15s;
-  }
-  .nav-link-btn:hover { border-color: var(--teal); color: var(--teal); }
-  .admin-section { margin-bottom: 3rem; }
-  .section-toolbar {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    margin-bottom: 1rem;
-    flex-wrap: wrap;
-  }
-  .admin-section-title {
-    font-family: var(--font-mono);
-    font-size: var(--text-base);
-    color: var(--teal);
-    flex-shrink: 0;
-  }
-  .search-form { display: flex; gap: 0.5rem; flex-wrap: wrap; flex: 1; justify-content: flex-end; }
-  .search-input, .filter-select {
-    padding: 0.4rem 0.7rem;
-    background: var(--bg-elevated);
-    border: 1px solid var(--border);
-    border-radius: 0.25rem;
-    color: var(--text-primary);
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    outline: none;
-  }
-  .search-input { min-width: 160px; }
-  .filter-btn {
-    padding: 0.4rem 0.8rem;
-    background: var(--bg-surface);
-    border: 1px solid var(--border);
-    border-radius: 0.25rem;
-    color: var(--text-secondary);
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    cursor: pointer;
-    transition: all 0.15s;
-  }
-  .filter-btn:hover { border-color: var(--teal); color: var(--teal); }
-  .table-wrapper { overflow-x: auto; border: 1px solid var(--border); border-radius: 0.5rem; }
-  .articles-table { width: 100%; border-collapse: collapse; }
-  .articles-table th {
-    padding: 0.7rem 1rem;
-    background: var(--bg-elevated);
-    text-align: left;
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    border-bottom: 1px solid var(--border);
-  }
-  .articles-table td {
-    padding: 0.7rem 1rem;
-    border-bottom: 1px solid var(--border);
-    font-size: var(--text-sm);
-    vertical-align: middle;
-  }
-  .articles-table tr:last-child td { border-bottom: none; }
-  .articles-table tr:hover td { background: rgba(255,255,255,0.02); }
-  .article-link { color: var(--text-primary); text-decoration: none; font-weight: 500; }
-  .article-link:hover { color: var(--teal); }
-  .slug-code { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); }
-  .status-badge {
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    padding: 0.2rem 0.5rem;
-    border-radius: 9999px;
-  }
-  .status-badge--published { background: rgba(74,141,131,0.15); color: var(--teal); }
-  .status-badge--draft { background: rgba(214,183,121,0.15); color: var(--gold); }
-  .status-badge--archived { background: rgba(71,85,105,0.3); color: var(--text-muted); }
-  .date-cell { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); white-space: nowrap; }
-  .actions-cell { white-space: nowrap; }
-  .action-btn {
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    padding: 0.25rem 0.6rem;
-    border-radius: 0.25rem;
-    border: 1px solid var(--border);
-    background: none;
-    cursor: pointer;
-    text-decoration: none;
-    transition: all 0.15s;
-    margin-right: 0.4rem;
-    color: var(--text-secondary);
-    display: inline-block;
-  }
-  .action-btn--edit:hover { border-color: var(--teal); color: var(--teal); }
-  .action-btn--publish:hover { border-color: var(--gold); color: var(--gold); }
-  .action-btn--delete:hover { border-color: #ef4444; color: #ef4444; }
-  .empty-row { text-align: center; color: var(--text-muted); font-family: var(--font-mono); font-size: var(--text-sm); padding: 2rem; }
-  .checkbox-col { width: 2.5rem; text-align: center; }
-  .row-checkbox { accent-color: var(--teal); width: 1rem; height: 1rem; cursor: pointer; }
-  .article-row.selected td { background: rgba(74,141,131,0.06); }
-  .bulk-toolbar {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 0.6rem 1rem;
-    margin-bottom: 0.75rem;
-    background: rgba(74,141,131,0.08);
-    border: 1px solid rgba(74,141,131,0.25);
-    border-radius: 0.375rem;
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-  }
-  .bulk-count { color: var(--teal); font-weight: 600; }
-  .bulk-delete-btn {
-    padding: 0.3rem 0.75rem;
-    background: transparent;
-    color: #ef4444;
-    border: 1px solid #ef4444;
-    border-radius: 0.25rem;
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    cursor: pointer;
-    transition: all 0.15s;
-  }
-  .bulk-delete-btn:hover { background: rgba(239,68,68,0.1); }
-  .bulk-delete-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-  .bulk-cancel-btn {
-    padding: 0.3rem 0.75rem;
-    background: transparent;
-    color: var(--text-muted);
-    border: 1px solid var(--border);
-    border-radius: 0.25rem;
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    cursor: pointer;
-    transition: all 0.15s;
-  }
-  .bulk-cancel-btn:hover { color: var(--text-primary); border-color: var(--border-hover); }
+/* ─── LAYOUT ─────────────────────────────────────────────── */
+.admin-layout { min-height: 100vh; background: var(--bg-base); }
 
-  /* GEO Monitor Panel */
-  .geo-panel {
-    grid-column: 1 / -1;
-    width: 100%;
-    margin-top: 1rem;
-    background: var(--bg-elevated);
-    border: 1px solid rgba(214,183,121,0.3);
-    border-radius: 0.5rem;
-    overflow: hidden;
-  }
-  .geo-panel-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0.6rem 1rem;
-    background: rgba(214,183,121,0.06);
-    border-bottom: 1px solid rgba(214,183,121,0.15);
-  }
-  .geo-status-label {
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    color: var(--text-muted);
-  }
-  .geo-status-label--running { color: var(--gold); }
-  .geo-status-label--done { color: var(--teal); }
-  .geo-status-label--error { color: #ef4444; }
-  .geo-panel-close {
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    color: var(--text-muted);
-    background: none;
-    border: 1px solid var(--border);
-    border-radius: 0.25rem;
-    padding: 0.2rem 0.5rem;
-    cursor: pointer;
-    transition: all 0.15s;
-  }
-  .geo-panel-close:hover { color: var(--text-primary); border-color: var(--border-hover); }
-  .geo-progress-wrap {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 0.6rem 1rem;
-    border-bottom: 1px solid var(--border);
-  }
-  .geo-progress-bar-track {
-    flex: 1;
-    height: 6px;
-    background: var(--bg-surface);
-    border-radius: 999px;
-    overflow: hidden;
-  }
-  .geo-progress-bar {
-    height: 100%;
-    background: var(--gold);
-    border-radius: 999px;
-    transition: width 0.4s ease;
-  }
-  .geo-progress-text {
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    color: var(--text-muted);
-    white-space: nowrap;
-    min-width: 5rem;
-    text-align: right;
-  }
-  .geo-log {
-    height: 260px;
-    overflow-y: auto;
-    padding: 0.5rem 0;
-    font-family: var(--font-mono);
-    font-size: 0.72rem;
-    line-height: 1.6;
-  }
-  .geo-log-line {
-    padding: 0.1rem 1rem;
-    color: var(--text-muted);
-    border-left: 2px solid transparent;
-  }
-  .geo-log-line--success { color: var(--teal); border-left-color: var(--teal); }
-  .geo-log-line--gap { color: var(--gold); border-left-color: var(--gold); }
-  .geo-log-line--error { color: #ef4444; border-left-color: #ef4444; }
-  .geo-log-line--draft { color: #a78bfa; border-left-color: #a78bfa; }
-  .geo-log-line--done { color: var(--teal); font-weight: 600; }
-  .geo-log::-webkit-scrollbar { width: 4px; }
-  .geo-log::-webkit-scrollbar-track { background: transparent; }
-  .geo-log::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; }
+.admin-header {
+  display: flex; align-items: center; gap: 1.25rem;
+  padding: 0.875rem 1.5rem; background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 20;
+}
+.admin-logo    { font-family: var(--font-mono); font-weight: 700; color: var(--teal); text-decoration: none; font-size: 1.1rem; flex-shrink: 0; }
+.breadcrumb    { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-secondary); }
+.bc-current    { color: var(--text-secondary); }
+.header-actions{ margin-left: auto; display: flex; gap: 0.5rem; align-items: center; }
+.btn-primary   { padding: 0.4rem 1rem; background: var(--teal); color: #fff; border: none; border-radius: 0.3rem; font-family: var(--font-mono); font-size: var(--text-xs); text-decoration: none; }
+.btn-ghost-sm  { padding: 0.35rem 0.75rem; background: none; color: var(--text-secondary); border: 1px solid var(--border); border-radius: 0.25rem; font-family: var(--font-mono); font-size: var(--text-xs); text-decoration: none; cursor: pointer; }
+.btn-logout    { padding: 0.35rem 0.75rem; color: var(--text-muted); border: 1px solid var(--border); border-radius: 0.25rem; font-family: var(--font-mono); font-size: var(--text-xs); text-decoration: none; }
+
+.admin-main    { max-width: 1280px; margin: 0 auto; padding: 1.75rem 1.5rem 3rem; display: flex; flex-direction: column; gap: 2.5rem; }
+
+/* ─── STATS BANNER ───────────────────────────────────────── */
+.stats-banner {
+  display: flex; align-items: stretch;
+  background: var(--bg-elevated); border: 1px solid var(--border);
+  border-radius: 0.625rem; overflow: hidden;
+}
+.stat-card      { flex: 1; display: flex; flex-direction: column; gap: 0.2rem; padding: 1.125rem 1.5rem; }
+.stat-card--published { border-top: 3px solid var(--teal); }
+.stat-card--draft     { border-top: 3px solid var(--gold); }
+.stat-card--archived  { border-top: 3px solid rgba(148,163,184,0.3); }
+.stat-number  { font-family: var(--font-mono); font-size: 1.875rem; font-weight: 700; color: var(--text-primary); line-height: 1; }
+.stat-label   { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.stat-divider { width: 1px; background: var(--border); flex-shrink: 0; }
+
+/* ─── HUB NAVIGATION ─────────────────────────────────────── */
+.hub-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.hub-card {
+  display: flex; align-items: center; gap: 1.125rem;
+  background: var(--bg-elevated); border: 1px solid var(--border);
+  border-radius: 0.625rem; padding: 1.25rem 1.5rem;
+  text-decoration: none; transition: border-color 0.15s, box-shadow 0.15s;
+}
+.hub-card--gaps:hover { border-color: var(--gold); box-shadow: 0 0 0 1px rgba(214,183,121,0.1); }
+.hub-card--kb:hover   { border-color: var(--violet); box-shadow: 0 0 0 1px rgba(138,78,100,0.1); }
+.hub-icon  { font-size: 1.75rem; line-height: 1; flex-shrink: 0; }
+.hub-body  { flex: 1; display: flex; flex-direction: column; gap: 0.3rem; }
+.hub-title { font-family: var(--font-mono); font-size: var(--text-sm); font-weight: 700; color: var(--text-primary); }
+.hub-meta  { display: flex; gap: 0.375rem; flex-wrap: wrap; }
+.hub-badge { padding: 0.15rem 0.45rem; border-radius: 0.2rem; font-family: var(--font-mono); font-size: 0.65rem; }
+.hub-badge--gold   { background: rgba(214,183,121,0.15); color: var(--gold); }
+.hub-badge--teal   { background: rgba(74,141,131,0.15);  color: var(--teal); }
+.hub-badge--violet { background: rgba(138,78,100,0.15);  color: var(--violet); }
+.hub-desc  { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); }
+.hub-arrow { font-family: var(--font-mono); font-size: 1.25rem; color: var(--text-muted); flex-shrink: 0; }
+
+/* ─── SECTION ────────────────────────────────────────────── */
+.admin-section { display: flex; flex-direction: column; gap: 1rem; }
+.section-header-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 1rem; flex-wrap: wrap; padding-bottom: 0.875rem;
+  border-bottom: 1px solid var(--border);
+}
+.section-title-block { display: flex; flex-direction: column; gap: 0.2rem; }
+.section-title    { font-family: var(--font-mono); font-size: 1rem; color: var(--text-primary); font-weight: 700; margin: 0; }
+.section-subtitle { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); margin: 0; }
+
+/* ─── GEO MONITOR ────────────────────────────────────────── */
+.btn-geo {
+  padding: 0.5rem 1.25rem; background: transparent; color: var(--gold);
+  border: 1px solid var(--gold); border-radius: 0.375rem;
+  font-family: var(--font-mono); font-size: var(--text-sm); cursor: pointer;
+  transition: background 0.15s; flex-shrink: 0;
+}
+.btn-geo:hover    { background: rgba(214,183,121,0.08); }
+.btn-geo:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.geo-panel {
+  background: var(--bg-elevated); border: 1px solid rgba(214,183,121,0.3);
+  border-radius: 0.5rem; overflow: hidden;
+}
+.geo-panel-top {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0.625rem 1rem; background: rgba(214,183,121,0.05);
+  border-bottom: 1px solid rgba(214,183,121,0.15);
+}
+.geo-status           { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); }
+.geo-status--running  { color: var(--gold); }
+.geo-status--done     { color: var(--teal); }
+.geo-status--error    { color: #ef4444; }
+.geo-close-btn { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); background: none; border: 1px solid var(--border); border-radius: 0.2rem; padding: 0.2rem 0.5rem; cursor: pointer; }
+.geo-progress-row {
+  display: flex; align-items: center; gap: 0.75rem;
+  padding: 0.5rem 1rem; border-bottom: 1px solid var(--border);
+}
+.geo-track { flex: 1; height: 5px; background: rgba(255,255,255,0.06); border-radius: 999px; overflow: hidden; }
+.geo-bar   { height: 100%; background: var(--gold); border-radius: 999px; transition: width 0.4s ease; }
+.geo-progress-text { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); white-space: nowrap; min-width: 4.5rem; text-align: right; }
+.geo-log {
+  height: 240px; overflow-y: auto; padding: 0.375rem 0;
+  font-family: var(--font-mono); font-size: 0.71rem; line-height: 1.55;
+}
+.geo-log-line              { padding: 0.1rem 1rem; color: var(--text-muted); border-left: 2px solid transparent; }
+.geo-log-line--success     { color: var(--teal);   border-left-color: var(--teal); }
+.geo-log-line--gap         { color: var(--gold);   border-left-color: var(--gold); }
+.geo-log-line--error       { color: #ef4444;       border-left-color: #ef4444; }
+.geo-log-line--draft       { color: #a78bfa;       border-left-color: #a78bfa; }
+.geo-log-line--done        { color: var(--teal);   font-weight: 600; }
+.geo-log::-webkit-scrollbar       { width: 4px; }
+.geo-log::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; }
+
+/* ─── FILTER ROW ─────────────────────────────────────────── */
+.filter-row { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+.filter-input {
+  background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 0.3rem;
+  color: var(--text-primary); font-family: var(--font-mono); font-size: var(--text-xs);
+  padding: 0.45rem 0.75rem; outline: none;
+}
+.filter-input:focus { border-color: var(--teal); }
+.btn-filter { padding: 0.45rem 0.875rem; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 0.3rem; color: var(--text-secondary); font-family: var(--font-mono); font-size: var(--text-xs); cursor: pointer; }
+.btn-filter:hover { border-color: var(--teal); color: var(--teal); }
+
+/* ─── BULK TOOLBAR ───────────────────────────────────────── */
+.bulk-toolbar {
+  display: flex; align-items: center; gap: 0.75rem;
+  padding: 0.5rem 0.875rem; background: rgba(74,141,131,0.07);
+  border: 1px solid rgba(74,141,131,0.2); border-radius: 0.375rem;
+  font-family: var(--font-mono); font-size: var(--text-xs);
+}
+.bulk-count      { color: var(--teal); font-weight: 600; }
+.btn-bulk-delete { padding: 0.3rem 0.75rem; background: transparent; color: #ef4444; border: 1px solid rgba(239,68,68,0.3); border-radius: 0.25rem; font-family: var(--font-mono); font-size: var(--text-xs); cursor: pointer; }
+.btn-bulk-delete:hover { background: rgba(239,68,68,0.08); }
+.btn-bulk-delete:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-bulk-cancel { padding: 0.3rem 0.75rem; background: transparent; color: var(--text-muted); border: 1px solid var(--border); border-radius: 0.25rem; font-family: var(--font-mono); font-size: var(--text-xs); cursor: pointer; }
+
+/* ─── TABLE ──────────────────────────────────────────────── */
+.table-wrapper { border: 1px solid var(--border); border-radius: 0.5rem; overflow: hidden; overflow-x: auto; }
+.data-table    { width: 100%; border-collapse: collapse; min-width: 600px; }
+.data-table thead th {
+  padding: 0.625rem 0.875rem; text-align: left;
+  font-family: var(--font-mono); font-size: 0.65rem;
+  color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;
+  background: var(--bg-elevated); border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.data-table td { padding: 0.65rem 0.875rem; border-bottom: 1px solid rgba(255,255,255,0.035); vertical-align: middle; }
+.data-table tr:last-child td { border-bottom: none; }
+.data-table tr:hover td      { background: rgba(255,255,255,0.018); }
+
+.th-check   { width: 2.5rem; text-align: center; }
+.th-title   { width: 38%; }
+.th-slug    { width: 22%; }
+.th-status  { width: 10%; }
+.th-date    { width: 10%; }
+.th-actions { width: 20%; text-align: right; }
+
+.td-check { text-align: center; }
+.row-checkbox { accent-color: var(--teal); width: 1rem; height: 1rem; cursor: pointer; }
+
+.article-link { color: var(--text-primary); text-decoration: none; font-family: var(--font-mono); font-size: var(--text-sm); }
+.article-link:hover { color: var(--teal); }
+.featured-badge { font-size: 0.65rem; margin-left: 0.35rem; opacity: 0.7; }
+
+.slug-code { font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-muted); }
+
+.status-badge { padding: 0.2rem 0.5rem; border-radius: 9999px; font-family: var(--font-mono); font-size: 0.65rem; text-transform: uppercase; }
+.status-badge--published { background: rgba(74,141,131,0.15); color: var(--teal); }
+.status-badge--draft     { background: rgba(214,183,121,0.15); color: var(--gold); }
+.status-badge--archived  { background: rgba(148,163,184,0.1);  color: var(--text-muted); }
+
+.td-date { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); white-space: nowrap; }
+.td-num  { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--text-secondary); }
+.td-actions { text-align: right; white-space: nowrap; }
+
+.action-btn {
+  display: inline-flex; align-items: center;
+  font-family: var(--font-mono); font-size: var(--text-xs);
+  padding: 0.25rem 0.5rem; border-radius: 0.2rem; border: 1px solid var(--border);
+  background: none; cursor: pointer; text-decoration: none;
+  color: var(--text-secondary); transition: all 0.15s; margin-left: 0.25rem;
+}
+.action-btn--edit:hover    { border-color: var(--teal); color: var(--teal); }
+.action-btn--publish:hover { border-color: var(--gold); color: var(--gold); }
+.action-btn--delete:hover  { border-color: #ef4444; color: #ef4444; background: rgba(239,68,68,0.05); }
+
+.td-empty { text-align: center; padding: 2.5rem !important; font-family: var(--font-mono); font-size: var(--text-sm); color: var(--text-muted); }
+.td-empty a { color: var(--teal); }
+
+/* ─── PAGINATION ─────────────────────────────────────────── */
+.pagination { display: flex; gap: 0.5rem; align-items: center; justify-content: center; }
+.page-btn  { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--teal); text-decoration: none; padding: 0.35rem 0.75rem; border: 1px solid rgba(74,141,131,0.3); border-radius: 0.25rem; }
+.page-btn:hover { background: rgba(74,141,131,0.06); }
+.page-info { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); }
+
+/* ─── MODALS ─────────────────────────────────────────────── */
+.modal-backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 200;
+  display: flex; align-items: center; justify-content: center; backdrop-filter: blur(2px);
+}
+.modal-box {
+  background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 0.625rem;
+  padding: 2rem; max-width: 400px; width: 90%; display: flex; flex-direction: column; gap: 0.75rem;
+}
+.modal-title     { font-family: var(--font-mono); font-size: 1.1rem; color: var(--text-primary); margin: 0; }
+.modal-desc      { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--text-secondary); margin: 0; }
+.modal-item-name { font-family: var(--font-mono); font-size: var(--text-sm); color: #ef4444; font-weight: 600; margin: 0; }
+.modal-warn      { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); margin: 0; }
+.modal-actions   { display: flex; gap: 0.75rem; padding-top: 0.5rem; }
+.btn-danger      { padding: 0.5rem 1.25rem; background: #ef4444; color: #fff; border: none; border-radius: 0.3rem; font-family: var(--font-mono); font-size: var(--text-sm); cursor: pointer; }
+.btn-danger:disabled { opacity: 0.6; cursor: not-allowed; }
+.btn-publish     { padding: 0.5rem 1.25rem; background: var(--teal); color: #fff; border: none; border-radius: 0.3rem; font-family: var(--font-mono); font-size: var(--text-sm); cursor: pointer; }
+.btn-publish:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* ─── RESPONSIVE ─────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .hub-grid    { grid-template-columns: 1fr; }
+  .stats-banner{ flex-direction: column; }
+  .stat-divider{ width: 100%; height: 1px; }
+}
+@media (max-width: 640px) {
+  .admin-main  { padding: 1.25rem 1rem 2rem; }
+  .section-header-row { flex-direction: column; align-items: flex-start; }
+  .th-slug, .data-table .td-slug { display: none; }
+}
 </style>
+</Base>
