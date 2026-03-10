@@ -56,72 +56,15 @@ class DraftJobManager extends EventEmitter {
 
     this.emit('start', { gapId });
 
-    // Using node with tsx loader directly - bypass npx for better background reliability
-    const args = [
-      '--loader', 'tsx',
-      '--no-warnings',
-      '-e',
-      `
-      import { generateDraft } from './scripts/draft-generator';
-      import { db } from './src/db/client';
-      import { articles, articleGenerations } from './src/db/schema';
-      const gapId = ${gapId};
-      const model = "${model}";
-      const notes = ${JSON.stringify(authorNotes)};
-      
-      async function run() {
-        console.log("[DRAFT] Initializing generation for Gap #" + gapId + "...");
-        try {
-          const result = await generateDraft({ gap_id: gapId, author_notes: notes, model });
-          if (!result.success || !result.draft) {
-            console.error("[DRAFT] FAILED: " + (result.error?.message || "Unknown error"));
-            process.exit(1);
-          }
-          
-          console.log("[DRAFT] Validation passed. Saving to database...");
-          const now = new Date();
-          const uniqueSlug = result.slug + "-" + Date.now();
-          
-          const [article] = await db.insert(articles).values({
-            slug: uniqueSlug,
-            title: result.draft.title,
-            description: result.draft.description,
-            content: result.htmlContent || '',
-            tags: result.draft.tags,
-            status: 'draft',
-            readingTime: result.readingTime || 5,
-            author: 'Przemysław Filipiak',
-            sourceGapId: gapId,
-            generatedByModel: model,
-            generationTimestamp: now,
-          }).returning();
-
-          await db.insert(articleGenerations).values({
-            articleId: article.id,
-            gapId: gapId,
-            generatedByModel: model,
-            generationPrompt: result.megaPrompt || '',
-            originalContent: result.draft.content,
-            authorNotes: notes,
-            kbEntriesUsed: result.kbEntriesUsed || [],
-            modelsQueried: [model],
-            generationTimestamp: now,
-          });
-
-          console.log("[DRAFT] SUCCESS: Created Article ID " + article.id);
-          console.log("RESULT_JSON:" + JSON.stringify({ article_id: article.id, title: result.draft.title }));
-        } catch (err) {
-          console.error("[DRAFT] CRITICAL ERROR: " + err.message);
-          process.exit(1);
-        }
-      }
-      run();
-      `
-    ];
-
-    this._child = spawn('node', args, {
+    // Use npx tsx directly on the bridge script file to avoid shell escaping issues
+    this._child = spawn('npx', ['tsx', 'scripts/draft-bridge.ts'], {
       cwd: process.cwd(),
-      env: process.env,
+      env: { 
+        ...process.env, 
+        GAP_ID: String(gapId),
+        MODEL: model,
+        AUTHOR_NOTES: authorNotes
+      },
       shell: true,
     });
 
@@ -160,6 +103,8 @@ class DraftJobManager extends EventEmitter {
       if (bufArr.trim()) pushLine(bufArr);
       this._status = code === 0 ? 'done' : 'error';
       this._finishedAt = Date.now();
+      const exitMsg = code === 0 ? '[DRAFT] Process completed successfully.' : `[DRAFT] Process exited with code ${code}`;
+      pushLine(exitMsg);
       this._child = null;
       this.emit('done', { code });
     });
@@ -169,7 +114,6 @@ class DraftJobManager extends EventEmitter {
       this._status = 'error';
       this._finishedAt = Date.now();
       this._child = null;
-      this.emit('line', { line: `Error: ${err.message}`, ts: Date.now() });
       this.emit('done', { code: -1 });
     });
 
@@ -178,7 +122,9 @@ class DraftJobManager extends EventEmitter {
 
   stop(): boolean {
     if (this._child) {
-      this._child.kill('SIGTERM');
+      if (typeof this._child.kill === 'function') {
+        this._child.kill('SIGTERM');
+      }
       this._status = 'idle';
       this._child = null;
       const entry: DraftLogEntry = { line: '[DRAFT] Process aborted by user.', ts: Date.now() };
