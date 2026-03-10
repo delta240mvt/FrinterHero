@@ -335,6 +335,7 @@ function pageUrl(p: number) {
 
   geoClose?.addEventListener('click', () => { geoPanel.style.display = 'none'; });
 
+  // ─── log helpers ────────────────────────────────────────────
   function classifyLine(line: string): string {
     if (line.includes('✓ Mention found'))  return 'success';
     if (line.includes('Gap detected'))     return 'gap';
@@ -345,31 +346,54 @@ function pageUrl(p: number) {
   }
 
   function appendLog(line: string) {
-    const type  = classifyLine(line);
-    const el    = document.createElement('div');
-    el.className = `geo-log-line geo-log-line--${type}`;
+    const el = document.createElement('div');
+    el.className  = `geo-log-line geo-log-line--${classifyLine(line)}`;
     el.textContent = line.replace(/^\[GEO\]\s*/, '').replace(/^\[DraftGen\]\s*/, '');
     geoLog.appendChild(el);
     geoLog.scrollTop = geoLog.scrollHeight;
   }
 
-  geoBtn?.addEventListener('click', async () => {
-    if (!confirm('Uruchomić GEO Monitor? Zajmie kilka minut.')) return;
-    geoLog.innerHTML     = '';
-    geoBar.style.width   = '0%';
-    geoBarText.textContent = `0 / ${TOTAL_STEPS}`;
-    geoStatus.textContent  = 'Łączenie...';
-    geoStatus.className    = 'geo-status geo-status--running';
-    geoClose.style.display = 'none';
+  // ─── UI state helpers ────────────────────────────────────────
+  function setRunningUI(queryCount: number = 0) {
     geoPanel.style.display = 'block';
+    geoClose.style.display = 'none';
     geoBtn.textContent     = 'Działa...';
     geoBtn.disabled        = true;
+    geoStatus.className    = 'geo-status geo-status--running';
+    geoStatus.textContent  = queryCount > 0
+      ? `Odpytywanie modeli… (${queryCount}/${TOTAL_STEPS})`
+      : 'Uruchamianie…';
+    const pct = Math.min(90, Math.round((queryCount / TOTAL_STEPS) * 90));
+    geoBar.style.width     = `${pct}%`;
+    geoBarText.textContent = `${queryCount} / ${TOTAL_STEPS}`;
+  }
 
-    let queryCount = 0;
+  function setDoneUI(code: number | null) {
+    geoBar.style.width     = '100%';
+    geoBarText.textContent = 'Gotowe';
+    geoClose.style.display = 'inline-block';
+    geoBtn.textContent     = 'Uruchom GEO Monitor';
+    geoBtn.disabled        = false;
+    const ok = code === 0;
+    geoStatus.className   = `geo-status geo-status--${ok ? 'done' : 'error'}`;
+    geoStatus.textContent = ok ? 'Zakończono pomyślnie' : `Błąd (kod ${code})`;
+  }
+
+  // ─── SSE stream (reconnectable) ─────────────────────────────
+  let activeReader: ReadableStreamDefaultReader<Uint8Array> | null = null;
+  let localQueryCount = 0;
+
+  async function connectStream(fromIndex: number = 0) {
+    if (activeReader) {
+      try { activeReader.cancel(); } catch {}
+      activeReader = null;
+    }
     try {
-      const res = await fetch('/api/run-geo', { method: 'POST' });
-      if (!res.body) throw new Error('No stream body');
+      const res = await fetch(`/api/geo/stream?from=${fromIndex}`);
+      if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
+
       const reader  = res.body.getReader();
+      activeReader  = reader;
       const decoder = new TextDecoder();
       let buf = '';
 
@@ -387,50 +411,88 @@ function pageUrl(p: number) {
           try { payload = JSON.parse(dataLine.slice(6)); } catch { continue; }
 
           if (payload.line) {
-            const line: string = payload.line;
-            appendLog(line);
-            if (line.includes('[GEO] Querying')) {
-              queryCount++;
-              const pct = Math.min(100, Math.round((queryCount / TOTAL_STEPS) * 90));
+            appendLog(payload.line);
+            if (payload.line.includes('[GEO] Querying')) {
+              localQueryCount++;
+              const pct = Math.min(90, Math.round((localQueryCount / TOTAL_STEPS) * 90));
               geoBar.style.width     = `${pct}%`;
-              geoBarText.textContent = `${queryCount} / ${TOTAL_STEPS}`;
-              geoStatus.textContent  = `Odpytywanie modeli… (${queryCount}/${TOTAL_STEPS})`;
-            } else if (line.includes('Running gap analysis')) {
+              geoBarText.textContent = `${localQueryCount} / ${TOTAL_STEPS}`;
+              geoStatus.textContent  = `Odpytywanie modeli… (${localQueryCount}/${TOTAL_STEPS})`;
+            } else if (payload.line.includes('Running gap analysis')) {
               geoBar.style.width    = '92%';
               geoStatus.textContent = 'Analiza luk…';
-            } else if (line.includes('Generating proposals')) {
+            } else if (payload.line.includes('Generating proposals')) {
               geoBar.style.width    = '95%';
               geoStatus.textContent = 'Generowanie propozycji…';
             }
           }
 
           if (payload.done) {
-            geoBar.style.width     = '100%';
-            geoBarText.textContent = 'Gotowe';
-            geoStatus.textContent  = payload.code === 0 ? 'Zakończono pomyślnie' : `Zakończono z kodem ${payload.code}`;
-            geoStatus.className    = `geo-status geo-status--${payload.code === 0 ? 'done' : 'error'}`;
-            geoClose.style.display = 'inline-block';
-            geoBtn.textContent     = 'Uruchom GEO Monitor';
-            geoBtn.disabled        = false;
-          }
-
-          if (payload.error) {
-            appendLog(`ERROR: ${payload.error}`);
-            geoStatus.textContent  = 'Wystąpił błąd';
-            geoStatus.className    = 'geo-status geo-status--error';
-            geoClose.style.display = 'inline-block';
-            geoBtn.textContent     = 'Uruchom GEO Monitor';
-            geoBtn.disabled        = false;
+            setDoneUI(payload.code ?? 0);
+            activeReader = null;
+            return;
           }
         }
       }
     } catch (e: any) {
-      geoStatus.textContent  = `Błąd sieci: ${e.message}`;
+      geoStatus.textContent  = `Błąd połączenia: ${e.message}`;
       geoStatus.className    = 'geo-status geo-status--error';
       geoClose.style.display = 'inline-block';
       geoBtn.textContent     = 'Uruchom GEO Monitor';
       geoBtn.disabled        = false;
+      activeReader           = null;
     }
+  }
+
+  // ─── Page init — restore panel after tab switch ──────────────
+  (async () => {
+    try {
+      const res = await fetch('/api/geo/status');
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.status === 'idle') return;
+
+      geoLog.innerHTML = '';
+      localQueryCount  = data.queryCount ?? 0;
+
+      for (const entry of (data.lines as { line: string }[])) {
+        appendLog(entry.line);
+      }
+
+      if (data.status === 'running') {
+        setRunningUI(localQueryCount);
+        connectStream(data.lines.length); // skip already-displayed lines
+      } else {
+        setDoneUI(data.exitCode ?? 0);
+      }
+    } catch { /* non-critical */ }
+  })();
+
+  // ─── Run button ──────────────────────────────────────────────
+  geoBtn?.addEventListener('click', async () => {
+    if (!confirm('Uruchomić GEO Monitor? Zajmie kilka minut.')) return;
+
+    const startRes = await fetch('/api/geo/start', { method: 'POST' });
+
+    if (startRes.status === 409) {
+      // Already running — reconnect to see live stream
+      geoLog.innerHTML = '';
+      localQueryCount  = 0;
+      setRunningUI(0);
+      connectStream(0);
+      return;
+    }
+    if (!startRes.ok) {
+      alert('Błąd uruchomienia GEO Monitor');
+      return;
+    }
+
+    geoLog.innerHTML       = '';
+    localQueryCount        = 0;
+    geoBar.style.width     = '0%';
+    geoBarText.textContent = `0 / ${TOTAL_STEPS}`;
+    setRunningUI(0);
+    connectStream(0);
   });
 
   // ─── Delete Modal ──────────────────────────────────────────
