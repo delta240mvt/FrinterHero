@@ -24,6 +24,12 @@ source_url: https://example.com/source
 
 Content here (minimum 50 characters)...</pre>
       </div>
+      
+      <div class="folder-selection">
+        <label for="folder-input" class="folder-label">Assign to Project / Folder (Optional):</label>
+        <input type="text" id="folder-input" class="filter-input folder-input" placeholder="e.g. Frinter, Personal Brand, Demos" />
+        <p class="drop-hint">If left empty, the system will use the `projectName` from frontmatter or none at all.</p>
+      </div>
 
       <label class="drop-zone" id="drop-zone">
         <input type="file" id="file-input" accept=".md" multiple style="display:none" />
@@ -115,6 +121,11 @@ Content here (minimum 50 characters)...</pre>
     btn.disabled = true;
 
     const formData = new FormData();
+    const folderInput = document.getElementById('folder-input') as HTMLInputElement;
+    if (folderInput.value.trim()) {
+      formData.append('folderName', folderInput.value.trim());
+    }
+
     for (const file of selectedFiles) formData.append('files', file, file.name);
 
     const res = await fetch('/api/kb-import', { method: 'POST', body: formData });
@@ -150,6 +161,9 @@ Content here (minimum 50 characters)...</pre>
   .info-box { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 0.5rem; padding: 1.25rem; }
   .info-text { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--text-secondary); margin-bottom: 0.75rem; }
   .code-example { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); background: rgba(0,0,0,0.2); padding: 0.875rem; border-radius: 0.375rem; overflow-x: auto; white-space: pre; }
+  .folder-selection { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 0.5rem; padding: 1.25rem; }
+  .folder-label { display: block; font-family: var(--font-mono); font-size: var(--text-sm); color: var(--text-primary); margin-bottom: 0.5rem; }
+  .folder-input { width: 100%; max-width: 400px; padding: 0.6rem 0.8rem; border-radius: 0.375rem; border: 1px solid var(--border); background: var(--bg-surface); color: var(--text-primary); font-family: var(--font-mono); font-size: var(--text-sm); margin-bottom: 0.5rem; }
   .drop-zone { display: flex; flex-direction: column; align-items: center; justify-content: center; border: 2px dashed var(--border); border-radius: 0.5rem; padding: 3rem; cursor: pointer; transition: border-color 0.15s, background 0.15s; }
   .drop-zone:hover, .drop-zone.drag-over { border-color: var(--teal); background: rgba(74,141,131,0.05); }
   .drop-icon { font-size: 2.5rem; margin-bottom: 0.75rem; }

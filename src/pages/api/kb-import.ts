@@ -12,6 +12,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
 
   try {
     const formData = await request.formData();
+    const folderName = formData.get('folderName')?.toString().trim() || null;
     const files: Array<{ filename: string; content: string }> = [];
 
     for (const [, value] of formData.entries()) {
@@ -56,6 +57,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
           title: entry.title,
           content: entry.content,
           tags: entry.tags,
+          projectName: folderName || entry.projectName || null,
           importanceScore: entry.importanceScore,
           sourceUrl: entry.sourceUrl || null,
           sourceId: source.id,

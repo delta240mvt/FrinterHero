@@ -10,6 +10,7 @@ export interface ParsedFrontmatter {
   type?: string;
   title?: string;
   tags?: string | string[];
+  projectName?: string;
   importance_score?: number;
   source_url?: string;
 }
@@ -18,6 +19,7 @@ export interface ValidatedKBEntry {
   type: string;
   title: string;
   content: string;
+  projectName?: string;
   tags: string[];
   importanceScore: number;
   sourceUrl?: string;
@@ -53,6 +55,7 @@ function parseFrontmatter(raw: string): { frontmatter: ParsedFrontmatter; body: 
     if (key === 'type') frontmatter.type = value;
     else if (key === 'title') frontmatter.title = value;
     else if (key === 'source_url') frontmatter.source_url = value;
+    else if (key === 'projectName') frontmatter.projectName = value;
     else if (key === 'importance_score') frontmatter.importance_score = parseInt(value, 10);
     else if (key === 'tags') {
       if (value.startsWith('[')) {
@@ -134,6 +137,7 @@ export function importMarkdownFiles(
       title: frontmatter.title!.trim(),
       content: body,
       tags: rawTags.map(normalizeTag).filter(Boolean),
+      projectName: frontmatter.projectName,
       importanceScore,
       sourceUrl: frontmatter.source_url || undefined,
       filename: file.filename,

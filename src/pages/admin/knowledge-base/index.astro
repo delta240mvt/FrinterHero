@@ -7,28 +7,33 @@ import { desc, and, sql, ilike, or } from 'drizzle-orm';
 const url = new URL(Astro.request.url);
 const search = url.searchParams.get('search') || '';
 const typeFilter = url.searchParams.get('type') || '';
+const projectFilter = url.searchParams.get('project') || '';
 const page = Math.max(1, parseInt(url.searchParams.get('page') || '1', 10));
 const limit = 20;
 const offset = (page - 1) * limit;
 
 let entries: any[] = [];
+let projects: string[] = [];
 let total = 0;
 
 try {
   const conditions: any[] = [];
   if (typeFilter) conditions.push(sql`${knowledgeEntries.type} = ${typeFilter}`);
+  if (projectFilter) conditions.push(sql`${knowledgeEntries.projectName} = ${projectFilter}`);
   if (search) conditions.push(or(
     ilike(knowledgeEntries.title, `%${search}%`),
     ilike(knowledgeEntries.content, `%${search}%`)
   ));
   const where = conditions.length > 0 ? and(...conditions) : undefined;
 
-  const [rows, counts] = await Promise.all([
+  const [rows, counts, distinctProjects] = await Promise.all([
     db.select().from(knowledgeEntries).where(where).orderBy(desc(knowledgeEntries.importanceScore)).limit(limit).offset(offset),
     db.select({ count: sql<number>`count(*)` }).from(knowledgeEntries).where(where),
+    db.selectDistinct({ projectName: knowledgeEntries.projectName }).from(knowledgeEntries).where(sql`${knowledgeEntries.projectName} IS NOT NULL`)
   ]);
   entries = rows;
   total = Number(counts[0]?.count || 0);
+  projects = distinctProjects.map(p => p.projectName).filter(Boolean) as string[];
 } catch {}
 
 const totalPages = Math.ceil(total / limit);
@@ -55,13 +60,20 @@ const totalPages = Math.ceil(total / limit);
           <option value="external_research" selected={typeFilter==='external_research'}>External Research</option>
           <option value="personal_note" selected={typeFilter==='personal_note'}>Personal Note</option>
         </select>
+        <select name="project" class="filter-input">
+          <option value="">All Folders / Projects</option>
+          {projects.map(p => (
+            <option value={p} selected={projectFilter===p}>{p}</option>
+          ))}
+        </select>
         <button type="submit" class="btn-primary-sm">Search</button>
-        {(search || typeFilter) && <a href="/admin/knowledge-base" class="btn-ghost-sm">Clear</a>}
+        {(search || typeFilter || projectFilter) && <a href="/admin/knowledge-base" class="btn-ghost-sm">Clear</a>}
       </form>
 
       <div class="stats-bar">
         <span class="stat">{total} entries total</span>
         {typeFilter && <span class="stat-badge">{typeFilter.replace('_',' ')}</span>}
+        {projectFilter && <span class="stat-badge folder-badge">📁 {projectFilter}</span>}
       </div>
 
       <div class="table-wrapper">
@@ -69,6 +81,7 @@ const totalPages = Math.ceil(total / limit);
           <thead>
             <tr>
               <th>Title</th>
+              <th>Folder</th>
               <th>Type</th>
               <th>Score</th>
               <th>Tags</th>
@@ -81,6 +94,7 @@ const totalPages = Math.ceil(total / limit);
                 <td class="title-cell">
                   <span class="entry-title">{e.title}</span>
                 </td>
+                <td>{e.projectName ? <span class="folder-label">📁 {e.projectName}</span> : <span class="folder-label empty">-</span>}</td>
                 <td><span class={`type-badge type-${e.type}`}>{e.type.replace(/_/g,' ')}</span></td>
                 <td>
                   <div class="score-bar">
@@ -101,9 +115,9 @@ const totalPages = Math.ceil(total / limit);
 
       {totalPages > 1 && (
         <div class="pagination">
-          {page > 1 && <a href={`?page=${page-1}&search=${search}&type=${typeFilter}`} class="page-btn">← Prev</a>}
+          {page > 1 && <a href={`?page=${page-1}&search=${search}&type=${typeFilter}&project=${projectFilter}`} class="page-btn">← Prev</a>}
           <span class="page-info">Page {page} of {totalPages}</span>
-          {page < totalPages && <a href={`?page=${page+1}&search=${search}&type=${typeFilter}`} class="page-btn">Next →</a>}
+          {page < totalPages && <a href={`?page=${page+1}&search=${search}&type=${typeFilter}&project=${projectFilter}`} class="page-btn">Next →</a>}
         </div>
       )}
     </main>
@@ -137,6 +151,9 @@ const totalPages = Math.ceil(total / limit);
   .type-published_article { background: rgba(138,78,100,0.2); color: var(--violet); }
   .type-external_research { background: rgba(214,183,121,0.2); color: var(--gold); }
   .type-personal_note { background: rgba(148,163,184,0.15); color: var(--text-secondary); }
+  .folder-label { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--teal); background: rgba(74,141,131,0.1); padding: 0.2rem 0.5rem; border-radius: 0.25rem; white-space: nowrap; }
+  .folder-label.empty { background: transparent; color: var(--text-muted); padding: 0; }
+  .folder-badge { background: rgba(214,183,121,0.15); color: var(--gold); }
   .score-bar { display: flex; align-items: center; gap: 0.5rem; }
   .score-fill { height: 4px; background: var(--teal); border-radius: 2px; min-width: 2px; max-width: 80px; }
   .score-label { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); }
