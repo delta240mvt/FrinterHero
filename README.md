@@ -18,6 +18,7 @@
 [![AI: 100% Ready](https://img.shields.io/badge/AI-100%25%20Ready-4a8d83.svg?style=flat-square)](#how-it-works)
 [![Data: Focus Sprints](https://img.shields.io/badge/Data-Focus%20Sprints-d6b779.svg?style=flat-square)](#privacy)
 > ⏳ **Fast 1-Click Deploy on Railway is coming soon!**
+> 🛡️ **Protected by GitGuardian.**
 </div>
 
 ---
