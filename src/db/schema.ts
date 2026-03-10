@@ -80,6 +80,7 @@ export const knowledgeEntries = pgTable('knowledge_entries', {
   content: text('content').notNull(),
   sourceUrl: varchar('source_url', { length: 500 }),
   tags: text('tags').array().notNull().default([]),
+  projectName: varchar('project_name', { length: 255 }),
   importanceScore: integer('importance_score').notNull().default(50),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
