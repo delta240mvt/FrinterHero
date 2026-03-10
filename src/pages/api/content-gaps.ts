@@ -1,7 +1,7 @@
 import type { APIRoute } from 'astro';
 import { db } from '@/db/client';
 import { contentGaps, geoRuns, knowledgeEntries } from '@/db/schema';
-import { eq, and, gte, lte, desc, asc, or, ilike, sql, inArray } from 'drizzle-orm';
+import { eq, and, gte, lte, desc, asc, or, ilike, sql, inArray, isNotNull } from 'drizzle-orm';
 
 export const GET: APIRoute = async ({ request, cookies }) => {
   const session = cookies.get('session');
@@ -10,12 +10,13 @@ export const GET: APIRoute = async ({ request, cookies }) => {
   }
 
   const url = new URL(request.url);
-  const statusParam = url.searchParams.get('status') || 'new,in_progress';
+  const statusParam = url.searchParams.get('status') || '';
   const confidenceMin = parseInt(url.searchParams.get('confidence_min') || '0', 10);
   const confidenceMax = parseInt(url.searchParams.get('confidence_max') || '100', 10);
   const sortBy = url.searchParams.get('sort_by') || 'confidence';
   const limit = Math.min(parseInt(url.searchParams.get('limit') || '20', 10), 100);
   const offset = parseInt(url.searchParams.get('offset') || '0', 10);
+  const hasProposal = url.searchParams.get('has_proposal') === 'true';
 
   try {
     const statuses = statusParam.split(',').map(s => s.trim()).filter(Boolean);
@@ -29,6 +30,9 @@ export const GET: APIRoute = async ({ request, cookies }) => {
     }
     if (!isNaN(confidenceMax) && confidenceMax < 100) {
       conditions.push(lte(contentGaps.confidenceScore, confidenceMax));
+    }
+    if (hasProposal) {
+      conditions.push(isNotNull(contentGaps.suggestedAngle));
     }
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
@@ -67,10 +71,11 @@ export const GET: APIRoute = async ({ request, cookies }) => {
     const [recentRun] = await db.select().from(geoRuns).orderBy(desc(geoRuns.runAt)).limit(1);
 
     // Dashboard stats
-    const [statsNew, statsAck, statsArchived] = await Promise.all([
+    const [statsNew, statsAck, statsArchived, statsProposals] = await Promise.all([
       db.select({ count: sql<number>`count(*)` }).from(contentGaps).where(eq(contentGaps.status, 'new')),
       db.select({ count: sql<number>`count(*)` }).from(contentGaps).where(eq(contentGaps.status, 'acknowledged')),
       db.select({ count: sql<number>`count(*)` }).from(contentGaps).where(eq(contentGaps.status, 'archived')),
+      db.select({ count: sql<number>`count(*)` }).from(contentGaps).where(isNotNull(contentGaps.suggestedAngle)),
     ]);
 
     return new Response(JSON.stringify({
@@ -81,6 +86,7 @@ export const GET: APIRoute = async ({ request, cookies }) => {
         total_new: Number(statsNew[0]?.count || 0),
         total_acknowledged: Number(statsAck[0]?.count || 0),
         total_archived: Number(statsArchived[0]?.count || 0),
+        total_proposals: Number(statsProposals[0]?.count || 0),
       },
     }), {
       status: 200,

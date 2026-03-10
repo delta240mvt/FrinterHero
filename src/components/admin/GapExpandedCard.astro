@@ -82,11 +82,6 @@ const confidenceColor = gap.confidenceScore >= 70 ? 'var(--teal)' : gap.confiden
         <span class="model-hint">Fast generation</span>
       </label>
       <label class="model-option">
-        <input type="radio" name={`model-${gap.id}`} value="perplexity/llama-3.1-sonar-small-128k-online" />
-        <span class="model-name">Perplexity</span>
-        <span class="model-hint">Research angle</span>
-      </label>
-      <label class="model-option">
         <input type="radio" name={`model-${gap.id}`} value="google/gemini-3.1-pro-preview" />
         <span class="model-name">Gemini</span>
         <span class="model-hint">Multilingual</span>

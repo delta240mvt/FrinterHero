@@ -2,12 +2,12 @@
 import Base from '@/components/layouts/Base.astro';
 import { db } from '@/db/client';
 import { articles, geoRuns, contentGaps, knowledgeEntries } from '@/db/schema';
-import { desc, eq, count, sql } from 'drizzle-orm';
+import { desc, eq, count, sql, isNotNull } from 'drizzle-orm';
 
 let allArticles: any[] = [];
 let recentRuns: any[]  = [];
 let stats = { draft: 0, published: 0, archived: 0 };
-let gapStats = { new: 0, in_progress: 0 };
+let gapStats = { new: 0, in_progress: 0, proposals: 0 };
 let kbTotal  = 0;
 let total    = 0;
 
@@ -29,7 +29,7 @@ try {
   const [
     rows,
     draftCount, pubCount, archCount, totalCount,
-    gapNew, gapProg,
+    gapNew, gapProg, gapProps,
     kbCount,
     runs,
   ] = await Promise.all([
@@ -40,6 +40,7 @@ try {
     db.select({ c: count() }).from(articles),
     db.select({ c: count() }).from(contentGaps).where(eq(contentGaps.status, 'new')),
     db.select({ c: count() }).from(contentGaps).where(eq(contentGaps.status, 'in_progress')),
+    db.select({ c: count() }).from(contentGaps).where(isNotNull(contentGaps.suggestedAngle)),
     db.select({ c: count() }).from(knowledgeEntries),
     db.select().from(geoRuns).orderBy(desc(geoRuns.runAt)).limit(8),
   ]);
@@ -47,7 +48,7 @@ try {
   allArticles = rows;
   stats       = { draft: draftCount[0].c, published: pubCount[0].c, archived: archCount[0].c };
   total       = totalCount[0].c;
-  gapStats    = { new: gapNew[0].c, in_progress: gapProg[0].c };
+  gapStats    = { new: gapNew[0].c, in_progress: gapProg[0].c, proposals: gapProps[0].c };
   kbTotal     = kbCount[0].c;
   recentRuns  = runs;
 } catch (e) {
@@ -117,6 +118,17 @@ function pageUrl(p: number) {
         </div>
         <span class="hub-arrow">→</span>
       </a>
+      <a href="/admin/content-gaps?has_proposal=true" class="hub-card hub-card--proposals">
+        <div class="hub-icon">💡</div>
+        <div class="hub-body">
+          <div class="hub-title">Proposals</div>
+          <div class="hub-meta">
+            <span class="hub-badge hub-badge--teal">{gapStats.proposals} ready</span>
+          </div>
+          <div class="hub-desc">Review and approve AI-generated mini-drafts</div>
+        </div>
+        <span class="hub-arrow">→</span>
+      </a>
       <a href="/admin/knowledge-base" class="hub-card hub-card--kb">
         <div class="hub-icon">🧠</div>
         <div class="hub-body">
@@ -124,7 +136,7 @@ function pageUrl(p: number) {
           <div class="hub-meta">
             <span class="hub-badge hub-badge--violet">{kbTotal} entries</span>
           </div>
-          <div class="hub-desc">Knowledge Base — context for the AI article generator</div>
+          <div class="hub-desc">Knowledge Base — context for AI article generation</div>
         </div>
         <span class="hub-arrow">→</span>
       </a>
@@ -653,7 +665,7 @@ function pageUrl(p: number) {
 .stat-divider { width: 1px; background: var(--border); flex-shrink: 0; }
 
 /* ─── HUB NAVIGATION ─────────────────────────────────────── */
-.hub-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.hub-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; }
 .hub-card {
   display: flex; align-items: center; gap: 1.125rem;
   background: var(--bg-elevated); border: 1px solid var(--border);
@@ -661,6 +673,7 @@ function pageUrl(p: number) {
   text-decoration: none; transition: border-color 0.15s, box-shadow 0.15s;
 }
 .hub-card--gaps:hover { border-color: var(--gold); box-shadow: 0 0 0 1px rgba(214,183,121,0.1); }
+.hub-card--proposals:hover { border-color: var(--teal); box-shadow: 0 0 0 1px rgba(74,141,131,0.1); }
 .hub-card--kb:hover   { border-color: var(--violet); box-shadow: 0 0 0 1px rgba(138,78,100,0.1); }
 .hub-icon  { font-size: 1.75rem; line-height: 1; flex-shrink: 0; }
 .hub-body  { flex: 1; display: flex; flex-direction: column; gap: 0.3rem; }

@@ -7,7 +7,6 @@ import { generateDraft } from '../../../scripts/draft-generator';
 const VALID_MODELS = [
   'anthropic/claude-sonnet-4-6',
   'openai/gpt-4.1-mini',
-  'perplexity/llama-3.1-sonar-small-128k-online',
   'google/gemini-3.1-pro-preview',
 ];
 

@@ -57,17 +57,17 @@ export function validateDraft(draft: DraftAIResponse): ValidationResult {
   // Title validation
   if (!draft.title || draft.title.trim() === '') {
     errors.push('title: Missing or empty');
-  } else if (draft.title.length > 150) {
-    errors.push(`title: Too long (${draft.title.length} chars, max 150)`);
+  } else if (draft.title.length > 200) {
+    errors.push(`title: Too long (${draft.title.length} chars, max 200)`);
   }
 
   // Description validation (SEO)
   if (!draft.description || draft.description.trim() === '') {
     errors.push('description: Missing or empty');
-  } else if (draft.description.length < 100) {
-    errors.push(`description: Too short (${draft.description.length} chars, min 100)`);
-  } else if (draft.description.length > 160) {
-    errors.push(`description: Too long (${draft.description.length} chars, max 160)`);
+  } else if (draft.description.length < 50) {
+    errors.push(`description: Too short (${draft.description.length} chars, min 50)`);
+  } else if (draft.description.length > 300) {
+    errors.push(`description: Too long (${draft.description.length} chars, max 300)`);
   }
 
   // Content validation
@@ -76,10 +76,10 @@ export function validateDraft(draft: DraftAIResponse): ValidationResult {
   }
 
   const wordCount = countWords(draft.content || '');
-  if (wordCount < 800) {
-    errors.push(`content: Too short (${wordCount} words, min 800)`);
-  } else if (wordCount > 2500) {
-    errors.push(`content: Too long (${wordCount} words, max 2500)`);
+  if (wordCount < 300) {
+    errors.push(`content: Too short (${wordCount} words, min 300)`);
+  } else if (wordCount > 3500) {
+    errors.push(`content: Too long (${wordCount} words, max 3500)`);
   }
 
   // Tags validation
