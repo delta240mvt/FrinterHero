@@ -83,19 +83,35 @@ async function runGeoMonitor(): Promise<void> {
   // Stage 3: Generate Proposals (Short suggestions, NO full drafts to save tokens)
   if (gapIds.length > 0) {
     const topCount = Math.min(MAX_AUTO_DRAFTS, gapIds.length);
-    console.log(`[GEO] Generating proposals for top ${topCount} gaps...`);
+    console.log(`[GEO] Generating proposals (mini-drafts) for top ${topCount} gaps...`);
     const topGaps = await db
-      .select({ id: contentGaps.id, gapTitle: contentGaps.gapTitle })
+      .select({ id: contentGaps.id, gapTitle: contentGaps.gapTitle, relatedQueries: contentGaps.relatedQueries })
       .from(contentGaps)
       .where(inArray(contentGaps.id, gapIds))
       .orderBy(desc(contentGaps.confidenceScore))
       .limit(MAX_AUTO_DRAFTS);
 
     for (const gap of topGaps) {
-      // We just log that the proposal is ready. 
-      // Manual generation with author inputs will happen later in the UI.
-      console.log(`[GEO] Proposal created: "${gap.gapTitle.slice(0, 50)}..." waiting for author input.`);
-      draftsGenerated++; // Repurposing field conceptually: number of proposals prepared
+      try {
+        const queryExample = gap.relatedQueries?.[0] || gap.gapTitle;
+        const prompt = `You are a focus/productivity expert. Create a very short, concrete article proposal/mini-draft (max 150 words) answering the query: "${queryExample}".
+It should resemble the final article but highly condensed. Include:
+1. Proposed Title
+2. Short TL;DR
+3. 2-3 H2 headers with a 1-sentence description of what will be written there.
+Do NOT write the whole article. Be concise. Write in the primary language of the query.`;
+
+        const shortProposal = await queryOpenAI(prompt);
+
+        await db.update(contentGaps)
+          .set({ suggestedAngle: shortProposal })
+          .where(eq(contentGaps.id, gap.id));
+
+        console.log(`[GEO] Proposal created: "${gap.gapTitle.slice(0, 50)}..." waiting for author input.`);
+        draftsGenerated++; // Repurposing field conceptually: number of proposals prepared
+      } catch (err) {
+        console.error(`[GEO] Failed to generate proposal for ${gap.id}:`, err);
+      }
     }
   }
 
