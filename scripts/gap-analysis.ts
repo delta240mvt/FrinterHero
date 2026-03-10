@@ -22,10 +22,10 @@ export interface GapAnalysisResult {
 }
 
 // ------------------------------------------------------------------
-// KB Coverage: full-text search against knowledge_entries
-// Returns 0-100: how well the topic is covered
+// Article Coverage: check if we already have a published/draft article
+// High coverage = priority drops (avoiding duplication)
 // ------------------------------------------------------------------
-async function checkKBCoverage(topic: string): Promise<number> {
+async function checkArticleCoverage(topic: string): Promise<number> {
   try {
     const keywords = topic
       .toLowerCase()
@@ -33,6 +33,40 @@ async function checkKBCoverage(topic: string): Promise<number> {
       .split(/\s+/)
       .filter(w => w.length > 3)
       .slice(0, 5);
+
+    if (keywords.length === 0) return 0;
+
+    const conditions = keywords.map(kw =>
+      or(
+        ilike(articles.title, `%${kw}%`),
+        ilike(articles.content, `%${kw}%`)
+      )!
+    );
+
+    const [result] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(articles)
+      .where(or(...conditions));
+
+    const count = Number(result?.count || 0);
+    // 0 articles → 0, 3+ articles → 100
+    return Math.min(100, count * 33);
+  } catch {
+    return 0;
+  }
+}
+
+// ------------------------------------------------------------------
+// Knowledge Base Readiness: do we have managed KB entries for this?
+// High readiness = priority INCREASES (easy win, we have the info)
+// ------------------------------------------------------------------
+async function checkKnowledgeReady(topic: string): Promise<number> {
+  try {
+    const keywords = topic
+      .toLowerCase()
+      .split(/\s+/)
+      .filter(w => w.length > 3)
+      .slice(0, 4);
 
     if (keywords.length === 0) return 0;
 
@@ -49,8 +83,7 @@ async function checkKBCoverage(topic: string): Promise<number> {
       .where(or(...conditions));
 
     const count = Number(result?.count || 0);
-    // 0 entries → 0, 5+ entries → 100
-    return Math.min(100, count * 20);
+    return Math.min(100, count * 25);
   } catch {
     return 0;
   }
@@ -58,19 +91,21 @@ async function checkKBCoverage(topic: string): Promise<number> {
 
 // ------------------------------------------------------------------
 // Confidence Score: higher = more important gap to fill
-// Low KB coverage + many models agree = high priority
+// Low article coverage + many models agree + high KB readiness = high priority
 // ------------------------------------------------------------------
 function calculateConfidenceScore(
-  kbCoverage: number,
+  articleCoverage: number,
+  kbReadiness: number,
   modelCount: number,
   totalModels: number,
   isNicheRelevant: boolean
 ): number {
-  const coverageGap = 100 - kbCoverage; // 0-100
+  const coverageGap = 100 - articleCoverage; // 0-100 (high if no article exists)
   const modelAgreement = (modelCount / totalModels) * 100; // 0-100
+  const knowledgeBonus = kbReadiness * 0.2; // 0-20 bonus (we have data to fill it!)
   const nicheBonus = isNicheRelevant ? 15 : 0;
 
-  const raw = coverageGap * 0.5 + modelAgreement * 0.35 + nicheBonus;
+  const raw = coverageGap * 0.4 + modelAgreement * 0.3 + knowledgeBonus + nicheBonus;
   return Math.round(Math.min(100, Math.max(0, raw)));
 }
 
@@ -163,20 +198,21 @@ export async function detectGaps(
   const gapIds: number[] = [];
 
   for (const [query, { models, queries }] of gapMap.entries()) {
-    const kbCoverage = await checkKBCoverage(query);
+    const articleCoverage = await checkArticleCoverage(query);
+    const kbReadiness = await checkKnowledgeReady(query);
     const relevant = isNicheRelevant(query);
-    const score = calculateConfidenceScore(kbCoverage, models.length, totalModels, relevant);
+    const score = calculateConfidenceScore(articleCoverage, kbReadiness, models.length, totalModels, relevant);
 
     const gapTitle = query.slice(0, 200);
     const duplicateId = await checkForDuplicate(gapTitle);
 
-    if (duplicateId !== null) {
+    if (duplicateId !== null || articleCoverage >= 80) {
       gapsDeduped++;
       continue;
     }
 
     const suggestedAngle = generateSuggestedAngle(gapTitle, queries, models);
-    const description = `AI gap: ${models.length}/${totalModels} models failed to mention Frinter when asked about "${gapTitle}". KB coverage: ${kbCoverage}%.`;
+    const description = `AI gap: ${models.length}/${totalModels} models failed to mention Frinter when asked about "${gapTitle}". Article coverage: ${articleCoverage}%. KB readiness: ${kbReadiness}%.`;
 
     try {
       const [inserted] = await db.insert(contentGaps).values({
