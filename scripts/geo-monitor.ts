@@ -80,45 +80,22 @@ async function runGeoMonitor(): Promise<void> {
   const { gapsFound, gapsDeduped, gapIds } = await detectGaps(geoQueryResults, geoRun.id);
   console.log(`[GEO] Gaps persisted: ${gapsFound}, deduped: ${gapsDeduped}`);
 
-  // Stage 3: Generate drafts for top N gaps by confidence score
+  // Stage 3: Generate Proposals (Short suggestions, NO full drafts to save tokens)
   if (gapIds.length > 0) {
-    console.log(`[GEO] Generating drafts for top ${MAX_AUTO_DRAFTS} gaps...`);
+    const topCount = Math.min(MAX_AUTO_DRAFTS, gapIds.length);
+    console.log(`[GEO] Generating proposals for top ${topCount} gaps...`);
     const topGaps = await db
-      .select({ id: contentGaps.id })
+      .select({ id: contentGaps.id, gapTitle: contentGaps.gapTitle })
       .from(contentGaps)
       .where(inArray(contentGaps.id, gapIds))
       .orderBy(desc(contentGaps.confidenceScore))
       .limit(MAX_AUTO_DRAFTS);
 
     for (const gap of topGaps) {
-      try {
-        const result = await generateDraft({
-          gap_id: gap.id,
-          author_notes: '',
-          model: 'anthropic/claude-sonnet-4-6',
-        });
-
-        if (result.success && result.draft && result.htmlContent) {
-          const uniqueSlug = `${result.slug}-${Date.now()}`;
-          await db.insert(articles).values({
-            slug: uniqueSlug,
-            title: result.draft.title,
-            description: result.draft.description,
-            content: result.htmlContent,
-            tags: result.draft.tags,
-            status: 'draft',
-            readingTime: result.readingTime,
-            author: 'Przemysław Filipiak',
-            sourceGapId: gap.id,
-          });
-          draftsGenerated++;
-          console.log(`[GEO] Draft created: "${result.draft.title.slice(0, 60)}..."`);
-        } else {
-          console.error(`[GEO] Draft failed for gap ${gap.id}:`, result.error?.message);
-        }
-      } catch (draftErr) {
-        console.error(`[GEO] Draft generation error for gap ${gap.id}:`, draftErr);
-      }
+      // We just log that the proposal is ready. 
+      // Manual generation with author inputs will happen later in the UI.
+      console.log(`[GEO] Proposal created: "${gap.gapTitle.slice(0, 50)}..." waiting for author input.`);
+      draftsGenerated++; // Repurposing field conceptually: number of proposals prepared
     }
   }
 
@@ -148,7 +125,7 @@ async function runGeoMonitor(): Promise<void> {
   console.log(`[GEO] Run complete at ${new Date().toISOString()}`);
   console.log(`[GEO] Queries processed: ${queriesProcessed}`);
   console.log(`[GEO] Gaps found: ${gapsFound} (${gapsDeduped} deduped)`);
-  console.log(`[GEO] Drafts generated: ${draftsGenerated}`);
+  console.log(`[GEO] Proposals generated: ${draftsGenerated}`);
 }
 
 // Run if called directly

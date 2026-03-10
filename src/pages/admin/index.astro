@@ -176,7 +176,7 @@ try {
                   <th>Run At</th>
                   <th>Queries</th>
                   <th>Gaps Found</th>
-                  <th>Drafts Generated</th>
+                  <th>Proposals Generated</th>
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -238,8 +238,8 @@ try {
     if (line.includes('✓ Mention found')) return 'success';
     if (line.includes('Gap detected')) return 'gap';
     if (line.includes('Error') || line.includes('Failed') || line.includes('error')) return 'error';
-    if (line.includes('Draft created')) return 'draft';
-    if (line.includes('Run complete') || line.includes('Drafts generated')) return 'done';
+    if (line.includes('Proposal created')) return 'draft';
+    if (line.includes('Run complete') || line.includes('Proposals generated')) return 'done';
     return 'info';
   }
 
@@ -311,10 +311,10 @@ try {
               phase = 'analysis';
               geoProgressBar.style.width = '92%';
               geoStatus.textContent = 'Running gap analysis...';
-            } else if (line.includes('Generating drafts')) {
+            } else if (line.includes('Generating proposals')) {
               phase = 'drafts';
               geoProgressBar.style.width = '95%';
-              geoStatus.textContent = 'Generating top 5 drafts...';
+              geoStatus.textContent = 'Generating top proposals...';
             } else if (line.includes('Run complete')) {
               phase = 'done';
             }
