@@ -46,11 +46,11 @@ if (nextRun <= now) nextRun.setDate(nextRun.getDate() + 1);
 const countdownMin = Math.max(0, Math.floor((nextRun.getTime() - now.getTime()) / 60000));
 
 const TABS = [
-  { label: 'Aktywne',       value: 'new,in_progress',  count: gapCounts.new + gapCounts.in_progress },
-  { label: 'Nowe',          value: 'new',               count: gapCounts.new },
-  { label: 'W trakcie',     value: 'in_progress',       count: gapCounts.in_progress },
-  { label: 'Potwierdzone',  value: 'acknowledged',      count: gapCounts.acknowledged },
-  { label: 'Archiwum',      value: 'archived',          count: gapCounts.archived },
+  { label: 'Active',        value: 'new,in_progress',  count: gapCounts.new + gapCounts.in_progress },
+  { label: 'New',           value: 'new',               count: gapCounts.new },
+  { label: 'In Progress',   value: 'in_progress',       count: gapCounts.in_progress },
+  { label: 'Acknowledged',  value: 'acknowledged',      count: gapCounts.acknowledged },
+  { label: 'Archived',      value: 'archived',          count: gapCounts.archived },
 ];
 
 function buildUrl(overrides: Record<string, string>) {
@@ -62,8 +62,8 @@ function buildUrl(overrides: Record<string, string>) {
 }
 
 function lastRunLabel(d: any) {
-  if (!d) return 'Nigdy';
-  return new Date(d).toLocaleString('pl-PL', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' });
+  if (!d) return 'Never';
+  return new Date(d).toLocaleString('en-GB', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' });
 }
 ---
 
@@ -90,27 +90,27 @@ function lastRunLabel(d: any) {
     <section class="stats-banner">
       <div class="stat-card stat-card--new">
         <span class="stat-number">{gapCounts.new}</span>
-        <span class="stat-label">Nowe</span>
+        <span class="stat-label">New</span>
       </div>
       <div class="stat-divider"></div>
       <div class="stat-card stat-card--progress">
         <span class="stat-number">{gapCounts.in_progress}</span>
-        <span class="stat-label">W trakcie</span>
+        <span class="stat-label">In Progress</span>
       </div>
       <div class="stat-divider"></div>
       <div class="stat-card stat-card--ack">
         <span class="stat-number">{gapCounts.acknowledged}</span>
-        <span class="stat-label">Potwierdzone</span>
+        <span class="stat-label">Acknowledged</span>
       </div>
       <div class="stat-divider"></div>
       <div class="stat-card stat-card--arch">
         <span class="stat-number">{gapCounts.archived}</span>
-        <span class="stat-label">Archiwum</span>
+        <span class="stat-label">Archived</span>
       </div>
       <div class="stat-divider"></div>
       <div class="stat-card stat-card--total">
         <span class="stat-number">{gapCounts.new + gapCounts.in_progress + gapCounts.acknowledged + gapCounts.archived}</span>
-        <span class="stat-label">Razem</span>
+        <span class="stat-label">Total</span>
       </div>
     </section>
 
@@ -143,17 +143,17 @@ function lastRunLabel(d: any) {
           </div>
           <div class="widget-stats">
             <div class="ws-item">
-              <span class="ws-label">Ostatni run</span>
+              <span class="ws-label">Last Run</span>
               <span class="ws-value">{lastRunLabel(recentRun?.runAt)}</span>
             </div>
             <div class="ws-item">
-              <span class="ws-label">Gaps w runie</span>
+              <span class="ws-label">Gaps in Run</span>
               <span class="ws-value ws-value--gold">{recentRun?.gapsFound || 0}</span>
             </div>
             <div class="ws-item ws-item--full">
-              <span class="ws-label">Następny run</span>
+              <span class="ws-label">Next Run</span>
               <span class="ws-value ws-value--teal" id="countdown-display">
-                {countdownMin > 0 ? `za ${Math.floor(countdownMin/60)}h ${countdownMin%60}m` : 'Dzisiaj o 7:00'}
+                {countdownMin > 0 ? `in ${Math.floor(countdownMin/60)}h ${countdownMin%60}m` : 'Today at 7:00'}
               </span>
             </div>
           </div>
@@ -162,13 +162,13 @@ function lastRunLabel(d: any) {
         <!-- Filters -->
         <div class="widget">
           <div class="widget-title-row">
-            <span class="widget-title">Filtry zaawansowane</span>
+            <span class="widget-title">Advanced Filters</span>
           </div>
           <form method="GET" id="filter-form">
             <input type="hidden" name="status" value={statusFilter} />
             <div class="filter-group">
               <label class="filter-label">
-                Min. pewność: <span id="conf-min-label">{confidenceMin}</span>
+                Min. confidence: <span id="conf-min-label">{confidenceMin}</span>
               </label>
               <input
                 type="range" name="confidence_min" min="0" max="100" value={confidenceMin}
@@ -178,7 +178,7 @@ function lastRunLabel(d: any) {
             </div>
             <div class="filter-group">
               <label class="filter-label">
-                Max. pewność: <span id="conf-max-label">{confidenceMax}</span>
+                Max. confidence: <span id="conf-max-label">{confidenceMax}</span>
               </label>
               <input
                 type="range" name="confidence_max" min="0" max="100" value={confidenceMax}
@@ -187,15 +187,15 @@ function lastRunLabel(d: any) {
               />
             </div>
             <div class="filter-group">
-              <label class="filter-label">Sortowanie</label>
+              <label class="filter-label">Sort by</label>
               <select name="sort_by" class="filter-select" onchange="this.form.submit()">
-                <option value="confidence" selected={sortBy==='confidence'}>Pewność (malejąco)</option>
-                <option value="recency"    selected={sortBy==='recency'}>Najnowsze</option>
+                <option value="confidence" selected={sortBy==='confidence'}>Confidence (desc)</option>
+                <option value="recency"    selected={sortBy==='recency'}>Newest</option>
               </select>
             </div>
-            <button type="submit" class="btn-apply">Zastosuj filtry</button>
+            <button type="submit" class="btn-apply">Apply Filters</button>
             {(confidenceMin > 0 || confidenceMax < 100) && (
-              <a href={buildUrl({ confidence_min: '0', confidence_max: '100' })} class="btn-reset-filters">Resetuj filtry</a>
+              <a href={buildUrl({ confidence_min: '0', confidence_max: '100' })} class="btn-reset-filters">Reset Filters</a>
             )}
           </form>
         </div>
@@ -211,23 +211,23 @@ function lastRunLabel(d: any) {
               <span class="feed-count">{gaps.length}</span>
             </h2>
           </div>
-          <button class="btn-refresh" id="refresh-btn" onclick="window.location.reload()">↻ Odśwież</button>
+          <button class="btn-refresh" id="refresh-btn" onclick="window.location.reload()">↻ Refresh</button>
         </div>
 
         <div id="gap-list" class="gap-list">
           {gaps.length === 0 ? (
             <div class="empty-state">
               <div class="empty-icon">🔍</div>
-              <p class="empty-title">Brak gaps dla tych filtrów</p>
+              <p class="empty-title">No gaps for these filters</p>
               <p class="empty-hint">
                 {statusFilter.includes('new') || statusFilter.includes('in_progress')
-                  ? 'Uruchom GEO Monitor na dashboardzie, aby wykryć nowe luki w widoczności.'
-                  : 'Zmień filtry statusu, aby zobaczyć inne gaps.'
+                  ? 'Run GEO Monitor on the dashboard to detect new visibility gaps.'
+                  : 'Change the status filter to see other gaps.'
                 }
               </p>
               <div class="empty-actions">
-                <a href="/admin" class="btn-cta">→ Dashboard (uruchom GEO)</a>
-                <a href={buildUrl({ status: 'new,in_progress' })} class="btn-ghost-sm">Pokaż aktywne</a>
+                <a href="/admin" class="btn-cta">→ Dashboard (run GEO)</a>
+                <a href={buildUrl({ status: 'new,in_progress' })} class="btn-ghost-sm">Show active</a>
               </div>
             </div>
           ) : (
@@ -250,10 +250,10 @@ function lastRunLabel(d: any) {
 <div id="gen-modal" class="modal-backdrop" style="display:none" role="dialog" aria-modal="true">
   <div class="modal-box">
     <div class="modal-spinner" id="modal-spinner"></div>
-    <h3 class="modal-title" id="modal-title">Generuję szkic…</h3>
-    <p class="modal-desc"  id="modal-desc">To może zająć do 60 sekund. Czekaj.</p>
+    <h3 class="modal-title" id="modal-title">Generating draft…</h3>
+    <p class="modal-desc"  id="modal-desc">This may take up to 60 seconds. Please wait.</p>
     <div id="modal-result" style="display:none">
-      <a id="modal-link" href="#" class="btn-modal-cta">Otwórz w edytorze →</a>
+      <a id="modal-link" href="#" class="btn-modal-cta">Open in editor →</a>
     </div>
   </div>
 </div>
@@ -267,7 +267,7 @@ function lastRunLabel(d: any) {
       remaining = Math.max(0, remaining - 60);
       const h = Math.floor(remaining / 3600);
       const m = Math.floor((remaining % 3600) / 60);
-      el.textContent = remaining > 0 ? `za ${h}h ${m}m` : 'Wkrótce…';
+      el.textContent = remaining > 0 ? `in ${h}h ${m}m` : 'Soon…';
     }, 60000);
   }
 
@@ -280,7 +280,7 @@ function lastRunLabel(d: any) {
   }
 
   async function archiveGap(gapId) {
-    if (!confirm('Zarchiwizować ten gap?')) return;
+    if (!confirm('Archive this gap?')) return;
     const res = await fetch(`/api/content-gaps/${gapId}/archive`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}),
     });
@@ -331,7 +331,7 @@ function lastRunLabel(d: any) {
     const modalLink  = document.getElementById('modal-link');
 
     modal.style.display = 'flex';
-    if (btn) { btn.textContent = 'Generuję…'; btn.disabled = true; }
+    if (btn) { btn.textContent = 'Generating…'; btn.disabled = true; }
 
     const res = await fetch('/api/generate-draft', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -341,16 +341,16 @@ function lastRunLabel(d: any) {
     if (res.ok) {
       const data = await res.json();
       if (spinner) spinner.style.display = 'none';
-      modalTitle.textContent     = '✓ Szkic wygenerowany!';
-      modalDesc.textContent      = `"${data.title}" — ${data.reading_time || '?'} min czytania`;
+      modalTitle.textContent     = '✓ Draft generated!';
+      modalDesc.textContent      = `"${data.title}" — ${data.reading_time || '?'} min read`;
       modalLink.href             = `/admin/article/${data.article_id}`;
       modalResult.style.display  = 'block';
     } else {
       const err = await res.json();
       if (spinner) spinner.style.display = 'none';
-      modalTitle.textContent = '✗ Generowanie nieudane';
-      modalDesc.textContent  = err.error || 'Nieznany błąd. Spróbuj ponownie.';
-      if (btn) { btn.textContent = 'Spróbuj ponownie'; btn.disabled = false; }
+      modalTitle.textContent = '✗ Generation failed';
+      modalDesc.textContent  = err.error || 'Unknown error. Please try again.';
+      if (btn) { btn.textContent = 'Try again'; btn.disabled = false; }
     }
 
     modal.addEventListener('click', (e) => {

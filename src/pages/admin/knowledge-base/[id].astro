@@ -42,10 +42,10 @@ const TYPE_LABELS: Record<string, string> = {
   personal_note     : 'Personal Note',
 };
 
-const createdDate = new Date(entry.createdAt).toLocaleDateString('pl-PL', {
+const createdDate = new Date(entry.createdAt).toLocaleDateString('en-GB', {
   day: '2-digit', month: 'long', year: 'numeric',
 });
-const updatedDate = new Date(entry.updatedAt).toLocaleDateString('pl-PL', {
+const updatedDate = new Date(entry.updatedAt).toLocaleDateString('en-GB', {
   day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit',
 });
 
@@ -67,8 +67,8 @@ const readingMin = Math.max(1, Math.ceil(wordCount / 200));
       <span class="bc-current">#{entry.id}</span>
     </nav>
     <div class="header-actions">
-      <button id="toggle-edit-btn" class="btn-edit">✏️ Edytuj</button>
-      <button id="delete-btn" class="btn-danger-sm" data-entry-title={entry.title}>🗑 Usuń</button>
+      <button id="toggle-edit-btn" class="btn-edit">✏️ Edit</button>
+      <button id="delete-btn" class="btn-danger-sm" data-entry-title={entry.title}>🗑 Delete</button>
       <a href="/api/logout" class="btn-logout">Logout</a>
     </div>
   </header>
@@ -84,7 +84,7 @@ const readingMin = Math.max(1, Math.ceil(wordCount / 200));
         </div>
 
         <div class="meta-section">
-          <div class="meta-label">Ważność</div>
+          <div class="meta-label">Importance</div>
           <div class="score-display">
             <div class="score-bar-lg">
               <div class="score-fill-lg" style={`width:${entry.importanceScore}%`}></div>
@@ -95,7 +95,7 @@ const readingMin = Math.max(1, Math.ceil(wordCount / 200));
 
         {entry.projectName && (
           <div class="meta-section">
-            <div class="meta-label">Folder / Projekt</div>
+            <div class="meta-label">Folder / Project</div>
             <a href={`/admin/knowledge-base?tab=kb&project=${encodeURIComponent(entry.projectName)}`} class="folder-chip">
               📁 {entry.projectName}
             </a>
@@ -104,7 +104,7 @@ const readingMin = Math.max(1, Math.ceil(wordCount / 200));
 
         {entry.tags?.length > 0 && (
           <div class="meta-section">
-            <div class="meta-label">Tagi</div>
+            <div class="meta-label">Tags</div>
             <div class="tags-list">
               {entry.tags.map((t: string) => <span class="tag">{t}</span>)}
             </div>
@@ -113,35 +113,35 @@ const readingMin = Math.max(1, Math.ceil(wordCount / 200));
 
         {entry.sourceUrl && (
           <div class="meta-section">
-            <div class="meta-label">Źródło</div>
+            <div class="meta-label">Source</div>
             <a href={entry.sourceUrl} target="_blank" rel="noopener" class="source-link">{entry.sourceUrl}</a>
           </div>
         )}
 
         <div class="meta-section">
-          <div class="meta-label">Statystyki treści</div>
+          <div class="meta-label">Content Stats</div>
           <div class="content-stats">
-            <div class="content-stat">{wordCount.toLocaleString()} słów</div>
-            <div class="content-stat">~{readingMin} min czytania</div>
-            <div class="content-stat">{(entry.content || '').length.toLocaleString()} znaków</div>
+            <div class="content-stat">{wordCount.toLocaleString()} words</div>
+            <div class="content-stat">~{readingMin} min read</div>
+            <div class="content-stat">{(entry.content || '').length.toLocaleString()} chars</div>
           </div>
         </div>
 
         <div class="meta-section">
-          <div class="meta-label">Daty</div>
+          <div class="meta-label">Dates</div>
           <div class="date-list">
-            <div class="date-item"><span class="date-label">Utworzono</span><span class="date-val">{createdDate}</span></div>
-            <div class="date-item"><span class="date-label">Edytowano</span><span class="date-val">{updatedDate}</span></div>
+            <div class="date-item"><span class="date-label">Created</span><span class="date-val">{createdDate}</span></div>
+            <div class="date-item"><span class="date-label">Updated</span><span class="date-val">{updatedDate}</span></div>
           </div>
         </div>
 
         <div class="meta-section">
-          <div class="meta-label">ID wpisu</div>
+          <div class="meta-label">Entry ID</div>
           <code class="entry-id">#{entry.id}</code>
         </div>
 
         <div class="meta-nav">
-          <a href="/admin/knowledge-base" class="btn-back">← Powrót do listy</a>
+          <a href="/admin/knowledge-base" class="btn-back">← Back to list</a>
         </div>
 
       </aside>
@@ -155,7 +155,7 @@ const readingMin = Math.max(1, Math.ceil(wordCount / 200));
         <!-- ─── VIEW MODE ─── -->
         <div id="view-mode">
           <div class="content-label">
-            <span>Treść wpisu</span>
+            <span>Entry content</span>
             <span class="content-label-type">(Markdown)</span>
           </div>
           <div class="markdown-content" set:html={renderedContent}></div>
@@ -168,7 +168,7 @@ const readingMin = Math.max(1, Math.ceil(wordCount / 200));
 
             <div class="form-row">
               <div class="form-group">
-                <label class="form-label" for="edit-type">Typ</label>
+                <label class="form-label" for="edit-type">Type</label>
                 <select id="edit-type" name="type" class="form-input" required>
                   <option value="project_spec"      selected={entry.type === 'project_spec'}>Project Spec</option>
                   <option value="published_article" selected={entry.type === 'published_article'}>Published Article</option>
@@ -177,51 +177,51 @@ const readingMin = Math.max(1, Math.ceil(wordCount / 200));
                 </select>
               </div>
               <div class="form-group">
-                <label class="form-label" for="edit-score">Ważność: <span id="score-display">{entry.importanceScore}</span>/100</label>
+                <label class="form-label" for="edit-score">Importance: <span id="score-display">{entry.importanceScore}</span>/100</label>
                 <input type="range" id="edit-score" name="importance_score" min="0" max="100" value={entry.importanceScore} class="range-input" />
               </div>
             </div>
 
             <div class="form-group">
-              <label class="form-label" for="edit-title">Tytuł</label>
+              <label class="form-label" for="edit-title">Title</label>
               <input type="text" id="edit-title" name="title" class="form-input" value={entry.title} required />
             </div>
 
             <div class="form-group">
-              <label class="form-label" for="edit-project">Folder / Projekt</label>
+              <label class="form-label" for="edit-project">Folder / Project</label>
               <div class="project-input-row">
                 <select id="edit-project-select" class="form-input" style="flex:1">
-                  <option value="">— brak / nowy folder —</option>
+                  <option value="">— none / new folder —</option>
                   {projects.map(p => (
                     <option value={p} selected={entry.projectName === p}>{p}</option>
                   ))}
                 </select>
-                <span class="project-or">lub wpisz:</span>
+                <span class="project-or">or type:</span>
                 <input type="text" id="edit-project" name="project_name" class="form-input" style="flex:1"
-                  placeholder="Nowy folder..." value={entry.projectName || ''} />
+                  placeholder="New folder..." value={entry.projectName || ''} />
               </div>
             </div>
 
             <div class="form-group">
-              <label class="form-label" for="edit-content">Treść (Markdown, min 50 znaków)</label>
+              <label class="form-label" for="edit-content">Content (Markdown, min 50 chars)</label>
               <textarea id="edit-content" name="content" class="form-textarea" rows="18" required>{entry.content}</textarea>
             </div>
 
             <div class="form-row">
               <div class="form-group">
-                <label class="form-label" for="edit-url">URL Źródła (opcjonalnie)</label>
+                <label class="form-label" for="edit-url">Source URL (optional)</label>
                 <input type="url" id="edit-url" name="source_url" class="form-input" value={entry.sourceUrl || ''} placeholder="https://..." />
               </div>
               <div class="form-group">
-                <label class="form-label" for="edit-tags">Tagi (przecinek, lowercase)</label>
+                <label class="form-label" for="edit-tags">Tags (comma-separated, lowercase)</label>
                 <input type="text" id="edit-tags" name="tags" class="form-input"
                   value={(entry.tags || []).join(', ')} placeholder="deep-work, ai, frinter" />
               </div>
             </div>
 
             <div class="form-actions">
-              <button type="submit" class="btn-save" id="save-btn">Zapisz zmiany</button>
-              <button type="button" id="cancel-edit-btn" class="btn-ghost-sm">Anuluj</button>
+              <button type="submit" class="btn-save" id="save-btn">Save Changes</button>
+              <button type="button" id="cancel-edit-btn" class="btn-ghost-sm">Cancel</button>
             </div>
           </form>
         </div>
@@ -234,13 +234,13 @@ const readingMin = Math.max(1, Math.ceil(wordCount / 200));
 <!-- DELETE CONFIRMATION MODAL -->
 <div id="delete-modal" class="modal-backdrop" style="display:none" role="dialog" aria-modal="true">
   <div class="modal-box">
-    <h3 class="modal-title">Usuń wpis KB</h3>
-    <p class="modal-desc">Czy na pewno chcesz usunąć wpis:</p>
+    <h3 class="modal-title">Delete KB Entry</h3>
+    <p class="modal-desc">Are you sure you want to delete this entry:</p>
     <p class="modal-entry-name">"{entry.title}"</p>
-    <p class="modal-warn">Ta operacja jest nieodwracalna.</p>
+    <p class="modal-warn">This action cannot be undone.</p>
     <div class="modal-actions">
-      <button id="delete-confirm-btn" class="btn-danger">Usuń bezpowrotnie</button>
-      <button id="delete-cancel-btn"  class="btn-ghost-sm">Anuluj</button>
+      <button id="delete-confirm-btn" class="btn-danger">Delete permanently</button>
+      <button id="delete-cancel-btn"  class="btn-ghost-sm">Cancel</button>
     </div>
   </div>
 </div>
@@ -255,13 +255,13 @@ const readingMin = Math.max(1, Math.ceil(wordCount / 200));
   function showEdit() {
     viewMode.style.display = 'none';
     editMode.style.display = 'block';
-    toggleBtn.textContent  = '👁 Podgląd';
+    toggleBtn.textContent  = '👁 Preview';
     toggleBtn.onclick      = showView;
   }
   function showView() {
     viewMode.style.display = 'block';
     editMode.style.display = 'none';
-    toggleBtn.textContent  = '✏️ Edytuj';
+    toggleBtn.textContent  = '✏️ Edit';
     toggleBtn.onclick      = showEdit;
   }
 
@@ -289,7 +289,7 @@ const readingMin = Math.max(1, Math.ceil(wordCount / 200));
     const msg     = document.getElementById('edit-message');
     const saveBtn = document.getElementById('save-btn');
 
-    saveBtn.textContent = 'Zapisuję…';
+    saveBtn.textContent = 'Saving…';
     saveBtn.disabled    = true;
 
     const body = {
@@ -311,7 +311,7 @@ const readingMin = Math.max(1, Math.ceil(wordCount / 200));
 
       if (res.ok) {
         msg.className   = 'edit-message msg-success';
-        msg.textContent = 'Zapisano. Odświeżam…';
+        msg.textContent = 'Saved. Refreshing…';
         msg.style.display = 'block';
         setTimeout(() => window.location.reload(), 900);
       } else {
@@ -321,14 +321,14 @@ const readingMin = Math.max(1, Math.ceil(wordCount / 200));
           ? ': ' + Object.entries(err.fields).map(([k,v]) => `${k}: ${v}`).join(', ')
           : '');
         msg.style.display = 'block';
-        saveBtn.textContent = 'Zapisz zmiany';
+        saveBtn.textContent = 'Save Changes';
         saveBtn.disabled    = false;
       }
     } catch {
       msg.className   = 'edit-message msg-error';
-      msg.textContent = 'Błąd sieci. Spróbuj ponownie.';
+      msg.textContent = 'Network error. Please try again.';
       msg.style.display = 'block';
-      saveBtn.textContent = 'Zapisz zmiany';
+      saveBtn.textContent = 'Save Changes';
       saveBtn.disabled    = false;
     }
   });
@@ -343,7 +343,7 @@ const readingMin = Math.max(1, Math.ceil(wordCount / 200));
   deleteCancel?.addEventListener('click', () => { deleteModal.style.display = 'none'; });
 
   deleteConfirm?.addEventListener('click', async () => {
-    deleteConfirm.textContent = 'Usuwam…';
+    deleteConfirm.textContent = 'Deleting…';
     deleteConfirm.disabled    = true;
     try {
       const res = await fetch(`/api/knowledge-base/${entryId}`, { method: 'DELETE' });
@@ -351,13 +351,13 @@ const readingMin = Math.max(1, Math.ceil(wordCount / 200));
         window.location.href = '/admin/knowledge-base';
       } else {
         const err = await res.json();
-        alert('Błąd: ' + (err.error || 'Nieznany błąd'));
-        deleteConfirm.textContent = 'Usuń bezpowrotnie';
+        alert('Error: ' + (err.error || 'Unknown error'));
+        deleteConfirm.textContent = 'Delete permanently';
         deleteConfirm.disabled    = false;
       }
     } catch {
-      alert('Błąd sieci.');
-      deleteConfirm.textContent = 'Usuń bezpowrotnie';
+      alert('Network error.');
+      deleteConfirm.textContent = 'Delete permanently';
       deleteConfirm.disabled    = false;
     }
   });

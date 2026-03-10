@@ -73,7 +73,7 @@ function pageUrl(p: number) {
       <span class="bc-current">Admin Dashboard</span>
     </nav>
     <div class="header-actions">
-      <a href="/admin/article/new" class="btn-primary">+ Nowy artykuł</a>
+      <a href="/admin/article/new" class="btn-primary">+ New Article</a>
       <a href="/api/logout" class="btn-logout">Logout</a>
     </div>
   </header>
@@ -81,39 +81,39 @@ function pageUrl(p: number) {
   <main class="admin-main">
 
     <!-- ===== STATS BANNER ===== -->
-    <section class="stats-banner" aria-label="Statystyki">
+    <section class="stats-banner" aria-label="Stats">
       <div class="stat-card stat-card--published">
         <span class="stat-number">{stats.published}</span>
-        <span class="stat-label">Opublikowane</span>
+        <span class="stat-label">Published</span>
       </div>
       <div class="stat-divider"></div>
       <div class="stat-card stat-card--draft">
         <span class="stat-number">{stats.draft}</span>
-        <span class="stat-label">Szkice</span>
+        <span class="stat-label">Drafts</span>
       </div>
       <div class="stat-divider"></div>
       <div class="stat-card stat-card--archived">
         <span class="stat-number">{stats.archived}</span>
-        <span class="stat-label">Archiwum</span>
+        <span class="stat-label">Archived</span>
       </div>
       <div class="stat-divider"></div>
       <div class="stat-card">
         <span class="stat-number">{total}</span>
-        <span class="stat-label">Razem artykułów</span>
+        <span class="stat-label">Total Articles</span>
       </div>
     </section>
 
     <!-- ===== HUB NAVIGATION ===== -->
-    <section class="hub-grid" aria-label="Nawigacja modułów">
+    <section class="hub-grid" aria-label="Module Navigation">
       <a href="/admin/content-gaps" class="hub-card hub-card--gaps">
         <div class="hub-icon">🔍</div>
         <div class="hub-body">
           <div class="hub-title">Content Gaps</div>
           <div class="hub-meta">
-            <span class="hub-badge hub-badge--gold">{gapStats.new} nowych</span>
-            {gapStats.in_progress > 0 && <span class="hub-badge hub-badge--teal">{gapStats.in_progress} w trakcie</span>}
+            <span class="hub-badge hub-badge--gold">{gapStats.new} new</span>
+            {gapStats.in_progress > 0 && <span class="hub-badge hub-badge--teal">{gapStats.in_progress} in progress</span>}
           </div>
-          <div class="hub-desc">Luki w widoczności AI — generuj artykuły z gaps</div>
+          <div class="hub-desc">AI visibility gaps — generate articles from gaps</div>
         </div>
         <span class="hub-arrow">→</span>
       </a>
@@ -122,9 +122,9 @@ function pageUrl(p: number) {
         <div class="hub-body">
           <div class="hub-title">Knowledge Base</div>
           <div class="hub-meta">
-            <span class="hub-badge hub-badge--violet">{kbTotal} wpisów</span>
+            <span class="hub-badge hub-badge--violet">{kbTotal} entries</span>
           </div>
-          <div class="hub-desc">Baza wiedzy — kontekst dla AI generatora artykułów</div>
+          <div class="hub-desc">Knowledge Base — context for the AI article generator</div>
         </div>
         <span class="hub-arrow">→</span>
       </a>
@@ -135,16 +135,16 @@ function pageUrl(p: number) {
       <div class="section-header-row">
         <div class="section-title-block">
           <h2 class="section-title">🛰 GEO Monitor</h2>
-          <p class="section-subtitle">Reverse RAG Loop — analiza widoczności Frintera w modelach AI</p>
+          <p class="section-subtitle">Reverse RAG Loop — AI visibility analysis for Frinter</p>
         </div>
-        <button id="run-geo-btn" class="btn-geo">Uruchom GEO Monitor</button>
+        <button id="run-geo-btn" class="btn-geo">Run GEO Monitor</button>
       </div>
 
       <!-- GEO streaming panel (hidden by default) -->
       <div id="geo-panel" class="geo-panel" style="display:none">
         <div class="geo-panel-top">
-          <span id="geo-status" class="geo-status">Inicjalizacja...</span>
-          <button id="geo-panel-close" class="geo-close-btn" style="display:none">✕ Zamknij</button>
+          <span id="geo-status" class="geo-status">Initializing...</span>
+          <button id="geo-panel-close" class="geo-close-btn" style="display:none">✕ Close</button>
         </div>
         <div class="geo-progress-row">
           <div class="geo-track">
@@ -160,26 +160,26 @@ function pageUrl(p: number) {
     <section class="admin-section">
       <div class="section-header-row">
         <div class="section-title-block">
-          <h2 class="section-title">📰 Artykuły</h2>
+          <h2 class="section-title">📰 Articles</h2>
         </div>
         <form method="GET" class="filter-row">
-          <input type="text" name="search" value={search} placeholder="Szukaj po tytule…" class="filter-input" />
+          <input type="text" name="search" value={search} placeholder="Search by title…" class="filter-input" />
           <select name="status" class="filter-input">
-            <option value="" selected={!statusFilter}>Wszystkie statusy</option>
-            <option value="draft"     selected={statusFilter==='draft'}>Szkice</option>
-            <option value="published" selected={statusFilter==='published'}>Opublikowane</option>
-            <option value="archived"  selected={statusFilter==='archived'}>Archiwum</option>
+            <option value="" selected={!statusFilter}>All statuses</option>
+            <option value="draft"     selected={statusFilter==='draft'}>Drafts</option>
+            <option value="published" selected={statusFilter==='published'}>Published</option>
+            <option value="archived"  selected={statusFilter==='archived'}>Archived</option>
           </select>
-          <button type="submit" class="btn-filter">Filtruj</button>
-          {(search || statusFilter) && <a href="/admin" class="btn-ghost-sm">Wyczyść</a>}
+          <button type="submit" class="btn-filter">Filter</button>
+          {(search || statusFilter) && <a href="/admin" class="btn-ghost-sm">Clear</a>}
         </form>
       </div>
 
       <!-- Bulk toolbar -->
       <div id="bulk-toolbar" class="bulk-toolbar" style="display:none">
-        <span id="bulk-count" class="bulk-count">0 zaznaczonych</span>
-        <button id="bulk-delete-btn" class="btn-bulk-delete">Usuń zaznaczone</button>
-        <button id="bulk-cancel-btn" class="btn-bulk-cancel">Anuluj</button>
+        <span id="bulk-count" class="bulk-count">0 selected</span>
+        <button id="bulk-delete-btn" class="btn-bulk-delete">Delete selected</button>
+        <button id="bulk-cancel-btn" class="btn-bulk-cancel">Cancel</button>
       </div>
 
       <div class="table-wrapper">
@@ -187,11 +187,11 @@ function pageUrl(p: number) {
           <thead>
             <tr>
               <th class="th-check"><input type="checkbox" id="select-all" class="row-checkbox" /></th>
-              <th class="th-title">Tytuł</th>
+              <th class="th-title">Title</th>
               <th class="th-slug">Slug</th>
               <th class="th-status">Status</th>
-              <th class="th-date">Data</th>
-              <th class="th-actions">Akcje</th>
+              <th class="th-date">Date</th>
+              <th class="th-actions">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -199,8 +199,8 @@ function pageUrl(p: number) {
               <tr>
                 <td colspan="6" class="td-empty">
                   {search || statusFilter
-                    ? <>Brak artykułów dla podanych filtrów. <a href="/admin">Wyczyść</a></>
-                    : <>Brak artykułów. <a href="/admin/article/new">Utwórz pierwszy</a></>
+                    ? <>No articles for these filters. <a href="/admin">Clear</a></>
+                    : <>No articles. <a href="/admin/article/new">Create first</a></>
                   }
                 </td>
               </tr>
@@ -218,19 +218,19 @@ function pageUrl(p: number) {
                   <span class={`status-badge status-badge--${a.status}`}>{a.status}</span>
                 </td>
                 <td class="td-date">
-                  {new Date(a.createdAt).toLocaleDateString('pl-PL', { day:'2-digit', month:'2-digit', year:'2-digit' })}
+                  {new Date(a.createdAt).toLocaleDateString('en-GB', { day:'2-digit', month:'2-digit', year:'2-digit' })}
                 </td>
                 <td class="td-actions">
-                  <a href={`/admin/article/${a.id}`} class="action-btn action-btn--edit">✏️ Edytuj</a>
+                  <a href={`/admin/article/${a.id}`} class="action-btn action-btn--edit">✏️ Edit</a>
                   {a.status !== 'published' && (
                     <button class="action-btn action-btn--publish"
                       data-publish-id={a.id} data-publish-title={a.title}>
-                      🚀 Publikuj
+                      🚀 Publish
                     </button>
                   )}
                   <button class="action-btn action-btn--delete"
                     data-delete-id={a.id} data-delete-title={a.title}>
-                    🗑 Usuń
+                    🗑 Delete
                   </button>
                 </td>
               </tr>
@@ -241,9 +241,9 @@ function pageUrl(p: number) {
 
       {totalPages > 1 && (
         <nav class="pagination">
-          {page > 1 && <a href={pageUrl(page - 1)} class="page-btn">‹ Poprzednia</a>}
-          <span class="page-info">Strona {page} z {totalPages}</span>
-          {page < totalPages && <a href={pageUrl(page + 1)} class="page-btn">Następna ›</a>}
+          {page > 1 && <a href={pageUrl(page - 1)} class="page-btn">‹ Previous</a>}
+          <span class="page-info">Page {page} of {totalPages}</span>
+          {page < totalPages && <a href={pageUrl(page + 1)} class="page-btn">Next ›</a>}
         </nav>
       )}
     </section>
@@ -253,25 +253,25 @@ function pageUrl(p: number) {
       <section class="admin-section">
         <div class="section-header-row">
           <div class="section-title-block">
-            <h2 class="section-title">📊 Ostatnie uruchomienia GEO</h2>
+            <h2 class="section-title">📊 Recent GEO Runs</h2>
           </div>
         </div>
         <div class="table-wrapper">
           <table class="data-table">
             <thead>
               <tr>
-                <th>Data</th>
-                <th>Zapytań</th>
-                <th>Gaps znalezionych</th>
-                <th>Propozycji wygenerowanych</th>
-                <th>Akcje</th>
+                <th>Date</th>
+                <th>Queries</th>
+                <th>Gaps Found</th>
+                <th>Proposals Generated</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {recentRuns.map(run => (
                 <tr>
                   <td class="td-date">
-                    {new Date(run.runAt).toLocaleString('pl-PL', { day:'2-digit', month:'2-digit', year:'2-digit', hour:'2-digit', minute:'2-digit' })}
+                    {new Date(run.runAt).toLocaleString('en-GB', { day:'2-digit', month:'2-digit', year:'2-digit', hour:'2-digit', minute:'2-digit' })}
                   </td>
                   <td class="td-num">{run.queriesCount}</td>
                   <td class="td-num">
@@ -281,7 +281,7 @@ function pageUrl(p: number) {
                     <span style={run.draftsGenerated > 0 ? 'color:var(--teal);font-weight:600' : ''}>{run.draftsGenerated}</span>
                   </td>
                   <td class="td-actions">
-                    <a href={`/admin/geo/${run.id}`} class="action-btn action-btn--edit">Szczegóły</a>
+                    <a href={`/admin/geo/${run.id}`} class="action-btn action-btn--edit">Details</a>
                   </td>
                 </tr>
               ))}
@@ -297,13 +297,13 @@ function pageUrl(p: number) {
 <!-- DELETE MODAL -->
 <div id="delete-modal" class="modal-backdrop" style="display:none" role="dialog" aria-modal="true">
   <div class="modal-box">
-    <h3 class="modal-title">Usuń artykuł</h3>
-    <p class="modal-desc">Czy na pewno chcesz usunąć:</p>
+    <h3 class="modal-title">Delete Article</h3>
+    <p class="modal-desc">Are you sure you want to delete:</p>
     <p id="delete-modal-name" class="modal-item-name"></p>
-    <p class="modal-warn">Operacja nieodwracalna.</p>
+    <p class="modal-warn">This action cannot be undone.</p>
     <div class="modal-actions">
-      <button id="delete-confirm-btn" class="btn-danger">Usuń</button>
-      <button id="delete-cancel-btn"  class="btn-ghost-sm">Anuluj</button>
+      <button id="delete-confirm-btn" class="btn-danger">Delete</button>
+      <button id="delete-cancel-btn"  class="btn-ghost-sm">Cancel</button>
     </div>
   </div>
 </div>
@@ -311,12 +311,12 @@ function pageUrl(p: number) {
 <!-- PUBLISH MODAL -->
 <div id="publish-modal" class="modal-backdrop" style="display:none" role="dialog" aria-modal="true">
   <div class="modal-box">
-    <h3 class="modal-title">Opublikuj artykuł</h3>
-    <p class="modal-desc">Czy opublikować artykuł:</p>
+    <h3 class="modal-title">Publish Article</h3>
+    <p class="modal-desc">Publish this article:</p>
     <p id="publish-modal-name" class="modal-item-name"></p>
     <div class="modal-actions">
-      <button id="publish-confirm-btn" class="btn-publish">🚀 Publikuj</button>
-      <button id="publish-cancel-btn"  class="btn-ghost-sm">Anuluj</button>
+      <button id="publish-confirm-btn" class="btn-publish">🚀 Publish</button>
+      <button id="publish-cancel-btn"  class="btn-ghost-sm">Cancel</button>
     </div>
   </div>
 </div>
@@ -357,12 +357,12 @@ function pageUrl(p: number) {
   function setRunningUI(queryCount: number = 0) {
     geoPanel.style.display = 'block';
     geoClose.style.display = 'none';
-    geoBtn.textContent     = 'Działa...';
+    geoBtn.textContent     = 'Running...';
     geoBtn.disabled        = true;
     geoStatus.className    = 'geo-status geo-status--running';
     geoStatus.textContent  = queryCount > 0
-      ? `Odpytywanie modeli… (${queryCount}/${TOTAL_STEPS})`
-      : 'Uruchamianie…';
+      ? `Querying models… (${queryCount}/${TOTAL_STEPS})`
+      : 'Starting…';
     const pct = Math.min(90, Math.round((queryCount / TOTAL_STEPS) * 90));
     geoBar.style.width     = `${pct}%`;
     geoBarText.textContent = `${queryCount} / ${TOTAL_STEPS}`;
@@ -370,13 +370,13 @@ function pageUrl(p: number) {
 
   function setDoneUI(code: number | null) {
     geoBar.style.width     = '100%';
-    geoBarText.textContent = 'Gotowe';
+    geoBarText.textContent = 'Done';
     geoClose.style.display = 'inline-block';
-    geoBtn.textContent     = 'Uruchom GEO Monitor';
+    geoBtn.textContent     = 'Run GEO Monitor';
     geoBtn.disabled        = false;
     const ok = code === 0;
     geoStatus.className   = `geo-status geo-status--${ok ? 'done' : 'error'}`;
-    geoStatus.textContent = ok ? 'Zakończono pomyślnie' : `Błąd (kod ${code})`;
+    geoStatus.textContent = ok ? 'Completed successfully' : `Error (code ${code})`;
   }
 
   // ─── SSE stream (reconnectable) ─────────────────────────────
@@ -417,13 +417,13 @@ function pageUrl(p: number) {
               const pct = Math.min(90, Math.round((localQueryCount / TOTAL_STEPS) * 90));
               geoBar.style.width     = `${pct}%`;
               geoBarText.textContent = `${localQueryCount} / ${TOTAL_STEPS}`;
-              geoStatus.textContent  = `Odpytywanie modeli… (${localQueryCount}/${TOTAL_STEPS})`;
+              geoStatus.textContent  = `Querying models… (${localQueryCount}/${TOTAL_STEPS})`;
             } else if (payload.line.includes('Running gap analysis')) {
               geoBar.style.width    = '92%';
-              geoStatus.textContent = 'Analiza luk…';
+              geoStatus.textContent = 'Analyzing gaps…';
             } else if (payload.line.includes('Generating proposals')) {
               geoBar.style.width    = '95%';
-              geoStatus.textContent = 'Generowanie propozycji…';
+              geoStatus.textContent = 'Generating proposals…';
             }
           }
 
@@ -435,10 +435,10 @@ function pageUrl(p: number) {
         }
       }
     } catch (e: any) {
-      geoStatus.textContent  = `Błąd połączenia: ${e.message}`;
+      geoStatus.textContent  = `Connection error: ${e.message}`;
       geoStatus.className    = 'geo-status geo-status--error';
       geoClose.style.display = 'inline-block';
-      geoBtn.textContent     = 'Uruchom GEO Monitor';
+      geoBtn.textContent     = 'Run GEO Monitor';
       geoBtn.disabled        = false;
       activeReader           = null;
     }
@@ -470,7 +470,7 @@ function pageUrl(p: number) {
 
   // ─── Run button ──────────────────────────────────────────────
   geoBtn?.addEventListener('click', async () => {
-    if (!confirm('Uruchomić GEO Monitor? Zajmie kilka minut.')) return;
+    if (!confirm('Run GEO Monitor? This will take a few minutes.')) return;
 
     const startRes = await fetch('/api/geo/start', { method: 'POST' });
 
@@ -483,7 +483,7 @@ function pageUrl(p: number) {
       return;
     }
     if (!startRes.ok) {
-      alert('Błąd uruchomienia GEO Monitor');
+      alert('Failed to start GEO Monitor');
       return;
     }
 
@@ -513,11 +513,11 @@ function pageUrl(p: number) {
   deleteCancel.addEventListener('click', () => { deleteModal.style.display = 'none'; pendingDeleteId = null; });
   deleteConfirm.addEventListener('click', async () => {
     if (!pendingDeleteId) return;
-    deleteConfirm.textContent = 'Usuwam…';
+    deleteConfirm.textContent = 'Deleting…';
     deleteConfirm.setAttribute('disabled', 'true');
     const res = await fetch(`/api/articles/${pendingDeleteId}`, { method: 'DELETE' });
     if (res.ok) window.location.reload();
-    else { alert('Błąd usuwania'); deleteConfirm.textContent = 'Usuń'; deleteConfirm.removeAttribute('disabled'); }
+    else { alert('Failed to delete'); deleteConfirm.textContent = 'Delete'; deleteConfirm.removeAttribute('disabled'); }
   });
 
   // ─── Publish Modal ─────────────────────────────────────────
@@ -538,7 +538,7 @@ function pageUrl(p: number) {
   publishCancel.addEventListener('click', () => { publishModal.style.display = 'none'; pendingPublishId = null; });
   publishConfirm.addEventListener('click', async () => {
     if (!pendingPublishId) return;
-    publishConfirm.textContent = 'Publikuję…';
+    publishConfirm.textContent = 'Publishing…';
     publishConfirm.setAttribute('disabled', 'true');
     const res = await fetch(`/api/articles/${pendingPublishId}`, {
       method: 'PUT',
@@ -546,7 +546,7 @@ function pageUrl(p: number) {
       body: JSON.stringify({ status: 'published' }),
     });
     if (res.ok) window.location.reload();
-    else { alert('Błąd publikacji'); publishConfirm.textContent = '🚀 Publikuj'; publishConfirm.removeAttribute('disabled'); }
+    else { alert('Failed to publish'); publishConfirm.textContent = '🚀 Publish'; publishConfirm.removeAttribute('disabled'); }
   });
 
   document.addEventListener('keydown', (e) => {
@@ -572,7 +572,7 @@ function pageUrl(p: number) {
     const ids = getChecked();
     if (ids.length > 0) {
       bulkToolbar.style.display = 'flex';
-      bulkCount.textContent = `${ids.length} zaznaczon${ids.length === 1 ? 'y' : 'ych'}`;
+      bulkCount.textContent = `${ids.length} selected`;
     } else {
       bulkToolbar.style.display = 'none';
     }
@@ -602,9 +602,9 @@ function pageUrl(p: number) {
 
   bulkDeleteBtn?.addEventListener('click', async () => {
     const ids = getChecked();
-    if (!confirm(`Usunąć ${ids.length} artykuł(y)? Nieodwracalne.`)) return;
+    if (!confirm(`Delete ${ids.length} article(s)? This cannot be undone.`)) return;
     bulkDeleteBtn.disabled    = true;
-    bulkDeleteBtn.textContent = 'Usuwam…';
+    bulkDeleteBtn.textContent = 'Deleting…';
     const res = await fetch('/api/articles/bulk-delete', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -612,9 +612,9 @@ function pageUrl(p: number) {
     });
     if (res.ok) window.location.reload();
     else {
-      alert('Błąd usuwania');
+      alert('Failed to delete');
       bulkDeleteBtn.disabled    = false;
-      bulkDeleteBtn.textContent = 'Usuń zaznaczone';
+      bulkDeleteBtn.textContent = 'Delete selected';
     }
   });
 </script>

@@ -130,9 +130,9 @@ const TYPE_LABELS: Record<string, string> = {
 
 const sortLabel: Record<string, string> = {
   importance : 'Score ↓',
-  date_desc  : 'Najnowsze',
-  date_asc   : 'Najstarsze',
-  title_asc  : 'Tytuł A-Z',
+  date_desc  : 'Newest',
+  date_asc   : 'Oldest',
+  title_asc  : 'Title A-Z',
 };
 
 // Serialize entries for client-side preview (truncate content)
@@ -159,8 +159,8 @@ const entriesJson = JSON.stringify(entries.map(e => ({
   <div class="preview-header">
     <div id="prev-type-badge" class="type-badge"></div>
     <div class="preview-header-actions">
-      <a id="prev-edit-link" href="#" class="prev-btn-edit">Edytuj</a>
-      <a id="prev-full-link" href="#" class="prev-btn-full">Pełny widok →</a>
+      <a id="prev-edit-link" href="#" class="prev-btn-edit">Edit</a>
+      <a id="prev-full-link" href="#" class="prev-btn-full">Full view →</a>
       <button id="preview-close" class="preview-close" aria-label="Close">✕</button>
     </div>
   </div>
@@ -176,10 +176,10 @@ const entriesJson = JSON.stringify(entries.map(e => ({
       <span class="prev-meta-label">Source:</span>
       <a id="prev-url" href="#" target="_blank" rel="noopener" class="prev-url-link"></a>
     </div>
-    <div class="prev-content-label">Treść</div>
+    <div class="prev-content-label">Content</div>
     <div id="prev-content" class="prev-content"></div>
     <div id="prev-truncated" class="prev-truncated" style="display:none">
-      … <a id="prev-truncated-link" href="#">Otwórz pełny widok</a> aby zobaczyć całą treść
+      … <a id="prev-truncated-link" href="#">Open full view</a> to see all content
     </div>
   </div>
 </aside>
@@ -194,7 +194,7 @@ const entriesJson = JSON.stringify(entries.map(e => ({
       <span class="breadcrumb-current">Knowledge Base</span>
     </nav>
     <div class="header-actions">
-      <a href="/admin/knowledge-base/create" class="btn-primary">+ Nowy wpis</a>
+      <a href="/admin/knowledge-base/create" class="btn-primary">+ New Entry</a>
       <a href="/admin/knowledge-base/import" class="btn-ghost">Import .md</a>
       <a href="/api/logout" class="btn-logout">Logout</a>
     </div>
@@ -203,36 +203,36 @@ const entriesJson = JSON.stringify(entries.map(e => ({
   <main class="page-main">
 
     <!-- STATS BANNER -->
-    <section class="stats-banner" aria-label="Statystyki bazy wiedzy">
+    <section class="stats-banner" aria-label="Knowledge Base Stats">
       <a href={buildUrl({ tab: 'kb', search: '', type: '', project: '' })} class={`stat-card ${tab === 'kb' ? 'stat-card--active-kb' : ''}`}>
         <span class="stat-card-number">{stats.kb}</span>
-        <span class="stat-card-label">Baza Wiedzy</span>
-        <span class="stat-card-sub">proj_spec · research · notatki</span>
+        <span class="stat-card-label">Knowledge Base</span>
+        <span class="stat-card-sub">proj_spec · research · notes</span>
       </a>
       <div class="stat-divider"></div>
       <a href={buildUrl({ tab: 'articles', search: '', type: '', project: '' })} class={`stat-card ${tab === 'articles' ? 'stat-card--active-art' : ''}`}>
         <span class="stat-card-number">{stats.articles}</span>
-        <span class="stat-card-label">Opublikowane Artykuły</span>
-        <span class="stat-card-sub">published_article w KB</span>
+        <span class="stat-card-label">Published Articles</span>
+        <span class="stat-card-sub">published_article in KB</span>
       </a>
       <div class="stat-divider"></div>
       <a href={buildUrl({ tab: 'folders', search: '', type: '', project: '' })} class={`stat-card ${tab === 'folders' ? 'stat-card--active-fold' : ''}`}>
         <span class="stat-card-number">{stats.folders}</span>
-        <span class="stat-card-label">Foldery</span>
-        <span class="stat-card-sub">grupy projektowe</span>
+        <span class="stat-card-label">Folders</span>
+        <span class="stat-card-sub">project groups</span>
       </a>
     </section>
 
     <!-- TAB BAR -->
-    <nav class="tab-bar" role="tablist" aria-label="Widoki bazy wiedzy">
+    <nav class="tab-bar" role="tablist" aria-label="Knowledge Base views">
       <a href={buildUrl({ tab: 'kb', page: '' })}       role="tab" aria-selected={tab === 'kb'}       class={`tab-link ${tab === 'kb'       ? 'tab-link--active tab-link--kb' : ''}`}>
-        📚 Baza Wiedzy <span class="tab-count">{stats.kb}</span>
+        📚 Knowledge Base <span class="tab-count">{stats.kb}</span>
       </a>
       <a href={buildUrl({ tab: 'articles', page: '' })} role="tab" aria-selected={tab === 'articles'} class={`tab-link ${tab === 'articles' ? 'tab-link--active tab-link--art' : ''}`}>
-        📝 Opublikowane <span class="tab-count">{stats.articles}</span>
+        📝 Published <span class="tab-count">{stats.articles}</span>
       </a>
       <a href={buildUrl({ tab: 'folders', page: '' })}  role="tab" aria-selected={tab === 'folders'}  class={`tab-link ${tab === 'folders'  ? 'tab-link--active tab-link--fold' : ''}`}>
-        📁 Foldery <span class="tab-count">{stats.folders}</span>
+        📁 Folders <span class="tab-count">{stats.folders}</span>
       </a>
     </nav>
 
@@ -241,14 +241,14 @@ const entriesJson = JSON.stringify(entries.map(e => ({
       <div class={`section-header ${tab === 'articles' ? 'section-header--articles' : 'section-header--kb'}`}>
         {tab === 'kb' && (
           <div class="section-header-inner">
-            <div class="section-badge section-badge--kb">🧠 MOJA BAZA WIEDZY</div>
-            <p class="section-desc">Notatki prywatne, specyfikacje projektów, zewnętrzne badania — kontekst dla AI generatora artykułów.</p>
+            <div class="section-badge section-badge--kb">🧠 MY KNOWLEDGE BASE</div>
+            <p class="section-desc">Private notes, project specs, external research — context for the AI article generator.</p>
           </div>
         )}
         {tab === 'articles' && (
           <div class="section-header-inner">
-            <div class="section-badge section-badge--art">📰 OPUBLIKOWANE ARTYKUŁY</div>
-            <p class="section-desc">Artykuły już opublikowane — wpisy w KB reprezentujące content na blogu/sieci.</p>
+            <div class="section-badge section-badge--art">📰 PUBLISHED ARTICLES</div>
+            <p class="section-desc">Already published articles — KB entries representing blog/web content.</p>
           </div>
         )}
       </div>
@@ -260,7 +260,7 @@ const entriesJson = JSON.stringify(entries.map(e => ({
         {folderStats.length === 0 ? (
           <div class="empty-state">
             <div class="empty-icon">📁</div>
-            <p>Brak folderów. Przypisz <strong>project_name</strong> do wpisów KB, aby je tu zobaczyć.</p>
+            <p>No folders. Assign <strong>project_name</strong> to KB entries to see them here.</p>
           </div>
         ) : (
           <div class="folder-grid">
@@ -268,7 +268,7 @@ const entriesJson = JSON.stringify(entries.map(e => ({
               <a href={buildUrl({ tab: 'kb', project: f.name, search: '', type: '' })} class="folder-card">
                 <div class="folder-card-icon">📁</div>
                 <div class="folder-card-name">{f.name}</div>
-                <div class="folder-card-count">{f.count} {f.count === 1 ? 'wpis' : f.count < 5 ? 'wpisy' : 'wpisów'}</div>
+                <div class="folder-card-count">{f.count} {f.count === 1 ? 'entry' : 'entries'}</div>
                 <div class="folder-card-types">
                   {f.types.map(t => (
                     <span class={`type-badge type-badge--xs type-${t}`}>{TYPE_LABELS[t] || t}</span>
@@ -295,56 +295,56 @@ const entriesJson = JSON.stringify(entries.map(e => ({
           <input type="hidden" name="tab" value={tab} />
           <input
             type="text" name="search" value={search}
-            placeholder={tab === 'kb' ? 'Szukaj w KB…' : 'Szukaj w artykułach…'}
+            placeholder={tab === 'kb' ? 'Search KB…' : 'Search articles…'}
             class="filter-input filter-input--search"
           />
           {tab === 'kb' && (
             <select name="type" class="filter-input">
-              <option value="">Wszystkie typy</option>
+              <option value="">All types</option>
               <option value="project_spec"      selected={typeFilter === 'project_spec'}>Project Spec</option>
               <option value="external_research" selected={typeFilter === 'external_research'}>External Research</option>
               <option value="personal_note"     selected={typeFilter === 'personal_note'}>Personal Note</option>
             </select>
           )}
           <select name="project" class="filter-input">
-            <option value="">Wszystkie foldery</option>
+            <option value="">All folders</option>
             {projects.map(p => (
               <option value={p} selected={project === p}>📁 {p}</option>
             ))}
           </select>
           <select name="sort" class="filter-input">
-            <option value="importance" selected={sort === 'importance'}>Sortuj: Score ↓</option>
-            <option value="date_desc"  selected={sort === 'date_desc'}>Sortuj: Najnowsze</option>
-            <option value="date_asc"   selected={sort === 'date_asc'}>Sortuj: Najstarsze</option>
-            <option value="title_asc"  selected={sort === 'title_asc'}>Sortuj: Tytuł A-Z</option>
+            <option value="importance" selected={sort === 'importance'}>Sort: Score ↓</option>
+            <option value="date_desc"  selected={sort === 'date_desc'}>Sort: Newest</option>
+            <option value="date_asc"   selected={sort === 'date_asc'}>Sort: Oldest</option>
+            <option value="title_asc"  selected={sort === 'title_asc'}>Sort: Title A-Z</option>
           </select>
-          <button type="submit" class="btn-primary-sm">Szukaj</button>
+          <button type="submit" class="btn-primary-sm">Search</button>
           {(search || typeFilter || project) && (
-            <a href={buildUrl({ tab, search: '', type: '', project: '' })} class="btn-ghost-sm">Wyczyść</a>
+            <a href={buildUrl({ tab, search: '', type: '', project: '' })} class="btn-ghost-sm">Clear</a>
           )}
         </form>
 
         <!-- RESULTS META -->
         <div class="results-meta">
           <span class="results-count">
-            {total === 0 ? 'Brak wyników' : `${total} ${total === 1 ? 'wpis' : total < 5 ? 'wpisy' : 'wpisów'}`}
+            {total === 0 ? 'No results' : `${total} ${total === 1 ? 'entry' : 'entries'}`}
           </span>
           {project && (
             <span class="filter-badge filter-badge--folder">
               📁 {project}
-              <a href={buildUrl({ tab, project: '' })} class="badge-remove" aria-label="Usuń filtr folderu">✕</a>
+              <a href={buildUrl({ tab, project: '' })} class="badge-remove" aria-label="Remove folder filter">✕</a>
             </span>
           )}
           {typeFilter && (
             <span class="filter-badge filter-badge--type">
               {TYPE_LABELS[typeFilter] || typeFilter}
-              <a href={buildUrl({ tab, type: '' })} class="badge-remove" aria-label="Usuń filtr typu">✕</a>
+              <a href={buildUrl({ tab, type: '' })} class="badge-remove" aria-label="Remove type filter">✕</a>
             </span>
           )}
           {search && (
             <span class="filter-badge filter-badge--search">
               "{search}"
-              <a href={buildUrl({ tab, search: '' })} class="badge-remove" aria-label="Usuń filtr wyszukiwania">✕</a>
+              <a href={buildUrl({ tab, search: '' })} class="badge-remove" aria-label="Remove search filter">✕</a>
             </span>
           )}
           <span class="results-sort">— {sortLabel[sort] || sort}</span>
@@ -356,18 +356,18 @@ const entriesJson = JSON.stringify(entries.map(e => ({
             <thead>
               <tr>
                 <th class="th-title">
-                  <a href={sortUrl('title_asc')} class={`sort-link ${sort === 'title_asc' ? 'sort-link--active' : ''}`}>Tytuł</a>
+                  <a href={sortUrl('title_asc')} class={`sort-link ${sort === 'title_asc' ? 'sort-link--active' : ''}`}>Title</a>
                 </th>
-                {tab === 'kb' && <th class="th-type">Typ</th>}
+                {tab === 'kb' && <th class="th-type">Type</th>}
                 <th class="th-folder">Folder</th>
                 <th class="th-score">
                   <a href={sortUrl('importance')} class={`sort-link ${sort === 'importance' ? 'sort-link--active' : ''}`}>Score</a>
                 </th>
-                <th class="th-tags">Tagi</th>
+                <th class="th-tags">Tags</th>
                 <th class="th-date">
-                  <a href={sortUrl('date_desc')} class={`sort-link ${sort === 'date_desc' || sort === 'date_asc' ? 'sort-link--active' : ''}`}>Data</a>
+                  <a href={sortUrl('date_desc')} class={`sort-link ${sort === 'date_desc' || sort === 'date_asc' ? 'sort-link--active' : ''}`}>Date</a>
                 </th>
-                <th class="th-actions">Akcje</th>
+                <th class="th-actions">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -400,12 +400,12 @@ const entriesJson = JSON.stringify(entries.map(e => ({
                     {(e.tags || []).length > 3 && <span class="tag-more">+{e.tags.length - 3}</span>}
                   </td>
                   <td class="td-date">
-                    {new Date(e.createdAt).toLocaleDateString('pl-PL', { day: '2-digit', month: '2-digit', year: '2-digit' })}
+                    {new Date(e.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' })}
                   </td>
                   <td class="td-actions">
-                    <button class="action-btn action-btn--preview" data-preview-id={e.id} title="Podgląd">👁</button>
-                    <a href={`/admin/knowledge-base/${e.id}`} class="action-btn action-btn--edit" title="Edytuj / pełny widok">✏️</a>
-                    <button class="action-btn action-btn--delete" data-delete-id={e.id} data-delete-title={e.title} title="Usuń">🗑</button>
+                    <button class="action-btn action-btn--preview" data-preview-id={e.id} title="Preview">👁</button>
+                    <a href={`/admin/knowledge-base/${e.id}`} class="action-btn action-btn--edit" title="Edit / full view">✏️</a>
+                    <button class="action-btn action-btn--delete" data-delete-id={e.id} data-delete-title={e.title} title="Delete">🗑</button>
                   </td>
                 </tr>
               ))}
@@ -414,10 +414,10 @@ const entriesJson = JSON.stringify(entries.map(e => ({
                   <td colspan="7" class="td-empty">
                     <div class="empty-state-inline">
                       {search || typeFilter || project
-                        ? <>Brak wyników dla podanych filtrów. <a href={buildUrl({ tab, search: '', type: '', project: '' })}>Wyczyść filtry</a></>
+                        ? <>No results for these filters. <a href={buildUrl({ tab, search: '', type: '', project: '' })}>Clear filters</a></>
                         : <>{tab === 'kb'
-                            ? <>Baza wiedzy pusta. <a href="/admin/knowledge-base/create">Utwórz wpis</a> lub <a href="/admin/knowledge-base/import">importuj .md</a></>
-                            : <>Brak wpisów typu "published_article". <a href="/admin/knowledge-base/create">Dodaj artykuł do KB</a></>
+                            ? <>Knowledge base is empty. <a href="/admin/knowledge-base/create">Create entry</a> or <a href="/admin/knowledge-base/import">import .md</a></>
+                            : <>No entries of type "published_article". <a href="/admin/knowledge-base/create">Add article to KB</a></>
                           }</>
                       }
                     </div>
@@ -430,11 +430,11 @@ const entriesJson = JSON.stringify(entries.map(e => ({
 
         <!-- PAGINATION -->
         {totalPages > 1 && (
-          <nav class="pagination" aria-label="Paginacja">
+          <nav class="pagination" aria-label="Pagination">
             {page > 1 && <a href={pageUrl(1)}      class="page-btn page-btn--edge">«</a>}
-            {page > 1 && <a href={pageUrl(page - 1)} class="page-btn">‹ Poprzednia</a>}
-            <span class="page-info">Strona {page} z {totalPages} ({total} wpisów)</span>
-            {page < totalPages && <a href={pageUrl(page + 1)} class="page-btn">Następna ›</a>}
+            {page > 1 && <a href={pageUrl(page - 1)} class="page-btn">‹ Previous</a>}
+            <span class="page-info">Page {page} of {totalPages} ({total} entries)</span>
+            {page < totalPages && <a href={pageUrl(page + 1)} class="page-btn">Next ›</a>}
             {page < totalPages && <a href={pageUrl(totalPages)} class="page-btn page-btn--edge">»</a>}
           </nav>
         )}
@@ -447,13 +447,13 @@ const entriesJson = JSON.stringify(entries.map(e => ({
 <!-- DELETE CONFIRMATION MODAL -->
 <div id="delete-modal" class="modal-backdrop" style="display:none" role="dialog" aria-modal="true" aria-labelledby="delete-modal-title">
   <div class="modal-box">
-    <h3 id="delete-modal-title" class="modal-title">Usuń wpis KB</h3>
-    <p class="modal-desc">Czy na pewno chcesz usunąć wpis:</p>
+    <h3 id="delete-modal-title" class="modal-title">Delete KB Entry</h3>
+    <p class="modal-desc">Are you sure you want to delete this entry:</p>
     <p id="delete-modal-entry" class="modal-entry-name"></p>
-    <p class="modal-warn">Ta operacja jest nieodwracalna.</p>
+    <p class="modal-warn">This action cannot be undone.</p>
     <div class="modal-actions">
-      <button id="delete-confirm-btn" class="btn-danger">Usuń bezpowrotnie</button>
-      <button id="delete-cancel-btn"  class="btn-ghost-sm">Anuluj</button>
+      <button id="delete-confirm-btn" class="btn-danger">Delete permanently</button>
+      <button id="delete-cancel-btn"  class="btn-ghost-sm">Cancel</button>
     </div>
   </div>
 </div>
@@ -502,7 +502,7 @@ const entriesJson = JSON.stringify(entries.map(e => ({
     (document.getElementById('prev-score') as HTMLElement).textContent = `Score: ${e.importanceScore}/100`;
     const d = new Date(e.createdAt);
     (document.getElementById('prev-date') as HTMLElement).textContent =
-      d.toLocaleDateString('pl-PL', { day: '2-digit', month: '2-digit', year: 'numeric' });
+      d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
     const tagsEl = document.getElementById('prev-tags')!;
     tagsEl.innerHTML = (e.tags || []).map((t: string) => `<span class="tag">${t}</span>`).join('');
@@ -583,7 +583,7 @@ const entriesJson = JSON.stringify(entries.map(e => ({
 
   deleteConfirm.addEventListener('click', async () => {
     if (!pendingDeleteId) return;
-    deleteConfirm.textContent = 'Usuwam…';
+    deleteConfirm.textContent = 'Deleting…';
     deleteConfirm.setAttribute('disabled', 'true');
     try {
       const res = await fetch(`/api/knowledge-base/${pendingDeleteId}`, { method: 'DELETE' });
@@ -592,17 +592,17 @@ const entriesJson = JSON.stringify(entries.map(e => ({
         row?.remove();
         deleteModal.style.display = 'none';
         pendingDeleteId = null;
-        deleteConfirm.textContent = 'Usuń bezpowrotnie';
+        deleteConfirm.textContent = 'Delete permanently';
         deleteConfirm.removeAttribute('disabled');
       } else {
         const err = await res.json();
-        alert('Błąd usuwania: ' + (err.error || 'Nieznany błąd'));
-        deleteConfirm.textContent = 'Usuń bezpowrotnie';
+        alert('Delete failed: ' + (err.error || 'Unknown error'));
+        deleteConfirm.textContent = 'Delete permanently';
         deleteConfirm.removeAttribute('disabled');
       }
     } catch {
-      alert('Błąd sieci. Spróbuj ponownie.');
-      deleteConfirm.textContent = 'Usuń bezpowrotnie';
+      alert('Network error. Please try again.');
+      deleteConfirm.textContent = 'Delete permanently';
       deleteConfirm.removeAttribute('disabled');
     }
   });
