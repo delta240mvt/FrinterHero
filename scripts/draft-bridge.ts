@@ -1,6 +1,6 @@
-import { generateDraft } from './scripts/draft-generator';
-import { db } from './src/db/client';
-import { articles, articleGenerations } from './src/db/schema';
+import { generateDraft } from './draft-generator';
+import { db } from '../src/db/client';
+import { articles, articleGenerations } from '../src/db/schema';
 
 async function run() {
   const gapId = parseInt(process.env.GAP_ID || '0');
@@ -51,7 +51,7 @@ async function run() {
 
     console.log("[DRAFT] SUCCESS: Article ID " + article.id);
     console.log("RESULT_JSON:" + JSON.stringify({ article_id: article.id, title: result.draft.title }));
-  } catch (err) {
+  } catch (err: any) {
     console.error("[DRAFT] CRITICAL ERROR: " + err.message);
     process.exit(1);
   }
