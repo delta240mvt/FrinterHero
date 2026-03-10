@@ -4,7 +4,7 @@ import GapCard from '@/components/admin/GapCard.astro';
 import GapExpandedCard from '@/components/admin/GapExpandedCard.astro';
 import { db } from '@/db/client';
 import { contentGaps, geoRuns } from '@/db/schema';
-import { desc, eq, count } from 'drizzle-orm';
+import { desc, eq, count, isNotNull } from 'drizzle-orm';
 
 const url = new URL(Astro.request.url);
 const statusFilter  = url.searchParams.get('status')         || '';
@@ -35,10 +35,6 @@ try {
     };
     // Re-fetch individual counts if not perfectly mapped
     if (data.stats && typeof data.stats.total_new !== 'undefined') {
-      const { db } = await import('@/db/client');
-      const { contentGaps } = await import('@/db/schema');
-      const { eq, count, isNotNull } = await import('drizzle-orm');
-      
       const [cNew, cProg, cAck, cArch, cProp] = await Promise.all([
         db.select({ c: count() }).from(contentGaps).where(eq(contentGaps.status, 'new')),
         db.select({ c: count() }).from(contentGaps).where(eq(contentGaps.status, 'in_progress')),
@@ -274,6 +270,48 @@ function lastRunLabel(d: any) {
     </div>
   </main>
 </div>
+
+<script>
+  // Gap interaction functions
+  function expandGap(gapId) {
+    const container = document.getElementById(`expanded-container-${gapId}`);
+    if (!container) return;
+    const isOpen = container.style.display !== 'none';
+    container.style.display = isOpen ? 'none' : 'block';
+  }
+
+  async function archiveGap(gapId) {
+    if (!confirm('Archive this gap?')) return;
+    const res = await fetch(`/api/content-gaps/${gapId}/archive`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}),
+    });
+    if (res.ok) {
+      const entry = document.getElementById(`entry-${gapId}`);
+      if (entry) { entry.style.opacity = '0.4'; entry.style.pointerEvents = 'none'; }
+    }
+  }
+
+  async function snoozeGap(gapId) {
+    const res = await fetch(`/api/content-gaps/${gapId}/acknowledge`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'snooze' }),
+    });
+    if (res.ok) {
+      const entry = document.getElementById(`entry-${gapId}`);
+      if (entry) { entry.style.display = 'none'; }
+    }
+  }
+
+  function approveGap(gapId) {
+    const container = document.getElementById(`expanded-container-${gapId}`);
+    if (container) container.style.display = 'block';
+    document.getElementById(`notes-${gapId}`)?.focus();
+  }
+
+  function closeExpanded(gapId) {
+    const container = document.getElementById(`expanded-container-${gapId}`);
+    if (container) container.style.display = 'none';
+  }
 
   async function generateDraft(gapId) {
     const notes      = document.getElementById(`notes-${gapId}`)?.value || '';
