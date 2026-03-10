@@ -17,6 +17,7 @@ export interface DraftSnapshot {
   startedAt: number | null;
   finishedAt: number | null;
   result: any | null;
+  canAbort: boolean;
   lines: DraftLogEntry[];
 }
 
@@ -27,6 +28,7 @@ class DraftJobManager extends EventEmitter {
   private _finishedAt: number | null = null;
   private _lines: DraftLogEntry[] = [];
   private _result: any | null = null;
+  private _child: any | null = null;
 
   getSnapshot(): DraftSnapshot {
     return {
@@ -35,6 +37,7 @@ class DraftJobManager extends EventEmitter {
       startedAt: this._startedAt,
       finishedAt: this._finishedAt,
       result: this._result,
+      canAbort: this._status === 'running',
       lines: this._lines.slice(),
     };
   }
@@ -53,10 +56,10 @@ class DraftJobManager extends EventEmitter {
 
     this.emit('start', { gapId });
 
-    // We'll use a wrapper script or npx tsx directly on a small bridge script
-    // to call the generateDraft function and log everything to stdout
+    // Using node with tsx loader directly - bypass npx for better background reliability
     const args = [
-      'tsx',
+      '--loader', 'tsx',
+      '--no-warnings',
       '-e',
       `
       import { generateDraft } from './scripts/draft-generator';
@@ -116,13 +119,13 @@ class DraftJobManager extends EventEmitter {
       `
     ];
 
-    const child = spawn('npx', args, {
+    this._child = spawn('node', args, {
       cwd: process.cwd(),
       env: process.env,
       shell: true,
     });
 
-    let buf = '';
+    let bufArr = '';
     const pushLine = (raw: string) => {
       const line = raw.trim();
       if (!line) return;
@@ -139,28 +142,51 @@ class DraftJobManager extends EventEmitter {
       this.emit('line', entry);
     };
 
-    child.stdout.on('data', (c) => {
-      buf += c.toString();
-      const parts = buf.split('\n');
-      buf = parts.pop() ?? '';
+    this._child.stdout.on('data', (c: Buffer) => {
+      bufArr += c.toString();
+      const parts = bufArr.split('\n');
+      bufArr = parts.pop() ?? '';
       parts.forEach(pushLine);
     });
 
-    child.stderr.on('data', (c) => {
-      buf += c.toString();
-      const parts = buf.split('\n');
-      buf = parts.pop() ?? '';
+    this._child.stderr.on('data', (c: Buffer) => {
+      bufArr += c.toString();
+      const parts = bufArr.split('\n');
+      bufArr = parts.pop() ?? '';
       parts.forEach(pushLine);
     });
 
-    child.on('close', (code) => {
-      if (buf.trim()) pushLine(buf);
+    this._child.on('close', (code: number) => {
+      if (bufArr.trim()) pushLine(bufArr);
       this._status = code === 0 ? 'done' : 'error';
       this._finishedAt = Date.now();
+      this._child = null;
       this.emit('done', { code });
     });
 
+    this._child.on('error', (err: Error) => {
+      pushLine(`[DRAFT] Process error: ${err.message}`);
+      this._status = 'error';
+      this._finishedAt = Date.now();
+      this._child = null;
+      this.emit('line', { line: `Error: ${err.message}`, ts: Date.now() });
+      this.emit('done', { code: -1 });
+    });
+
     return { ok: true };
+  }
+
+  stop(): boolean {
+    if (this._child) {
+      this._child.kill('SIGTERM');
+      this._status = 'idle';
+      this._child = null;
+      const entry: DraftLogEntry = { line: '[DRAFT] Process aborted by user.', ts: Date.now() };
+      this._lines.push(entry);
+      this.emit('line', entry);
+      return true;
+    }
+    return false;
   }
 }
 

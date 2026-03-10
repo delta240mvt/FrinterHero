@@ -350,6 +350,13 @@ function lastRunLabel(d: any) {
 
   const pollIntervals = {};
 
+  async function abortDraft(gapId) {
+    if (!confirm('Abort generation?')) return;
+    try {
+      await fetch('/api/generate-draft', { method: 'DELETE' });
+    } catch (e) {}
+  }
+
   function startPolling(gapId) {
     if (pollIntervals[gapId]) clearInterval(pollIntervals[gapId]);
 
@@ -364,6 +371,7 @@ function lastRunLabel(d: any) {
         const statusEl  = document.getElementById(`console-status-${gapId}`);
         const footerEl  = document.getElementById(`console-footer-${gapId}`);
         const linkEl    = document.getElementById(`console-link-${gapId}`);
+        const abortBtn  = document.getElementById(`btn-abort-${gapId}`);
         const btn       = document.getElementById(`gen-btn-${gapId}`);
 
         if (data.gapId !== gapId && data.status !== 'idle') {
@@ -372,6 +380,7 @@ function lastRunLabel(d: any) {
         }
 
         if (statusEl) statusEl.textContent = data.status.toUpperCase();
+        if (abortBtn) abortBtn.style.display = data.canAbort ? 'inline-block' : 'none';
         
         if (bodyEl && data.lines) {
           bodyEl.innerHTML = data.lines.map(l => {
@@ -423,6 +432,7 @@ function lastRunLabel(d: any) {
   window.approveGap    = approveGap;
   window.closeExpanded = closeExpanded;
   window.generateDraft = generateDraft;
+  window.abortDraft    = abortDraft;
 
   // Auto-refresh stats counts
   setInterval(async () => {

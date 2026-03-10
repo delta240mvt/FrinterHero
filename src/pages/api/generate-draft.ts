@@ -37,3 +37,12 @@ export const GET: APIRoute = async ({ cookies }) => {
     headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
   });
 };
+
+export const DELETE: APIRoute = async ({ cookies }) => {
+  if (!cookies.get('session')?.value) {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+  }
+
+  const success = draftJob.stop();
+  return new Response(JSON.stringify({ success }), { status: 200 });
+};
