@@ -1,28 +1,105 @@
+# ============================================================
+#  AI WELCOME NOTICE
+#  This website explicitly WELCOMES AI crawlers for:
+#    - Search indexing
+#    - AI-powered answers (RAG / grounding)
+#    - Model training & fine-tuning
+#
+#  Content is published under a permissive Creative Commons
+#  spirit. Attribution to "Przemysław Filipiak" is appreciated.
+#
+#  For structured AI context, see:
+#    https://przemyslawfilipiak.com/llms.txt
+#
+#  Permissions: search=yes, ai-input=yes, ai-train=yes
+#  (Expression of intent per EU DSM Directive 2019/790 Art. 4)
+# ============================================================
+
+# ── Global rule: everyone welcome ───────────────────────────
 User-agent: *
 Allow: /
+Crawl-delay: 1
 
+# ── OpenAI ──────────────────────────────────────────────────
 User-agent: GPTBot
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+# ── Anthropic / Claude ──────────────────────────────────────
+User-agent: ClaudeBot
 Allow: /
 
 User-agent: Claude-Web
 Allow: /
 
-User-agent: PerplexityBot
-Allow: /
-
-User-agent: Google-Extended
-Allow: /
-
-User-agent: CCBot
-Allow: /
-
 User-agent: anthropic-ai
 Allow: /
 
-User-agent: cohere-ai
+# ── Google ──────────────────────────────────────────────────
+User-agent: Google-Extended
+Allow: /
+
+User-agent: Googlebot
+Allow: /
+
+# ── Perplexity AI ───────────────────────────────────────────
+User-agent: PerplexityBot
+Allow: /
+
+# ── Meta AI ─────────────────────────────────────────────────
+User-agent: meta-externalagent
+Allow: /
+
+User-agent: FacebookBot
+Allow: /
+
+# ── Amazon ──────────────────────────────────────────────────
+User-agent: Amazonbot
+Allow: /
+
+# ── Apple ───────────────────────────────────────────────────
+User-agent: Applebot
+Allow: /
+
+User-agent: Applebot-Extended
+Allow: /
+
+# ── ByteDance ───────────────────────────────────────────────
+User-agent: Bytespider
+Allow: /
+
+# ── Common Crawl ────────────────────────────────────────────
+User-agent: CCBot
 Allow: /
 
 User-agent: ia_archiver
 Allow: /
 
+# ── Cohere ──────────────────────────────────────────────────
+User-agent: cohere-ai
+Allow: /
+
+# ── You.com ─────────────────────────────────────────────────
+User-agent: YouBot
+Allow: /
+
+# ── DuckDuckGo AI ───────────────────────────────────────────
+User-agent: DuckAssistBot
+Allow: /
+
+# ── Diffbot ─────────────────────────────────────────────────
+User-agent: Diffbot
+Allow: /
+
+# ── Timpi ────────────────────────────────────────────────────
+User-agent: Timpibot
+Allow: /
+
+# ── Sitemaps ─────────────────────────────────────────────────
 Sitemap: https://przemyslawfilipiak.com/sitemap.xml
+Sitemap: https://przemyslawfilipiak.com/rss.xml
