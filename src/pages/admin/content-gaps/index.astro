@@ -18,7 +18,12 @@ let recentRun: any = null;
 let gapCounts = { new: 0, in_progress: 0, acknowledged: 0, archived: 0, proposals: 0 };
 
 try {
-  const gapsRes = await fetch(new URL('/api/content-gaps', Astro.request.url).toString(), {
+  const fetchUrl = new URL('/api/content-gaps', Astro.request.url);
+  fetchUrl.search = url.search;
+  if (!fetchUrl.searchParams.has('status')) {
+    fetchUrl.searchParams.set('status', 'new,in_progress');
+  }
+  const gapsRes = await fetch(fetchUrl.toString(), {
     headers: { cookie: Astro.request.headers.get('cookie') || '' },
   });
   
@@ -60,10 +65,7 @@ if (nextRun <= now) nextRun.setDate(nextRun.getDate() + 1);
 const countdownMin = Math.max(0, Math.floor((nextRun.getTime() - now.getTime()) / 60000));
 
 const TABS = [
-  { label: 'Proposals',     status: '',                   has_proposal: 'true', count: gapCounts.proposals },
   { label: 'Active',        status: 'new,in_progress',    has_proposal: null,   count: gapCounts.new + gapCounts.in_progress },
-  { label: 'New',           status: 'new',                has_proposal: null,   count: gapCounts.new },
-  { label: 'In Progress',   status: 'in_progress',        has_proposal: null,   count: gapCounts.in_progress },
   { label: 'Acknowledged',  status: 'acknowledged',       has_proposal: null,   count: gapCounts.acknowledged },
   { label: 'Archived',      status: 'archived',           has_proposal: null,   count: gapCounts.archived },
 ];
@@ -287,7 +289,7 @@ function lastRunLabel(d: any) {
     });
     if (res.ok) {
       const entry = document.getElementById(`entry-${gapId}`);
-      if (entry) { entry.style.opacity = '0.4'; entry.style.pointerEvents = 'none'; }
+      if (entry) { entry.style.display = 'none'; }
     }
   }
 
