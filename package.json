@@ -19,6 +19,7 @@
     "@tailwindcss/typography": "^0.5.0",
     "astro": "^4.16.0",
     "bcrypt": "^5.1.0",
+    "discord.js": "^14.25.1",
     "dotenv": "^16.4.0",
     "drizzle-orm": "^0.36.0",
     "feed": "^4.2.0",
