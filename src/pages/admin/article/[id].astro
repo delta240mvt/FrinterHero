@@ -106,7 +106,7 @@ const isAIGenerated = !!article.sourceGapId;
         </div>
 
         <div class="form-group">
-          <label class="form-label" for="content">Content (HTML — edit carefully)</label>
+          <label class="form-label" for="content">Content (Rich HTML Editor)</label>
           <textarea id="content" name="content" class="form-textarea" rows="24">{article.content}</textarea>
         </div>
 
@@ -173,6 +173,29 @@ const isAIGenerated = !!article.sourceGapId;
   </div>
 </Base>
 
+<script is:inline src="https://cdnjs.cloudflare.com/ajax/libs/tinymce/6.8.2/tinymce.min.js"></script>
+<script is:inline>
+  document.addEventListener('DOMContentLoaded', () => {
+    if (window.tinymce) {
+      tinymce.init({
+        selector: '#content',
+        skin: 'oxide-dark',
+        content_css: 'dark',
+        menubar: false,
+        plugins: 'lists link code wordcount',
+        toolbar: 'undo redo | blocks | bold italic | bullist numlist | link | code',
+        height: 650,
+        branding: false,
+        setup: function (editor) {
+          editor.on('change', function () {
+            editor.save();
+          });
+        }
+      });
+    }
+  });
+</script>
+
 <script define:vars={{ articleId: article.id, articleTitle: article.title, articleStatus: article.status }}>
   const form = document.getElementById('article-form');
   const statusEl = document.getElementById('autosave-status');
@@ -187,6 +210,7 @@ const isAIGenerated = !!article.sourceGapId;
   // Save handler
   form?.addEventListener('submit', async (e) => {
     e.preventDefault();
+    if (window.tinymce) tinymce.triggerSave();
     const data = Object.fromEntries(new FormData(form));
     data.featured = document.getElementById('featured').checked;
     data.tags = data.tags.split(',').map(t => t.trim()).filter(Boolean);
@@ -251,6 +275,7 @@ const isAIGenerated = !!article.sourceGapId;
   setInterval(async () => {
     const currentStatus = document.getElementById('status').value;
     if (currentStatus !== 'draft') return;
+    if (window.tinymce) tinymce.triggerSave();
     const data = Object.fromEntries(new FormData(form));
     data.featured = document.getElementById('featured').checked;
     data.tags = (data.tags || '').split(',').map(t => t.trim()).filter(Boolean);
