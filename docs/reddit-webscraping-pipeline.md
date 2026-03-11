@@ -1084,48 +1084,48 @@ and allows the draft prompt builder to inject Voice of Customer context.
 - **Imports needed:** none new — all types already imported
 - **Done when:** `npx tsc --noEmit` passes with no errors on schema.ts
 
-- [ ] S1-T01
+- [x] S1-T01
 
 #### S1-T02 · Add `redditScrapeRuns` table to schema
 - **File:** `src/db/schema.ts`
 - **Action:** Append `redditScrapeRuns` pgTable (id, runAt, status, targetsScraped, postsCollected, painPointsExtracted, gapsCreated, errorMessage, finishedAt, durationMs)
 - **Done when:** tsc clean
 
-- [ ] S1-T02
+- [x] S1-T02
 
 #### S1-T03 · Add `redditPosts` table to schema
 - **File:** `src/db/schema.ts`
 - **Action:** Append `redditPosts` pgTable with 3 indexes (scrapeRunId, subreddit, redditId). FK references `redditScrapeRuns.id`
 - **Done when:** tsc clean, FK reference resolves
 
-- [ ] S1-T03
+- [x] S1-T03
 
 #### S1-T04 · Add `redditExtractedGaps` table to schema
 - **File:** `src/db/schema.ts`
 - **Action:** Append `redditExtractedGaps` pgTable with 3 indexes. FK references `redditScrapeRuns.id` and `contentGaps.id`
 - **Done when:** tsc clean, both FK references resolve
 
-- [ ] S1-T04
+- [x] S1-T04
 
 #### S1-T05 · Generate Drizzle migration
 - **Command:** `npx drizzle-kit generate`
 - **Expected output:** new file in `migrations/` (e.g. `0001_reddit_intelligence.sql`)
 - **Done when:** migration file exists and contains `CREATE TABLE reddit_targets`, `reddit_scrape_runs`, `reddit_posts`, `reddit_extracted_gaps`
 
-- [ ] S1-T05
+- [x] S1-T05
 
 #### S1-T06 · Run migration against database
 - **Command:** `npm run db:push` (or `npx drizzle-kit migrate`)
 - **Done when:** command exits 0, all 4 tables exist in DB (`\dt` in psql confirms)
 
-- [ ] S1-T06
+- [x] S1-T06
 
 #### S1-T07 · Create seed script file
 - **File:** `scripts/seed-reddit-targets.ts` (new file)
 - **Action:** Create script that connects to DB via `src/db/client.ts` and inserts the 8 default `redditTargets` rows defined in Section 11 (DB-03)
 - **Done when:** file exists, `npx tsx scripts/seed-reddit-targets.ts` exits 0 and inserts 8 rows
 
-- [ ] S1-T07
+- [x] S1-T07
 
 #### S1-T08 · Add npm scripts to package.json
 - **File:** `package.json`
@@ -1134,7 +1134,7 @@ and allows the draft prompt builder to inject Voice of Customer context.
   - `"reddit:seed": "npx tsx scripts/seed-reddit-targets.ts"`
 - **Done when:** `npm run reddit:seed` executes the seed script
 
-- [ ] S1-T08
+- [x] S1-T08
 
 ---
 
@@ -1145,7 +1145,7 @@ and allows the draft prompt builder to inject Voice of Customer context.
 - **Action:** Create file with dotenv loading (`.env.local`), ENV var parsing (`SCRAPE_TARGETS`, `SCRAPE_RUN_ID`, `MAX_ITEMS_PER_TARGET`, `CHUNK_SIZE`, `REDDIT_ANALYSIS_MODEL`), and a `run()` function stub that logs `[START]` and exits
 - **Done when:** `SCRAPE_TARGETS=r/productivity SCRAPE_RUN_ID=1 npx tsx scripts/reddit-scraper.ts` runs without crash
 
-- [ ] S2-T01
+- [x] S2-T01
 
 #### S2-T02 · Implement `buildApifyInput(target)` helper
 - **File:** `scripts/reddit-scraper.ts`
@@ -1155,7 +1155,7 @@ and allows the draft prompt builder to inject Voice of Customer context.
   - Always include: `proxy: { useApifyProxy: true }`, `includeComments: true`, `maxComments: 5`
 - **Done when:** unit-testable function with two cases, no runtime calls
 
-- [ ] S2-T02
+- [x] S2-T02
 
 #### S2-T03 · Implement Apify scraping loop
 - **File:** `scripts/reddit-scraper.ts`
@@ -1163,14 +1163,14 @@ and allows the draft prompt builder to inject Voice of Customer context.
 - **Error handling:** wrap each target in try/catch — failure on one target continues to next, logs `[WARN]`
 - **Done when:** running with a real APIFY_API_TOKEN fetches posts and logs them to stdout
 
-- [ ] S2-T03
+- [x] S2-T03
 
 #### S2-T04 · Implement raw post deduplication by redditId
 - **File:** `scripts/reddit-scraper.ts`
 - **Action:** Before inserting posts, query `reddit_posts` for existing `redditId` values in the current batch. Filter out already-stored posts.
 - **Done when:** running the same target twice does not insert duplicate rows
 
-- [ ] S2-T04
+- [x] S2-T04
 
 #### S2-T05 · Implement `INSERT INTO reddit_posts`
 - **File:** `scripts/reddit-scraper.ts`
@@ -1186,7 +1186,7 @@ and allows the draft prompt builder to inject Voice of Customer context.
   - `item.createdAt` → `postedAt`
 - **Done when:** after a real run, `SELECT count(*) FROM reddit_posts` increases
 
-- [ ] S2-T05
+- [x] S2-T05
 
 #### S2-T06 · Implement `chunkArray` utility and LLM call wrapper
 - **File:** `scripts/reddit-scraper.ts`
@@ -1196,7 +1196,7 @@ and allows the draft prompt builder to inject Voice of Customer context.
   - Parse response as JSON, validate shape, return empty array on parse failure (log `[WARN]`)
 - **Done when:** `analyzePainPoints` with 10 mock posts returns valid `ExtractedGap[]` array
 
-- [ ] S2-T06
+- [x] S2-T06
 
 #### S2-T07 · Implement pain point deduplication against `contentGaps`
 - **File:** `scripts/reddit-scraper.ts`
@@ -1209,14 +1209,14 @@ and allows the draft prompt builder to inject Voice of Customer context.
   Filter out gaps where a match is found. Log `[DEDUP] Skipped: {title}` for each.
 - **Done when:** a gap with an identical title to an existing `contentGap` is not inserted
 
-- [ ] S2-T07
+- [x] S2-T07
 
 #### S2-T08 · Implement `INSERT INTO reddit_extracted_gaps`
 - **File:** `scripts/reddit-scraper.ts`
 - **Action:** After deduplication, batch-insert unique gaps into `reddit_extracted_gaps` with `status='pending'` and `scrapeRunId`
 - **Done when:** after a real run, `SELECT count(*) FROM reddit_extracted_gaps WHERE status='pending'` increases
 
-- [ ] S2-T08
+- [x] S2-T08
 
 #### S2-T09 · Implement run stats update and `RESULT_JSON` stdout
 - **File:** `scripts/reddit-scraper.ts`
@@ -1226,7 +1226,7 @@ and allows the draft prompt builder to inject Voice of Customer context.
   - Final line: `process.stdout.write('RESULT_JSON:' + JSON.stringify({ success: true, gapsExtracted: N }) + '\n')`
 - **Done when:** stdout contains `RESULT_JSON:` line on successful run
 
-- [ ] S2-T09
+- [x] S2-T09
 
 ---
 
@@ -1237,7 +1237,7 @@ and allows the draft prompt builder to inject Voice of Customer context.
 - **Action:** Copy structure from `src/lib/geo-job.ts`. Define `RedditScrapeJobState` interface (status, startedAt, finishedAt, exitCode, postsCollected, painPointsExtracted, lines[], currentTarget). Initialize `_state` with all nulls/zeros/idle.
 - **Done when:** file compiles, no runtime behavior yet
 
-- [ ] S3-T01
+- [x] S3-T01
 
 #### S3-T02 · Implement `start(targets, runId)` method
 - **File:** `src/lib/reddit-scrape-job.ts`
@@ -1250,7 +1250,7 @@ and allows the draft prompt builder to inject Voice of Customer context.
   - On process `close`: set status to `'done'` or `'error'`, emit `'done'`
 - **Done when:** `redditScrapeJob.start(['r/productivity'], 1)` spawns the child process and lines flow in
 
-- [ ] S3-T02
+- [x] S3-T02
 
 #### S3-T03 · Implement `getSnapshot()` and `isRunning()`
 - **File:** `src/lib/reddit-scrape-job.ts`
@@ -1259,14 +1259,14 @@ and allows the draft prompt builder to inject Voice of Customer context.
   - `getSnapshot()`: returns deep clone of `_state` (spread `{ ..._state, lines: [..._state.lines] }`)
 - **Done when:** can call both methods without mutation side effects
 
-- [ ] S3-T03
+- [x] S3-T03
 
 #### S3-T04 · Export singleton
 - **File:** `src/lib/reddit-scrape-job.ts`
 - **Action:** Add `export const redditScrapeJob = new RedditScrapeJob()` at bottom of file
 - **Done when:** other modules can `import { redditScrapeJob } from '../lib/reddit-scrape-job'` without error
 
-- [ ] S3-T04
+- [x] S3-T04
 
 ---
 
@@ -1285,7 +1285,7 @@ and allows the draft prompt builder to inject Voice of Customer context.
   - Return `200 { runId, status: 'started', targetsCount: targets.length }`
 - **Done when:** `curl -X POST /api/reddit/start` (with valid session) returns `{ runId, status: 'started' }`
 
-- [ ] S4-T01
+- [x] S4-T01
 
 #### S4-T02 · Create `src/pages/api/reddit/status.ts`
 - **File:** `src/pages/api/reddit/status.ts` (new file)
@@ -1295,14 +1295,14 @@ and allows the draft prompt builder to inject Voice of Customer context.
   - Return `Response.json(redditScrapeJob.getSnapshot())`
 - **Done when:** returns job state JSON
 
-- [ ] S4-T02
+- [x] S4-T02
 
 #### S4-T03 · Create `src/pages/api/reddit/stream.ts` (SSE)
 - **File:** `src/pages/api/reddit/stream.ts` (new file)
 - **Action:** Copy `src/pages/api/geo/stream.ts` verbatim. Replace every import/reference of `geoJob` with `redditScrapeJob`. Keep SSE protocol identical (`data:`, `event: done`, `from=N` catch-up).
 - **Done when:** SSE stream emits lines from a running reddit scrape job
 
-- [ ] S4-T03
+- [x] S4-T03
 
 #### S4-T04 · Create `src/pages/api/reddit/runs/index.ts`
 - **File:** `src/pages/api/reddit/runs/index.ts` (new file)
@@ -1314,7 +1314,7 @@ and allows the draft prompt builder to inject Voice of Customer context.
   - Return `{ runs[], total, page, limit }`
 - **Done when:** returns paginated list of runs
 
-- [ ] S4-T04
+- [x] S4-T04
 
 #### S4-T05 · Create `src/pages/api/reddit/gaps/index.ts`
 - **File:** `src/pages/api/reddit/gaps/index.ts` (new file)
@@ -1327,7 +1327,7 @@ and allows the draft prompt builder to inject Voice of Customer context.
   - Return `{ gaps: (gap + sourcePosts[])[], total }`
 - **Done when:** returns pending gaps with embedded source post previews
 
-- [ ] S4-T05
+- [x] S4-T05
 
 #### S4-T06 · Create `src/pages/api/reddit/gaps/[id]/approve.ts`
 - **File:** `src/pages/api/reddit/gaps/[id]/approve.ts` (new file, create directory)
@@ -1341,7 +1341,7 @@ and allows the draft prompt builder to inject Voice of Customer context.
   7. Return `200 { contentGapId: newGap.id }`
 - **Done when:** approved gap appears in `/admin/content-gaps`
 
-- [ ] S4-T06
+- [x] S4-T06
 
 #### S4-T07 · Create `src/pages/api/reddit/gaps/[id]/reject.ts`
 - **File:** `src/pages/api/reddit/gaps/[id]/reject.ts` (new file)
@@ -1352,7 +1352,7 @@ and allows the draft prompt builder to inject Voice of Customer context.
   - Return `200 { ok: true }`
 - **Done when:** rejected gap no longer appears in pending list
 
-- [ ] S4-T07
+- [x] S4-T07
 
 #### S4-T08 · Create `src/pages/api/reddit/targets/index.ts` (GET + POST)
 - **File:** `src/pages/api/reddit/targets/index.ts` (new file)
@@ -1361,7 +1361,7 @@ and allows the draft prompt builder to inject Voice of Customer context.
 - **Validation:** `type` must be `'subreddit'` or `'keyword_search'`, `value` non-empty, `label` non-empty
 - **Done when:** GET returns targets list, POST creates new target
 
-- [ ] S4-T08
+- [x] S4-T08
 
 #### S4-T09 · Create `src/pages/api/reddit/targets/[id].ts` (PUT + DELETE)
 - **File:** `src/pages/api/reddit/targets/[id].ts` (new file)
@@ -1369,7 +1369,7 @@ and allows the draft prompt builder to inject Voice of Customer context.
 - **DELETE action:** Auth + `DELETE FROM reddit_targets WHERE id=$id` + return `204`
 - **Done when:** can toggle `isActive` via PUT and delete via DELETE
 
-- [ ] S4-T09
+- [x] S4-T09
 
 ---
 
@@ -1387,7 +1387,7 @@ and allows the draft prompt builder to inject Voice of Customer context.
 - **Style:** copy `.gap-card` CSS pattern from `GapCard.astro`, adapt colors
 - **Done when:** card renders without JS — static collapsed view looks correct
 
-- [ ] S5-T01
+- [x] S5-T01
 
 #### S5-T02 · Create `RedditGapCard.astro` — expanded state JS
 - **File:** `src/components/admin/RedditGapCard.astro`
@@ -1402,7 +1402,7 @@ and allows the draft prompt builder to inject Voice of Customer context.
 - **After approve/reject:** remove card from DOM, update stats bar counts
 - **Done when:** full expand/approve/reject flow works without page reload
 
-- [ ] S5-T02
+- [x] S5-T02
 
 #### S5-T03 · Create `src/components/admin/RedditRunPanel.astro`
 - **File:** `src/components/admin/RedditRunPanel.astro` (new file)
@@ -1413,7 +1413,7 @@ and allows the draft prompt builder to inject Voice of Customer context.
   - Progress row: `{postsCollected} posts · {painPointsExtracted} pain points`
 - **Done when:** static markup renders with targets list
 
-- [ ] S5-T03
+- [x] S5-T03
 
 #### S5-T04 · Add SSE logic to `RedditRunPanel.astro`
 - **File:** `src/components/admin/RedditRunPanel.astro`
@@ -1424,7 +1424,7 @@ and allows the draft prompt builder to inject Voice of Customer context.
   - Parse lines for `postsCollected:N` pattern → update counter in UI
 - **Done when:** clicking Start streams logs into the console div in real time
 
-- [ ] S5-T04
+- [x] S5-T04
 
 #### S5-T05 · Create `src/components/admin/RedditRunsTable.astro`
 - **File:** `src/components/admin/RedditRunsTable.astro` (new file)
@@ -1433,7 +1433,7 @@ and allows the draft prompt builder to inject Voice of Customer context.
 - **Status badge colors:** running=amber, completed=green, failed=red
 - **Done when:** renders table rows from props, `[Details →]` links to `/admin/reddit/run/{id}`
 
-- [ ] S5-T05
+- [x] S5-T05
 
 #### S5-T06 · Create `src/pages/admin/reddit/index.astro` — layout & data fetching
 - **File:** `src/pages/admin/reddit/index.astro` (new file, create directory)
@@ -1447,7 +1447,7 @@ and allows the draft prompt builder to inject Voice of Customer context.
 - **Components used:** `RedditRunPanel`, `RedditRunsTable`, `RedditGapCard` (one per gap)
 - **Done when:** page loads, shows stats bar and empty/populated gap list
 
-- [ ] S5-T06
+- [x] S5-T06
 
 #### S5-T07 · Add tabs, filters, and sort to `reddit/index.astro`
 - **File:** `src/pages/admin/reddit/index.astro`
@@ -1458,7 +1458,7 @@ and allows the draft prompt builder to inject Voice of Customer context.
   - Re-renders card list on tab/filter change without full page reload
 - **Done when:** switching tabs shows different gaps, category filter narrows the list
 
-- [ ] S5-T07
+- [x] S5-T07
 
 #### S5-T08 · Add Reddit Intelligence hub card to `src/pages/admin/index.astro`
 - **File:** `src/pages/admin/index.astro`
@@ -1469,7 +1469,7 @@ and allows the draft prompt builder to inject Voice of Customer context.
   - Link: `href="/admin/reddit"`
 - **Done when:** admin dashboard shows the new card with a live pending count
 
-- [ ] S5-T08
+- [x] S5-T08
 
 ---
 
@@ -1485,7 +1485,7 @@ and allows the draft prompt builder to inject Voice of Customer context.
   - All actions via fetch calls to `/api/reddit/targets` CRUD endpoints
 - **Done when:** can add, toggle active, and delete targets from this page
 
-- [ ] S6-T01
+- [x] S6-T01
 
 #### S6-T02 · Create `src/pages/admin/reddit/run/[id].astro`
 - **File:** `src/pages/admin/reddit/run/[id].astro` (new file)
@@ -1518,7 +1518,7 @@ and allows the draft prompt builder to inject Voice of Customer context.
 - **Style:** small pill, red background, consistent with other badges in the file
 - **Done when:** gaps from Reddit show a badge, GEO Monitor gaps do not
 
-- [ ] S6-T04
+- [x] S6-T04
 
 #### S6-T05 · Update docs
 - **File:** `docs_private/geo-monitor-flow.md`

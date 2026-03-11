@@ -1,15 +1,16 @@
 ---
 import Base from '@/components/layouts/Base.astro';
 import { db } from '@/db/client';
-import { articles, geoRuns, contentGaps, knowledgeEntries } from '@/db/schema';
+import { articles, geoRuns, contentGaps, knowledgeEntries, redditExtractedGaps } from '@/db/schema';
 import { desc, eq, count, sql, isNotNull } from 'drizzle-orm';
 
 let allArticles: any[] = [];
 let recentRuns: any[]  = [];
 let stats = { draft: 0, published: 0, archived: 0 };
 let gapStats = { new: 0, in_progress: 0, proposals: 0 };
-let kbTotal  = 0;
-let total    = 0;
+let kbTotal       = 0;
+let total         = 0;
+let redditPending = 0;
 
 const page         = parseInt(Astro.url.searchParams.get('page') || '1');
 const search       = Astro.url.searchParams.get('search') || '';
@@ -32,6 +33,7 @@ try {
     gapNew, gapProg, gapProps,
     kbCount,
     runs,
+    redditPendingRes,
   ] = await Promise.all([
     query.orderBy(desc(articles.createdAt)).limit(LIMIT).offset((page - 1) * LIMIT),
     db.select({ c: count() }).from(articles).where(eq(articles.status, 'draft')),
@@ -43,14 +45,16 @@ try {
     db.select({ c: count() }).from(contentGaps).where(isNotNull(contentGaps.suggestedAngle)),
     db.select({ c: count() }).from(knowledgeEntries),
     db.select().from(geoRuns).orderBy(desc(geoRuns.runAt)).limit(8),
+    db.select({ c: count() }).from(redditExtractedGaps).where(eq(redditExtractedGaps.status, 'pending')),
   ]);
 
-  allArticles = rows;
-  stats       = { draft: draftCount[0].c, published: pubCount[0].c, archived: archCount[0].c };
-  total       = totalCount[0].c;
-  gapStats    = { new: gapNew[0].c, in_progress: gapProg[0].c, proposals: gapProps[0].c };
-  kbTotal     = kbCount[0].c;
-  recentRuns  = runs;
+  allArticles  = rows;
+  stats        = { draft: draftCount[0].c, published: pubCount[0].c, archived: archCount[0].c };
+  total        = totalCount[0].c;
+  gapStats     = { new: gapNew[0].c, in_progress: gapProg[0].c, proposals: gapProps[0].c };
+  kbTotal      = kbCount[0].c;
+  recentRuns   = runs;
+  redditPending = redditPendingRes[0].c;
 } catch (e) {
   console.error('[Admin]', e);
 }
@@ -137,6 +141,17 @@ function pageUrl(p: number) {
             <span class="hub-badge hub-badge--violet">{kbTotal} entries</span>
           </div>
           <div class="hub-desc">Knowledge Base — context for AI article generation</div>
+        </div>
+        <span class="hub-arrow">→</span>
+      </a>
+      <a href="/admin/reddit" class="hub-card hub-card--reddit">
+        <div class="hub-icon">🎯</div>
+        <div class="hub-body">
+          <div class="hub-title">Reddit Intelligence</div>
+          <div class="hub-meta">
+            <span class="hub-badge hub-badge--reddit">{redditPending} pending</span>
+          </div>
+          <div class="hub-desc">Pain Point Discovery · WebScraping via Apify</div>
         </div>
         <span class="hub-arrow">→</span>
       </a>
@@ -665,7 +680,7 @@ function pageUrl(p: number) {
 .stat-divider { width: 1px; background: var(--border); flex-shrink: 0; }
 
 /* ─── HUB NAVIGATION ─────────────────────────────────────── */
-.hub-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; }
+.hub-grid { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 1rem; }
 .hub-card {
   display: flex; align-items: center; gap: 1.125rem;
   background: var(--bg-elevated); border: 1px solid var(--border);
@@ -674,7 +689,9 @@ function pageUrl(p: number) {
 }
 .hub-card--gaps:hover { border-color: var(--gold); box-shadow: 0 0 0 1px rgba(214,183,121,0.1); }
 .hub-card--proposals:hover { border-color: var(--teal); box-shadow: 0 0 0 1px rgba(74,141,131,0.1); }
-.hub-card--kb:hover   { border-color: var(--violet); box-shadow: 0 0 0 1px rgba(138,78,100,0.1); }
+.hub-card--kb:hover     { border-color: var(--violet); box-shadow: 0 0 0 1px rgba(138,78,100,0.1); }
+.hub-card--reddit:hover { border-color: rgba(239,68,68,0.4); box-shadow: 0 0 0 1px rgba(239,68,68,0.1); }
+.hub-badge--reddit { background: rgba(239,68,68,0.12); color: #ef4444; border: 1px solid rgba(239,68,68,0.25); }
 .hub-icon  { font-size: 1.75rem; line-height: 1; flex-shrink: 0; }
 .hub-body  { flex: 1; display: flex; flex-direction: column; gap: 0.3rem; }
 .hub-title { font-family: var(--font-mono); font-size: var(--text-sm); font-weight: 700; color: var(--text-primary); }

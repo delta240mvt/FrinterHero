@@ -1,0 +1,62 @@
+---
+interface Run {
+  id: number;
+  runAt: Date;
+  status: string;
+  targetsScraped: string[];
+  postsCollected: number;
+  painPointsExtracted: number;
+  gapsCreated: number;
+  durationMs: number | null;
+}
+
+interface Props { runs: Run[]; }
+const { runs } = Astro.props;
+---
+
+{runs.length === 0 ? (
+  <p class="no-runs">No runs yet.</p>
+) : (
+  <div class="runs-table-wrap">
+    <table class="runs-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Date</th>
+          <th>Posts</th>
+          <th>Pain pts</th>
+          <th>Gaps</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {runs.map(run => {
+          const statusColor = run.status === 'completed' ? 'var(--teal)' : run.status === 'running' ? 'var(--gold)' : '#ef4444';
+          const date = new Date(run.runAt).toLocaleDateString('en-GB', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
+          return (
+            <tr>
+              <td class="run-id"><a href={`/admin/reddit/run/${run.id}`}>#{run.id}</a></td>
+              <td class="run-date">{date}</td>
+              <td>{run.postsCollected}</td>
+              <td>{run.painPointsExtracted}</td>
+              <td>{run.gapsCreated}</td>
+              <td><span class="run-status" style={`color:${statusColor}`}>{run.status}</span></td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+  </div>
+)}
+
+<style>
+  .no-runs { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); }
+  .runs-table-wrap { overflow-x: auto; }
+  .runs-table { width: 100%; border-collapse: collapse; font-family: var(--font-mono); font-size: var(--text-xs); }
+  .runs-table th { padding: 0.4rem 0.5rem; text-align: left; color: var(--text-muted); text-transform: uppercase; font-size: 0.6rem; border-bottom: 1px solid var(--border); }
+  .runs-table td { padding: 0.4rem 0.5rem; color: var(--text-secondary); border-bottom: 1px solid rgba(255,255,255,0.04); }
+  .run-id a { color: var(--teal); text-decoration: none; }
+  .run-id a:hover { text-decoration: underline; }
+  .run-date { color: var(--text-muted); font-size: 0.65rem; }
+  .run-status { font-weight: 600; text-transform: uppercase; font-size: 0.6rem; }
+</style>

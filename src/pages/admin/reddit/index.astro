@@ -1,0 +1,376 @@
+---
+import Base from '@/components/layouts/Base.astro';
+import RedditGapCard from '@/components/admin/RedditGapCard.astro';
+import RedditRunsTable from '@/components/admin/RedditRunsTable.astro';
+import { db } from '@/db/client';
+import { redditExtractedGaps, redditScrapeRuns, redditTargets, redditPosts } from '@/db/schema';
+import { eq, desc, count, and, inArray } from 'drizzle-orm';
+
+// Auth check
+const session = Astro.cookies.get('session')?.value;
+if (!session) return Astro.redirect('/admin/login');
+
+const url = new URL(Astro.request.url);
+const tabStatus   = url.searchParams.get('status') || 'pending';
+const catFilter   = url.searchParams.get('category') || '';
+
+// Stats
+const [pendingCount, approvedCount, rejectedCount, totalRuns] = await Promise.all([
+  db.select({ c: count() }).from(redditExtractedGaps).where(eq(redditExtractedGaps.status, 'pending')),
+  db.select({ c: count() }).from(redditExtractedGaps).where(eq(redditExtractedGaps.status, 'approved')),
+  db.select({ c: count() }).from(redditExtractedGaps).where(eq(redditExtractedGaps.status, 'rejected')),
+  db.select({ c: count() }).from(redditScrapeRuns),
+]);
+
+// Fetch gaps
+const conditions: any[] = [eq(redditExtractedGaps.status, tabStatus)];
+if (catFilter) conditions.push(eq(redditExtractedGaps.category, catFilter));
+const whereClause = conditions.length === 1 ? conditions[0] : and(...conditions);
+
+const rawGaps = await db.select().from(redditExtractedGaps)
+  .where(whereClause)
+  .orderBy(desc(redditExtractedGaps.emotionalIntensity), desc(redditExtractedGaps.createdAt))
+  .limit(30);
+
+// Fetch source posts for each gap
+const gaps = await Promise.all(rawGaps.map(async (gap) => {
+  const postIds = (gap.sourcePostIds || []).slice(0, 3);
+  let sourcePosts: any[] = [];
+  if (postIds.length > 0) {
+    sourcePosts = await db.select({
+      id: redditPosts.id, title: redditPosts.title, subreddit: redditPosts.subreddit,
+      upvotes: redditPosts.upvotes, url: redditPosts.url,
+    }).from(redditPosts).where(inArray(redditPosts.id, postIds));
+  }
+  return { ...gap, sourcePosts };
+}));
+
+// Fetch recent runs + active targets
+const [recentRuns, activeTargets] = await Promise.all([
+  db.select().from(redditScrapeRuns).orderBy(desc(redditScrapeRuns.runAt)).limit(5),
+  db.select().from(redditTargets).where(eq(redditTargets.isActive, true)).orderBy(desc(redditTargets.priority)),
+]);
+
+const TABS = [
+  { label: 'Pending', status: 'pending', count: pendingCount[0].c },
+  { label: 'Approved', status: 'approved', count: approvedCount[0].c },
+  { label: 'Rejected', status: 'rejected', count: rejectedCount[0].c },
+];
+const CATEGORIES = ['focus','energy','burnout','relationships','systems','tech'];
+---
+
+<Base title="Reddit Intelligence — Admin" description="Reddit Pain Point Discovery">
+<div class="admin-layout">
+
+  <header class="admin-header">
+    <a href="/admin" class="admin-logo">P·F</a>
+    <nav class="breadcrumb">
+      <a href="/admin" class="bc-link">Admin</a>
+      <span class="bc-sep">›</span>
+      <span class="bc-current">Reddit Intelligence</span>
+    </nav>
+    <div class="header-actions">
+      <a href="/admin/reddit/targets" class="btn-secondary">⚙ Targets</a>
+      <a href="/api/logout" class="btn-logout">Logout</a>
+    </div>
+  </header>
+
+  <main class="admin-main">
+
+    <!-- STATS BAR -->
+    <section class="stats-banner">
+      <div class="stat-card"><span class="stat-number" style="color:#ef4444">{pendingCount[0].c}</span><span class="stat-label">Pending Review</span></div>
+      <div class="stat-divider"></div>
+      <div class="stat-card"><span class="stat-number" style="color:var(--teal)">{approvedCount[0].c}</span><span class="stat-label">Approved</span></div>
+      <div class="stat-divider"></div>
+      <div class="stat-card"><span class="stat-number" style="color:var(--text-muted)">{rejectedCount[0].c}</span><span class="stat-label">Rejected</span></div>
+      <div class="stat-divider"></div>
+      <div class="stat-card"><span class="stat-number">{totalRuns[0].c}</span><span class="stat-label">Runs</span></div>
+    </section>
+
+    <div class="reddit-layout">
+
+      <!-- SIDEBAR -->
+      <aside class="reddit-sidebar">
+        <div class="sidebar-section">
+          <div class="sidebar-title">Scraping Targets</div>
+          <div id="target-list" class="target-list">
+            {activeTargets.map(t => (
+              <label class="target-item">
+                <input type="checkbox" checked name="target" value={t.value} class="target-cb" />
+                <span class="target-label">{t.label}</span>
+                <span class="target-type">{t.type === 'subreddit' ? 'sub' : 'kw'}</span>
+              </label>
+            ))}
+          </div>
+          <button id="btn-start-scrape" class="btn-start-scrape" onclick="startScraping()">
+            ▶ Start Scraping Job
+          </button>
+        </div>
+
+        <div class="sidebar-section">
+          <div class="sidebar-title">Recent Runs</div>
+          <RedditRunsTable runs={recentRuns} />
+        </div>
+      </aside>
+
+      <!-- MAIN CONTENT -->
+      <div class="reddit-main">
+
+        <!-- TABS -->
+        <div class="reddit-tabs">
+          {TABS.map(tab => (
+            <a
+              href={`/admin/reddit?status=${tab.status}${catFilter ? '&category=' + catFilter : ''}`}
+              class={`reddit-tab ${tabStatus === tab.status ? 'active' : ''}`}
+            >
+              {tab.label} <span class="tab-count">{tab.count}</span>
+            </a>
+          ))}
+          <div class="tab-spacer"></div>
+          <select class="cat-filter" onchange="window.location.href=this.value">
+            <option value={`/admin/reddit?status=${tabStatus}`} selected={!catFilter}>All categories</option>
+            {CATEGORIES.map(cat => (
+              <option value={`/admin/reddit?status=${tabStatus}&category=${cat}`} selected={catFilter === cat}>{cat}</option>
+            ))}
+          </select>
+        </div>
+
+        <!-- GAP CARDS -->
+        <div id="gap-feed">
+          {gaps.length === 0 ? (
+            <div class="empty-state">
+              <p>No {tabStatus} pain points.{tabStatus === 'pending' ? ' Run a scraping job to discover new ones.' : ''}</p>
+            </div>
+          ) : (
+            gaps.map(gap => <RedditGapCard gap={gap} />)
+          )}
+        </div>
+
+      </div>
+    </div>
+
+    <!-- LIVE LOG CONSOLE -->
+    <div id="scrape-console-wrap" class="scrape-console-wrap" style="display:none">
+      <div class="console-header">
+        <span class="console-title">Reddit Scraping Live Log</span>
+        <span id="scrape-status-label" class="console-status">Running...</span>
+        <span id="scrape-progress" class="console-progress"></span>
+      </div>
+      <div id="scrape-console-body" class="console-body"></div>
+    </div>
+
+  </main>
+</div>
+</Base>
+
+<script>
+// ── Gap card interactions ─────────────────────────────────────────────────────
+
+function rgapToggle(id: number) {
+  const expanded = document.getElementById(`rgap-expanded-${id}`);
+  const btn = document.querySelector(`#rgap-${id} .btn-rg-expand`);
+  if (!expanded) return;
+  const isHidden = expanded.style.display === 'none';
+  expanded.style.display = isHidden ? 'block' : 'none';
+  if (btn) btn.textContent = isHidden ? '▲ Close' : '▼ Expand';
+}
+
+async function rgapApprove(id: number) {
+  const notes = (document.getElementById(`rgap-notes-${id}`) as HTMLTextAreaElement)?.value || '';
+  const btn = document.querySelector(`#rgap-${id} .btn-rg-approve, #rgap-${id} .btn-rg-approve-full`) as HTMLButtonElement;
+  if (btn) btn.disabled = true;
+
+  const res = await fetch(`/api/reddit/gaps/${id}/approve`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ authorNotes: notes }),
+  });
+
+  if (res.ok) {
+    const card = document.getElementById(`rgap-${id}`);
+    if (card) {
+      card.style.opacity = '0.5';
+      card.style.pointerEvents = 'none';
+      const title = card.querySelector('.rgap-title');
+      if (title) title.textContent = '✓ Approved — ' + title.textContent;
+    }
+    // Update pending count
+    const badge = document.querySelector('.stat-number[style*="ef4444"]');
+    if (badge) badge.textContent = String(Math.max(0, parseInt(badge.textContent || '0') - 1));
+  } else {
+    alert('Approve failed');
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function rgapReject(id: number) {
+  const res = await fetch(`/api/reddit/gaps/${id}/reject`, { method: 'POST' });
+  if (res.ok) {
+    const card = document.getElementById(`rgap-${id}`);
+    if (card) card.remove();
+  } else {
+    alert('Reject failed');
+  }
+}
+
+// ── Scraping job control ──────────────────────────────────────────────────────
+
+let sseSource: EventSource | null = null;
+let sseLineCount = 0;
+
+async function startScraping() {
+  const checkboxes = document.querySelectorAll<HTMLInputElement>('.target-cb:checked');
+  const targets = Array.from(checkboxes).map(cb => cb.value);
+  if (targets.length === 0) { alert('Select at least one target'); return; }
+
+  const btn = document.getElementById('btn-start-scrape') as HTMLButtonElement;
+  btn.disabled = true;
+  btn.textContent = '⏳ Starting...';
+
+  const res = await fetch('/api/reddit/start', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ targets }),
+  });
+
+  if (!res.ok) {
+    const data = await res.json();
+    alert(data.error || 'Failed to start');
+    btn.disabled = false;
+    btn.textContent = '▶ Start Scraping Job';
+    return;
+  }
+
+  showConsole();
+  connectSSE();
+}
+
+function showConsole() {
+  const wrap = document.getElementById('scrape-console-wrap');
+  if (wrap) wrap.style.display = 'block';
+  window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+}
+
+function connectSSE() {
+  if (sseSource) { sseSource.close(); sseSource = null; }
+
+  sseSource = new EventSource(`/api/reddit/stream?from=${sseLineCount}`);
+  const body = document.getElementById('scrape-console-body');
+  const statusLabel = document.getElementById('scrape-status-label');
+  const progressEl = document.getElementById('scrape-progress');
+
+  sseSource.onmessage = (e) => {
+    const data = JSON.parse(e.data);
+
+    if (data.done) {
+      sseSource?.close(); sseSource = null;
+      if (statusLabel) statusLabel.textContent = data.code === 0 ? '✓ Completed' : '✗ Failed';
+      const btn = document.getElementById('btn-start-scrape') as HTMLButtonElement;
+      if (btn) { btn.disabled = false; btn.textContent = '▶ Start Scraping Job'; }
+      // Reload page after short delay to show new gaps
+      if (data.code === 0) setTimeout(() => location.reload(), 1500);
+      return;
+    }
+
+    if (data.line) {
+      sseLineCount++;
+      if (body) {
+        const line = document.createElement('div');
+        line.className = 'console-line';
+        line.textContent = data.line;
+        body.appendChild(line);
+        body.scrollTop = body.scrollHeight;
+        if (body.children.length > 500) body.removeChild(body.firstChild!);
+      }
+      // Update progress label
+      const postMatch = data.line.match(/postsCollected:(\d+)/);
+      const ppMatch = data.line.match(/painPointsExtracted:(\d+)/);
+      if (postMatch && progressEl) progressEl.textContent = `${postMatch[1]} posts`;
+      if (ppMatch && progressEl) progressEl.textContent += ` · ${ppMatch[1]} pain pts`;
+    }
+  };
+
+  sseSource.onerror = () => {
+    setTimeout(() => { if (sseSource?.readyState === EventSource.CLOSED) connectSSE(); }, 2000);
+  };
+}
+
+// Check on load if job is running
+(async () => {
+  const res = await fetch('/api/reddit/status');
+  if (res.ok) {
+    const snap = await res.json();
+    if (snap.status === 'running') {
+      sseLineCount = snap.lines.length;
+      showConsole();
+      connectSSE();
+      const btn = document.getElementById('btn-start-scrape') as HTMLButtonElement;
+      if (btn) { btn.disabled = true; btn.textContent = '⏳ Running...'; }
+    }
+  }
+})();
+
+// Expose to inline onclick handlers
+(window as any).rgapToggle = rgapToggle;
+(window as any).rgapApprove = rgapApprove;
+(window as any).rgapReject = rgapReject;
+(window as any).startScraping = startScraping;
+</script>
+
+<style>
+  .admin-layout { min-height: 100vh; background: var(--bg-base); }
+  .admin-header { display: flex; align-items: center; gap: 1rem; padding: 0.875rem 1.5rem; border-bottom: 1px solid var(--border); background: var(--bg-elevated); }
+  .admin-logo { font-family: var(--font-mono); font-size: var(--text-sm); font-weight: 700; color: var(--teal); text-decoration: none; }
+  .breadcrumb { display: flex; align-items: center; gap: 0.5rem; flex: 1; }
+  .bc-link { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); text-decoration: none; }
+  .bc-link:hover { color: var(--teal); }
+  .bc-sep { color: var(--text-muted); font-size: var(--text-xs); }
+  .bc-current { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-secondary); }
+  .header-actions { display: flex; gap: 0.75rem; align-items: center; }
+  .btn-secondary { padding: 0.35rem 0.75rem; background: none; border: 1px solid var(--border); color: var(--text-secondary); border-radius: 0.25rem; font-family: var(--font-mono); font-size: var(--text-xs); text-decoration: none; }
+  .btn-secondary:hover { border-color: var(--teal); color: var(--teal); }
+  .btn-logout { padding: 0.35rem 0.75rem; background: none; border: 1px solid rgba(239,68,68,0.2); color: rgba(239,68,68,0.7); border-radius: 0.25rem; font-family: var(--font-mono); font-size: var(--text-xs); text-decoration: none; }
+  .admin-main { padding: 1.5rem; max-width: 1400px; margin: 0 auto; }
+
+  .stats-banner { display: flex; align-items: center; gap: 1rem; padding: 1rem 1.5rem; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 0.5rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+  .stat-card { display: flex; flex-direction: column; align-items: center; min-width: 80px; }
+  .stat-number { font-family: var(--font-mono); font-size: 1.5rem; font-weight: 700; color: var(--text-primary); }
+  .stat-label { font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; margin-top: 0.2rem; }
+  .stat-divider { width: 1px; height: 40px; background: var(--border); }
+
+  .reddit-layout { display: grid; grid-template-columns: 280px 1fr; gap: 1.5rem; }
+  @media (max-width: 768px) { .reddit-layout { grid-template-columns: 1fr; } }
+
+  .reddit-sidebar { display: flex; flex-direction: column; gap: 1rem; }
+  .sidebar-section { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 0.5rem; padding: 1rem; }
+  .sidebar-title { font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.75rem; }
+  .target-list { display: flex; flex-direction: column; gap: 0.4rem; margin-bottom: 0.875rem; }
+  .target-item { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; padding: 0.3rem; border-radius: 0.25rem; }
+  .target-item:hover { background: rgba(255,255,255,0.04); }
+  .target-cb { accent-color: var(--teal); }
+  .target-label { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-secondary); flex: 1; }
+  .target-type { font-family: var(--font-mono); font-size: 0.6rem; color: var(--text-muted); padding: 0.1rem 0.3rem; background: rgba(255,255,255,0.06); border-radius: 0.15rem; }
+  .btn-start-scrape { width: 100%; padding: 0.5rem; background: var(--teal); border: none; color: #fff; border-radius: 0.375rem; font-family: var(--font-mono); font-size: var(--text-xs); font-weight: 600; cursor: pointer; }
+  .btn-start-scrape:hover:not(:disabled) { opacity: 0.85; }
+  .btn-start-scrape:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .reddit-tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 1rem; align-items: center; flex-wrap: wrap; }
+  .reddit-tab { padding: 0.5rem 1rem; font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); text-decoration: none; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+  .reddit-tab:hover { color: var(--text-secondary); }
+  .reddit-tab.active { color: var(--text-primary); border-bottom-color: #ef4444; }
+  .tab-count { padding: 0.1rem 0.35rem; background: rgba(255,255,255,0.08); border-radius: 0.8rem; font-size: 0.6rem; margin-left: 0.25rem; }
+  .tab-spacer { flex: 1; }
+  .cat-filter { background: var(--bg-elevated); border: 1px solid var(--border); color: var(--text-secondary); font-family: var(--font-mono); font-size: var(--text-xs); padding: 0.25rem 0.5rem; border-radius: 0.25rem; cursor: pointer; }
+
+  .empty-state { padding: 2rem; text-align: center; }
+  .empty-state p { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--text-muted); }
+
+  .scrape-console-wrap { margin-top: 2rem; background: #000; border: 1px solid var(--border); border-radius: 0.5rem; overflow: hidden; }
+  .console-header { padding: 0.5rem 1rem; background: #111; border-bottom: 1px solid #222; display: flex; gap: 1rem; align-items: center; }
+  .console-title { font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; }
+  .console-status { font-family: var(--font-mono); font-size: 0.65rem; color: var(--teal); }
+  .console-progress { font-family: var(--font-mono); font-size: 0.65rem; color: var(--gold); margin-left: auto; }
+  .console-body { padding: 0.75rem 1rem; font-family: var(--font-mono); font-size: 0.7rem; color: #a1a1aa; max-height: 300px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.2rem; }
+  .console-line { white-space: pre-wrap; word-break: break-all; line-height: 1.4; }
+</style>

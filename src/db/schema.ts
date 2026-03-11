@@ -140,3 +140,76 @@ export const articleGenerations = pgTable('article_generations', {
   publicationTimestamp: timestamp('publication_timestamp'),
   contentChanged: boolean('content_changed').notNull().default(false),
 });
+
+// ========================================
+// Reddit Intelligence: New WebScraping Module
+// ========================================
+
+// Subreddit/keyword target configuration — admin manages this list
+export const redditTargets = pgTable('reddit_targets', {
+  id: serial('id').primaryKey(),
+  type: varchar('type', { length: 20 }).notNull(), // 'subreddit' | 'keyword_search'
+  value: varchar('value', { length: 255 }).notNull(),
+  label: varchar('label', { length: 100 }).notNull(),
+  isActive: boolean('is_active').notNull().default(true),
+  priority: integer('priority').notNull().default(50), // 0-100
+  lastScrapedAt: timestamp('last_scraped_at'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+
+// One record per scraping job execution
+export const redditScrapeRuns = pgTable('reddit_scrape_runs', {
+  id: serial('id').primaryKey(),
+  runAt: timestamp('run_at').notNull().defaultNow(),
+  status: varchar('status', { length: 20 }).notNull().default('running'), // 'running' | 'completed' | 'failed'
+  targetsScraped: text('targets_scraped').array().notNull().default([]),
+  postsCollected: integer('posts_collected').notNull().default(0),
+  painPointsExtracted: integer('pain_points_extracted').notNull().default(0),
+  gapsCreated: integer('gaps_created').notNull().default(0),
+  errorMessage: text('error_message'),
+  finishedAt: timestamp('finished_at'),
+  durationMs: integer('duration_ms'),
+});
+
+// Raw posts fetched from Reddit via Apify
+export const redditPosts = pgTable('reddit_posts', {
+  id: serial('id').primaryKey(),
+  scrapeRunId: integer('scrape_run_id').notNull().references(() => redditScrapeRuns.id),
+  redditId: varchar('reddit_id', { length: 20 }).notNull(),
+  subreddit: varchar('subreddit', { length: 100 }).notNull(),
+  title: text('title').notNull(),
+  body: text('body'),
+  url: varchar('url', { length: 500 }),
+  upvotes: integer('upvotes').notNull().default(0),
+  commentCount: integer('comment_count').notNull().default(0),
+  topComments: text('top_comments').array().notNull().default([]),
+  postedAt: timestamp('posted_at'),
+  scrapedAt: timestamp('scraped_at').notNull().defaultNow(),
+}, (table) => ({
+  scrapeRunIdx: index('idx_reddit_posts_run').on(table.scrapeRunId),
+  subredditIdx: index('idx_reddit_posts_subreddit').on(table.subreddit),
+  redditIdIdx: index('idx_reddit_posts_reddit_id').on(table.redditId),
+}));
+
+// Pain points extracted by LLM — awaiting admin review before becoming contentGaps
+export const redditExtractedGaps = pgTable('reddit_extracted_gaps', {
+  id: serial('id').primaryKey(),
+  scrapeRunId: integer('scrape_run_id').notNull().references(() => redditScrapeRuns.id),
+  painPointTitle: varchar('pain_point_title', { length: 255 }).notNull(),
+  painPointDescription: text('pain_point_description').notNull(),
+  emotionalIntensity: integer('emotional_intensity').notNull().default(5), // 1-10
+  frequency: integer('frequency').notNull().default(1),
+  vocabularyQuotes: text('vocabulary_quotes').array().notNull().default([]),
+  sourcePostIds: integer('source_post_ids').array().notNull().default([]),
+  suggestedArticleAngle: text('suggested_article_angle'),
+  category: varchar('category', { length: 50 }), // 'focus' | 'energy' | 'burnout' | 'relationships' | 'systems' | 'tech'
+  status: varchar('status', { length: 20 }).notNull().default('pending'), // 'pending' | 'approved' | 'rejected'
+  approvedAt: timestamp('approved_at'),
+  rejectedAt: timestamp('rejected_at'),
+  contentGapId: integer('content_gap_id').references(() => contentGaps.id),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => ({
+  statusIdx: index('idx_reddit_gaps_status').on(table.status),
+  intensityIdx: index('idx_reddit_gaps_intensity').on(table.emotionalIntensity),
+  runIdx: index('idx_reddit_gaps_run').on(table.scrapeRunId),
+}));

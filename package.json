@@ -12,7 +12,9 @@
     "geo:daily": "node --loader tsx ./scripts/geo-monitor.ts",
     "gap:analyze": "node --loader tsx ./scripts/gap-analysis.ts",
     "db:seed": "tsx scripts/seed-articles.ts",
-    "scrape:reddit": "tsx scripts/scrape-reddit.ts"
+    "scrape:reddit": "tsx scripts/scrape-reddit.ts",
+    "scrape:reddit:run": "npx tsx scripts/reddit-scraper.ts",
+    "reddit:seed": "npx tsx scripts/seed-reddit-targets.ts"
   },
   "dependencies": {
     "@astrojs/node": "^8.3.0",
