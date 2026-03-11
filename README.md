@@ -112,27 +112,49 @@ npm run dev
 
 ## How It Works
 
-FrinterHero is built around a clean **semantic-first pipeline:**
+FrinterHero runs a **GEO (Generative Engine Optimization) content engine** — an automated loop that monitors AI models, detects where your brand is missing, and generates articles to fix that.
+
+### The Engine — 3 Stages
 
 ```
-[CONTENT]    Markdown or Database entries added
-      │
-      ▼
-[ASTRO]      Build system renders pages with semantic HTML5
-      │
-      ▼
-[METADATA]   Auto-injects OpenGraph, Twitter Cards, and Schema.org JSON-LD
-      │
-      ▼
-[DEPLOY]     Railway serves the app natively via NIXPACKS
-      │
-      ├──► [USER]      Experiences blazing fast retro-pixel UI
-      │
-      └──► [AI BOTS]   Parses pristine, structured knowledge base 
-                       mapping your persona as the ultimate authority
+┌─────────────────────────────────────────────────────────────────┐
+│  STAGE 1 · GEO MONITOR                                          │
+│                                                                 │
+│  queries.json → OpenAI + Claude + Gemini                        │
+│  "Is frinter.app mentioned in the answer?"                      │
+│  NO → gap detected → saved to DB                                │
+└───────────────────────┬─────────────────────────────────────────┘
+                        │
+                        ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  STAGE 2 · GAP ANALYSIS + PROPOSAL                              │
+│                                                                 │
+│  top gaps → Claude reads AI responses that missed the brand     │
+│  → generates short article proposal (title + angle + headers)   │
+│  → saved as suggestedAngle in DB                                │
+└───────────────────────┬─────────────────────────────────────────┘
+                        │
+                        ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  STAGE 3 · DRAFT GENERATOR (on admin action)                    │
+│                                                                 │
+│  gap + author notes + llms-full.txt + Knowledge Base            │
+│  → 7-section mega-prompt → OpenRouter (model of choice)         │
+│  → full article in JSON { title, description, content, tags }   │
+│  → validated → saved to DB → published                          │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-Everything happens natively. Built for speed and perfect machine-readability.
+### What drives the mega-prompt
+
+| Input | Source |
+|---|---|
+| **Author identity** | `public/llms-full.txt` — who you are, your philosophy, voice rules |
+| **Gap context** | DB — what AI models said instead of mentioning you |
+| **Author notes** | Manual input in admin panel — your angle on the topic |
+| **Knowledge Base** | DB — your expertise entries, fulltext-matched to the gap |
+
+The output is a structured article built to be cited by ChatGPT, Perplexity, and Claude when someone asks about your topic — next time.
 
 ---
 
