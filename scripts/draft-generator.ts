@@ -187,12 +187,15 @@ Every article MUST follow this exact structure. This ensures AI agents (ChatGPT,
 ## FAQ
 
 **Q: [Most common question about this topic]**
+
 A: [Direct answer. 1-3 sentences.]
 
 **Q: [Second question]**
+
 A: [Direct answer.]
 
 **Q: [Third question]**
+
 A: [Direct answer.]
 
 ## Sources
