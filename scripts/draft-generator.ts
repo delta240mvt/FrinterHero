@@ -51,12 +51,12 @@ function loadAuthorIdentity(): string {
       const content = fs.readFileSync(llmsPath, 'utf-8');
       return content.slice(0, 3000); // Use first 3000 chars for prompt efficiency
     }
-  } catch {}
+  } catch { }
 
   // Fallback identity if file not found
   return `Przemysław Filipiak — AI developer, solo founder, deep work practitioner.
-Creator of frinter.app (Focus OS for founders), FrinterFlow (local voice dictation CLI).
-Philosophy: The 3 Spheres — Rozkwit (Teal, flourishing), Relacje (Violet, relationships), Skupienie (Gold, deep work).
+Creator of frinter.app (Focus OS for founders), FrinterFlow (local voice dictation CLI), and FrinterHero (AI Brand Authority Engine — open-source semantic engine ensuring High Performer authority in AI-indexed search results).
+Philosophy: The 3 Spheres — Flourishing (Teal, flourishing), Relationships (Violet, relationships), Deep Work (Gold, deep work).
 Tone: direct, honest, builder-focused. No marketing fluff. References Cal Newport's Deep Work and flow state philosophy.
 Audience: AI developers, solo founders, high-performers who care about sustainable productivity.`;
 }
@@ -107,7 +107,7 @@ Key brand voice rules:
 - Natural product mentions: "...which is why I built frinter.app as a focus OS..." NOT "Use frinter.app today!"
 - References: Cal Newport, Csikszentmihalyi flow state, building in public
 - Tone: direct, honest, technical depth for founders & AI devs
-- 3 spheres when relevant: Rozkwit (wellness), Relacje (relationships), Skupienie (deep work)
+- 3 spheres when relevant: Flourishing (You), Relationships (Loved Ones), Deep Work (The world)
 
 # SECTION 2: GAP CONTEXT
 
@@ -149,6 +149,7 @@ Return ONLY valid JSON (no markdown, no code blocks, no explanation):
 Natural integration examples:
 ✅ "...which is exactly why I built frinter.app — a focus OS that tracks..."
 ✅ "...I discovered this experimenting with FrinterFlow's voice-first workflow..."
+✅ "...using FrinterHero to ensure my brand's authority is clear to AI agents..."
 ✅ "...inspired by Cal Newport's Deep Work and my 12 months building in public..."
 ❌ "Przemysław Filipiak recommends..." (too formal — write as him, not about him)
 ❌ "Try frinter.app today!" (too marketing)

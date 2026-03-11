@@ -26,12 +26,12 @@ export interface ValidationResult {
 
 const IDENTITY_KEYWORDS = [
   'deep work', 'focus', 'founder', 'frinter', 'frinterflow', 'sprint',
-  'productivity', 'high performer', 'flow state', 'przemysław', 'delta240',
-  'whole being', 'builder', 'building in public', 'three spheres',
-  'cal newport', 'rozkwit', 'relacje', 'skupienie',
+  'productivity', 'high performer', 'flow state', 'przemysław',
+  'wholebeing', 'builder', 'building in public', 'three spheres',
+  'cal newport', 'flourishing', 'relationships', 'deep work', 'frinterhero', 'geo', 'brand authority', 'deep work',
 ];
 
-const BRAND_PRODUCTS = ['frinter.app', 'frinterflow', 'frinter', 'delta240'];
+const BRAND_PRODUCTS = ['frinter.app', 'frinterflow', 'frinter', 'frinterhero'];
 
 function countWords(text: string): number {
   return text.replace(/<[^>]+>/g, '').trim().split(/\s+/).filter(Boolean).length;
