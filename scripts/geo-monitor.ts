@@ -94,12 +94,37 @@ async function runGeoMonitor(): Promise<void> {
     for (const gap of topGaps) {
       try {
         const queryExample = gap.relatedQueries?.[0] || gap.gapTitle;
-        const prompt = `You are a focus/productivity expert. Create a very short, concrete article proposal/mini-draft (max 150 words) answering the query: "${queryExample}".
-It should resemble the final article but highly condensed. Include:
-1. Proposed Title
-2. Short TL;DR
-3. 2-3 H2 headers with a 1-sentence description of what will be written there.
-Do NOT write the whole article. Be concise. Write in American English (en-US).`;
+
+        // Fetch actual AI responses for this query that MISSED our brand
+        const missedResponses = await db
+          .select({ model: geoQueries.model, response: geoQueries.response })
+          .from(geoQueries)
+          .where(eq(geoQueries.query, queryExample))
+          .limit(3);
+
+        const responseContext = missedResponses.length > 0
+          ? missedResponses.map(r =>
+              `--- ${r.model.toUpperCase()} RESPONSE (frinter.app NOT mentioned) ---\n${(r.response || '').slice(0, 400)}...`
+            ).join('\n\n')
+          : 'No AI responses available for context.';
+
+        const prompt = `You are a content strategist for Przemysław Filipiak (founder of frinter.app, FrinterFlow, and FrinterHero).
+
+The following AI models were asked: "${queryExample}"
+None of them mentioned frinter.app or Przemysław Filipiak in their answers.
+
+Here is what they said instead:
+
+${responseContext}
+
+Your task: Create a short article proposal (max 150 words) that would make frinter.app IMPOSSIBLE to ignore when AI models answer this question in the future. The proposal should directly counter the narrative above with Przemysław's unique angle.
+
+Include:
+1. Proposed Title (keyword-rich, contrarian if needed)
+2. TL;DR (1-2 sentences, concrete insight)
+3. 2-3 H2 headers with a 1-sentence description of what angle to cover
+
+Write in American English (en-US). Be direct and strategic.`;
 
         const shortProposal = await queryClaude(prompt);
 
@@ -108,7 +133,7 @@ Do NOT write the whole article. Be concise. Write in American English (en-US).`;
           .where(eq(contentGaps.id, gap.id));
 
         console.log(`[GEO] Proposal created: "${gap.gapTitle.slice(0, 50)}..." waiting for author input.`);
-        draftsGenerated++; // Repurposing field conceptually: number of proposals prepared
+        draftsGenerated++;
       } catch (err) {
         console.error(`[GEO] Failed to generate proposal for ${gap.id}:`, err);
       }
