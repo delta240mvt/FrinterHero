@@ -10,7 +10,7 @@ import dotenv from 'dotenv';
 dotenv.config({ path: '.env.local' });
 
 import { db } from '../src/db/client';
-import { contentGaps, knowledgeEntries } from '../src/db/schema';
+import { contentGaps, knowledgeEntries, redditExtractedGaps } from '../src/db/schema';
 import { eq, desc, or, ilike, sql } from 'drizzle-orm';
 import { parseMarkdown, calculateReadingTime } from '../src/utils/markdown';
 import { validateDraft } from './draft-validator';
@@ -85,12 +85,27 @@ async function fetchRelevantKBEntries(gapTitle: string, limit = 5): Promise<{ en
   }
 }
 
+// Fetch Voice of Customer vocabulary from Reddit source (if gap originated from Reddit)
+async function fetchVoiceOfCustomer(gapId: number): Promise<string[]> {
+  try {
+    const [row] = await db
+      .select({ vocabularyQuotes: redditExtractedGaps.vocabularyQuotes })
+      .from(redditExtractedGaps)
+      .where(eq(redditExtractedGaps.contentGapId, gapId))
+      .limit(1);
+    return (row?.vocabularyQuotes as string[] | null) ?? [];
+  } catch {
+    return [];
+  }
+}
+
 // Build the mega-prompt
 function buildMegaPrompt(
   gap: any,
   authorNotes: string,
   kbEntries: any[],
-  authorIdentity: string
+  authorIdentity: string,
+  vocQuotes: string[] = []
 ): string {
   const kbContext = kbEntries.length > 0
     ? kbEntries.map(e => `### ${e.title} (Importance: ${e.importanceScore}/100)\n${e.content.slice(0, 500)}...`).join('\n\n')
@@ -124,7 +139,12 @@ The following are the most relevant entries from the knowledge base. Use them to
 
 ${kbContext}
 
-# SECTION 4: OUTPUT FORMAT SPECIFICATION
+${vocQuotes.length > 0 ? `# SECTION 3b: VOICE OF CUSTOMER (Reddit)
+
+Real phrases used by your target audience — weave these naturally into the article where relevant:
+${vocQuotes.map(q => `- "${q}"`).join('\n')}
+
+` : ''}# SECTION 4: OUTPUT FORMAT SPECIFICATION
 
 Return ONLY valid JSON (no markdown, no code blocks, no explanation):
 {
@@ -317,11 +337,15 @@ export async function generateDraft(request: GenerateDraftRequest): Promise<Gene
   const { entries: kbEntries, ids: kbIds } = await fetchRelevantKBEntries(gap.gapTitle);
   console.log(`[DraftGen] Loaded ${kbEntries.length} KB entries`);
 
+  // Load Voice of Customer (Reddit vocabulary, if gap originated from Reddit)
+  const vocQuotes = await fetchVoiceOfCustomer(gap_id);
+  if (vocQuotes.length > 0) console.log(`[DraftGen] VoC: ${vocQuotes.length} Reddit quotes loaded`);
+
   // Load author identity
   const authorIdentity = loadAuthorIdentity();
 
   // Build mega-prompt
-  const megaPrompt = buildMegaPrompt(gap, author_notes, kbEntries, authorIdentity);
+  const megaPrompt = buildMegaPrompt(gap, author_notes, kbEntries, authorIdentity, vocQuotes);
 
   // Call AI API
   let rawResponse: string;

@@ -1495,7 +1495,7 @@ and allows the draft prompt builder to inject Voice of Customer context.
   - Each gap: collapsed `RedditGapCard` with pending ones still actionable
 - **Done when:** `/admin/reddit/run/1` shows run details and its gaps
 
-- [ ] S6-T02
+- [x] S6-T02
 
 #### S6-T03 · Voice of Customer enrichment in draft mega-prompt
 - **File:** Wherever the draft mega-prompt is assembled (e.g. `scripts/draft-bridge.ts` or `generate-draft.ts`)
@@ -1510,7 +1510,7 @@ and allows the draft prompt builder to inject Voice of Customer context.
   - If no Reddit source, prompt is unchanged
 - **Done when:** draft generated from a Reddit-approved gap includes vocabulary section in the prompt (verify by logging prompt before sending)
 
-- [ ] S6-T03
+- [x] S6-T03
 
 #### S6-T04 · Reddit source badge on Content Gaps page
 - **File:** `src/components/admin/GapCard.astro` (or `GapExpandedCard.astro`)
@@ -1525,14 +1525,14 @@ and allows the draft prompt builder to inject Voice of Customer context.
 - **Action:** Add section "Parallel Source: Reddit Intelligence" with 3-line description and link to `docs/reddit-webscraping-pipeline.md`
 - **Done when:** section exists in the file
 
-- [ ] S6-T05
+- [x] S6-T05
 
 #### S6-T06 · Run seed script in production
 - **Command:** `npm run reddit:seed`
 - **Pre-condition:** S1-T06 (migration ran), DB accessible
 - **Done when:** `SELECT count(*) FROM reddit_targets` returns 8
 
-- [ ] S6-T06
+- [x] S6-T06
 
 ---
 
