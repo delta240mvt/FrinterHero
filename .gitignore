@@ -9,4 +9,4 @@ dist/
 # Added by ggshield
 .cache_ggshield
 
-docs_private/
+docs_private
