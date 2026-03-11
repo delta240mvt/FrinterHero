@@ -283,7 +283,6 @@ function lastRunLabel(d: any) {
   }
 
   async function archiveGap(gapId) {
-    if (!confirm('Archive this gap?')) return;
     const res = await fetch(`/api/content-gaps/${gapId}/archive`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}),
     });
