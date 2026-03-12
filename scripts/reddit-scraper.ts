@@ -41,24 +41,26 @@ function parseTargets(raw: string) {
   }));
 }
 
-function buildApifyInput(target: { value: string; type: string }) {
-  if (target.type === 'subreddit') {
-    const name = target.value.replace(/^r\//, '');
-    return {
-      startUrls: [{ url: `https://www.reddit.com/r/${name}/top/?t=year` }],
-      maxItems: MAX_ITEMS,
-      maxPostCount: MAX_ITEMS,
-      maxComments: 5,
-    };
-  }
-  // keyword search — use startUrls (Reddit blocks searches/.json with 403)
-  const q = encodeURIComponent(target.value);
+function buildApifyInput(target: { value: string }) {
+  const name = target.value.replace(/^r\//, '');
   return {
-    startUrls: [{ url: `https://www.reddit.com/search/?q=${q}&sort=top&t=year&type=link` }],
+    startUrls: [{ url: `https://www.reddit.com/r/${name}/top/?t=year` }],
     maxItems: MAX_ITEMS,
     maxPostCount: MAX_ITEMS,
     maxComments: 5,
   };
+}
+
+// Direct Reddit JSON API for keyword searches (Apify actor can't handle search pages reliably)
+async function fetchRedditKeyword(query: string, limit: number): Promise<any[]> {
+  const q = encodeURIComponent(query);
+  const url = `https://www.reddit.com/search.json?q=${q}&sort=top&t=year&type=link&limit=${limit}`;
+  const res = await fetch(url, {
+    headers: { 'User-Agent': 'FrinterBot/1.0 (research tool; github.com/delta240mvt/FrinterHero)' },
+  });
+  if (!res.ok) throw new Error(`Reddit API ${res.status}: ${await res.text().then(t => t.substring(0, 200))}`);
+  const json = await res.json() as any;
+  return (json?.data?.children || []).map((c: any) => c.data);
 }
 
 function mapToDbPost(runId: number, item: any) {
@@ -74,12 +76,12 @@ function mapToDbPost(runId: number, item: any) {
     redditId: String(item.id || item.redditId || '').substring(0, 20) || `unknown_${Date.now()}`,
     subreddit: String(item.subreddit || item.community || '').substring(0, 100),
     title: String(item.title || item.parsedTitle || 'No title').substring(0, 2000),
-    body: item.text || item.body || item.content || null,
+    body: item.selftext || item.text || item.body || item.content || null,
     url: item.url ? String(item.url).substring(0, 500) : null,
-    upvotes: parseInt(String(item.upvotes || item.score || 0), 10) || 0,
-    commentCount: parseInt(String(item.commentCount || item.numComments || 0), 10) || 0,
+    upvotes: parseInt(String(item.score || item.upvotes || 0), 10) || 0,
+    commentCount: parseInt(String(item.num_comments || item.commentCount || item.numComments || 0), 10) || 0,
     topComments: comments,
-    postedAt: item.createdAt ? new Date(item.createdAt) : null,
+    postedAt: item.created_utc ? new Date(item.created_utc * 1000) : item.createdAt ? new Date(item.createdAt) : null,
   };
 }
 
@@ -207,37 +209,55 @@ async function run() {
     existingIds = new Set(existing.map(r => r.redditId));
   } catch {}
 
+  const oneYearAgo = new Date();
+  oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+
   for (const target of targets) {
-    log(`[APIFY] Scraping: ${target.value}`);
+    log(`[SCRAPE] Target: ${target.value} (${target.type})`);
     try {
-      const input = buildApifyInput(target);
-      log(`[APIFY] Input: ${JSON.stringify(input)}`);
-      const apifyRun = await apify.actor('trudax/reddit-scraper-lite').call(input);
-      log(`[APIFY] Actor run ID: ${apifyRun.id} | status: ${apifyRun.status} | dataset: ${apifyRun.defaultDatasetId}`);
-      const { items } = await apify.dataset(apifyRun.defaultDatasetId).listItems();
+      let rawItems: any[] = [];
 
-      log(`[APIFY] Raw items from dataset: ${items.length}`);
+      if (target.type === 'keyword_search') {
+        // Reddit JSON API directly — Apify actor doesn't handle search pages reliably
+        log(`[REDDIT] Fetching keyword search via Reddit API...`);
+        rawItems = await fetchRedditKeyword(target.value, MAX_ITEMS * 3);
+        log(`[REDDIT] Got ${rawItems.length} posts from Reddit API`);
+      } else {
+        // Subreddit — use Apify actor (handles subreddit listing pages well)
+        const input = buildApifyInput(target);
+        log(`[APIFY] Input: ${JSON.stringify(input)}`);
+        const apifyRun = await apify.actor('trudax/reddit-scraper-lite').call(input);
+        log(`[APIFY] Run ID: ${apifyRun.id} | status: ${apifyRun.status}`);
+        const { items } = await apify.dataset(apifyRun.defaultDatasetId).listItems();
+        rawItems = items as any[];
+        log(`[APIFY] Raw items from dataset: ${rawItems.length}`);
+      }
 
-      const oneYearAgo = new Date();
-      oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
-
-      const newItems = (items as any[]).filter(item => {
+      // Deduplicate and filter by date
+      const newItems = rawItems.filter(item => {
         const id = String(item.id || item.redditId || '');
         if (!id || existingIds.has(id)) return false;
-        const createdAt = item.createdAt ? new Date(item.createdAt) : null;
+        // Reddit API uses created_utc (unix timestamp), Apify uses createdAt (ISO string)
+        const createdAt = item.createdAt
+          ? new Date(item.createdAt)
+          : item.created_utc
+            ? new Date(item.created_utc * 1000)
+            : null;
         if (createdAt && createdAt < oneYearAgo) return false;
         return true;
       });
 
-      log(`[APIFY] After dedup+date filter: ${newItems.length} new items (skipped ${items.length - newItems.length})`);
+      log(`[FILTER] ${newItems.length} new items after dedup+date (skipped ${rawItems.length - newItems.length})`);
 
       if (newItems.length > 0) {
         const dbRows = newItems.map(item => mapToDbPost(SCRAPE_RUN_ID, item));
         const inserted = await db.insert(redditPosts).values(dbRows).returning({ id: redditPosts.id });
         const ids = inserted.map(r => r.id);
         allDbPostIds.push(...ids);
-        // Normalize items for analysis (Apify field names differ from DB field names)
+
+        // Normalize for LLM analysis
         const normalizedItems = newItems.map((item, i) => {
+          // Apify: item.comments[] | Reddit API: no inline comments (skip)
           const comments: string[] = [];
           if (Array.isArray(item.comments)) {
             item.comments.slice(0, 5).forEach((c: any) => {
@@ -249,7 +269,7 @@ async function run() {
             _dbId: ids[i],
             subreddit: String(item.subreddit || item.community || 'unknown'),
             title: String(item.title || item.parsedTitle || ''),
-            body: String(item.text || item.selftext || item.body || item.content || ''),
+            body: String(item.selftext || item.text || item.body || item.content || ''),
             upvotes: parseInt(String(item.score || item.upvotes || 0), 10) || 0,
             topComments: comments,
           };
