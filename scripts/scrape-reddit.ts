@@ -89,7 +89,7 @@ async function start() {
 
         // 4. Analiza przez OpenRouter - Prompt do wyciagania bóli i problemów
         const aiResponse = await openai.chat.completions.create({
-            model: "anthropic/claude-3.5-sonnet", // Model Claude 3.5 Sonnet przez OpenRouter
+            model: "anthropic/claude-sonnet-4-6", // Model Claude (Sonnet 4.6) przez OpenRouter
             temperature: 0.7,
             messages: [
                 { 

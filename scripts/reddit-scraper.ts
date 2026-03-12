@@ -18,7 +18,7 @@ const SCRAPE_TARGETS = process.env.SCRAPE_TARGETS || '';
 const SCRAPE_RUN_ID  = parseInt(process.env.SCRAPE_RUN_ID || '0', 10);
 const MAX_ITEMS      = parseInt(process.env.REDDIT_MAX_ITEMS_PER_TARGET || '50', 10);
 const CHUNK_SIZE     = parseInt(process.env.REDDIT_CHUNK_SIZE || '10', 10);
-const MODEL          = process.env.REDDIT_ANALYSIS_MODEL || 'anthropic/claude-3.5-sonnet';
+const MODEL          = process.env.REDDIT_ANALYSIS_MODEL || 'anthropic/claude-sonnet-4-6';
 
 function log(msg: string) {
   console.log(msg);
