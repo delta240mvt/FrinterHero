@@ -150,7 +150,7 @@ Return ONLY valid JSON, no markdown, no explanations.`;
       max_tokens: 2000,
     });
 
-    const raw = response.choices[0]?.message?.content || '';
+    const raw = (response.choices[0]?.message?.content || '').replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim();
     const parsed = JSON.parse(raw);
     const painPoints = parsed.painPoints || [];
 
