@@ -1,4 +1,3 @@
-import { ApifyClient } from 'apify-client';
 import OpenAI from 'openai';
 import * as dotenv from 'dotenv';
 import * as path from 'path';
@@ -8,170 +7,155 @@ import { eq, inArray } from 'drizzle-orm';
 
 dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
 
-const apify = new ApifyClient({ token: process.env.APIFY_API_TOKEN! });
 const openai = new OpenAI({
   baseURL: 'https://openrouter.ai/api/v1',
   apiKey: process.env.OPENROUTER_API_KEY!,
 });
 
-const SCRAPE_TARGET_IDS    = process.env.SCRAPE_TARGET_IDS || '';
-const SCRAPE_RUN_ID        = parseInt(process.env.SCRAPE_RUN_ID || '0', 10);
-const MAX_COMMENTS         = parseInt(process.env.YT_MAX_COMMENTS_PER_TARGET || '300', 10);
-const CHUNK_SIZE           = parseInt(process.env.YT_CHUNK_SIZE || '20', 10);
-const MODEL                = process.env.YT_ANALYSIS_MODEL || 'anthropic/claude-sonnet-4-6';
-const YOUTUBE_API_KEY      = process.env.YOUTUBE_API_KEY || '';
-const MAX_VIDEOS_PER_CH    = parseInt(process.env.YT_MAX_VIDEOS_PER_CHANNEL || '5', 10);
+const SCRAPE_TARGET_IDS  = process.env.SCRAPE_TARGET_IDS || '';
+const SCRAPE_RUN_ID      = parseInt(process.env.SCRAPE_RUN_ID || '0', 10);
+const MAX_COMMENTS       = parseInt(process.env.YT_MAX_COMMENTS_PER_TARGET || '300', 10);
+const CHUNK_SIZE         = parseInt(process.env.YT_CHUNK_SIZE || '20', 10);
+const MODEL              = process.env.YT_ANALYSIS_MODEL || 'anthropic/claude-sonnet-4-6';
+const YT_API_KEY         = process.env.YOUTUBE_API_KEY!;
+const MAX_VIDEOS_PER_CH  = parseInt(process.env.YT_MAX_VIDEOS_PER_CHANNEL || '5', 10);
+const YT_BASE            = 'https://www.googleapis.com/youtube/v3';
 
 const sessionLogs: string[] = [];
 
 function log(msg: string) {
-  const timestamp = new Date().toISOString();
-  const formatted = `[${timestamp}] ${msg}`;
-  console.log(formatted);
-  sessionLogs.push(formatted);
+  const line = `[${new Date().toISOString()}] ${msg}`;
+  console.log(line);
+  sessionLogs.push(line);
 }
 
 function chunkArray<T>(arr: T[], size: number): T[][] {
-  const chunks: T[][] = [];
-  for (let i = 0; i < arr.length; i += size) chunks.push(arr.slice(i, i + size));
-  return chunks;
+  const out: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
 }
 
 // ─── YouTube Data API v3 helpers ───────────────────────────────────────────
 
-/**
- * Resolves a channel handle (e.g. "calnewport") or channel ID (UCxxxx)
- * to a confirmed channelId string. Returns null on failure.
- */
-async function resolveChannelId(handleOrId: string): Promise<string | null> {
-  if (!YOUTUBE_API_KEY) {
-    log('[WARN] YOUTUBE_API_KEY not set — cannot resolve channel');
-    return null;
+async function ytGet(endpoint: string, params: Record<string, string>): Promise<any> {
+  const url = new URL(`${YT_BASE}/${endpoint}`);
+  Object.entries({ ...params, key: YT_API_KEY }).forEach(([k, v]) => url.searchParams.set(k, v));
+  const res = await fetch(url.toString());
+  if (!res.ok) {
+    const err: any = await res.json().catch(() => ({}));
+    throw new Error(err?.error?.message ?? `YouTube API ${res.status}`);
   }
+  return res.json();
+}
 
-  // Already a channel ID (UCxxxx format)
+/** Resolve @handle or UCxxxx directly → confirmed channelId */
+async function resolveChannelId(handleOrId: string): Promise<string | null> {
   if (/^UC[a-zA-Z0-9_-]{20,}$/.test(handleOrId)) return handleOrId;
-
   try {
-    const res = await fetch(
-      `https://www.googleapis.com/youtube/v3/channels?part=id&forHandle=${encodeURIComponent(handleOrId)}&key=${YOUTUBE_API_KEY}`
-    );
-    const data: any = await res.json();
+    const data = await ytGet('channels', { part: 'id', forHandle: handleOrId, maxResults: '1' });
     return data?.items?.[0]?.id ?? null;
   } catch (e: any) {
-    log(`[WARN] Channel ID resolution failed for "${handleOrId}": ${e.message}`);
+    log(`[WARN] resolveChannelId failed for "${handleOrId}": ${e.message}`);
     return null;
   }
 }
 
-/**
- * Returns top N video URLs from a channelId, sorted by viewCount.
- */
-async function getTopChannelVideos(channelId: string, maxVideos: number): Promise<string[]> {
-  if (!YOUTUBE_API_KEY) return [];
+interface VideoMeta { videoId: string; title: string; }
 
+/** Top N videos from channel sorted by viewCount */
+async function getTopChannelVideos(channelId: string, maxVideos: number): Promise<VideoMeta[]> {
   try {
-    const res = await fetch(
-      `https://www.googleapis.com/youtube/v3/search?part=id&channelId=${channelId}&type=video&order=viewCount&maxResults=${maxVideos}&key=${YOUTUBE_API_KEY}`
-    );
-    const data: any = await res.json();
-    const videoIds: string[] = (data?.items ?? [])
-      .map((item: any) => item?.id?.videoId)
-      .filter(Boolean);
-
-    log(`[YT] Channel ${channelId}: discovered ${videoIds.length} top videos`);
-    return videoIds.map(id => `https://www.youtube.com/watch?v=${id}`);
+    const data = await ytGet('search', {
+      part: 'id,snippet',
+      channelId,
+      type: 'video',
+      order: 'viewCount',
+      maxResults: String(maxVideos),
+    });
+    return (data?.items ?? [])
+      .filter((item: any) => item?.id?.videoId)
+      .map((item: any) => ({
+        videoId: item.id.videoId,
+        title: item.snippet?.title ?? '',
+      }));
   } catch (e: any) {
-    log(`[WARN] Failed to fetch channel videos for ${channelId}: ${e.message}`);
+    log(`[WARN] getTopChannelVideos failed for ${channelId}: ${e.message}`);
     return [];
   }
 }
 
-/**
- * Extracts channel handle or ID from a YouTube channel URL.
- * Supports:
- *   https://www.youtube.com/@calnewport  → "calnewport"
- *   https://www.youtube.com/channel/UCxxxx → "UCxxxx"
- *   https://www.youtube.com/c/CalNewport → "CalNewport"
- *   @calnewport (plain)                  → "calnewport"
- */
-function extractChannelIdentifier(url: string): string | null {
+/** Get video title for a single videoId */
+async function getVideoTitle(videoId: string): Promise<string> {
   try {
-    // Plain @handle
-    if (/^@[\w.-]+$/.test(url.trim())) return url.trim().replace(/^@/, '');
-
-    const parsed = new URL(url.trim());
-    const parts = parsed.pathname.split('/').filter(Boolean);
-
-    if (parts[0] === 'channel') return parts[1] ?? null;           // /channel/UCxxxx
-    if (parts[0]?.startsWith('@')) return parts[0].replace('@', ''); // /@handle
-    if (parts[0] === 'c' || parts[0] === 'user') return parts[1] ?? null; // /c/name
-
-    return null;
+    const data = await ytGet('videos', { part: 'snippet', id: videoId });
+    return data?.items?.[0]?.snippet?.title ?? videoId;
   } catch {
-    return null;
+    return videoId;
   }
 }
 
-// ─── Apify comment scraping ────────────────────────────────────────────────
-
-interface ApifyComment {
-  cid: string;
-  comment: string;
-  author: string;
+interface RawComment {
+  commentId: string;
   videoId: string;
-  pageUrl: string;
-  commentsCount: number;
-  replyCount: number;
+  commentText: string;
+  author: string | null;
   voteCount: number;
-  authorIsChannelOwner: boolean;
-  hasCreatorHeart: boolean;
-  type: string;
-  replyToCid: string | null;
-  title: string;
-}
-
-function mapToDbComment(item: ApifyComment, runId: number) {
-  return {
-    scrapeRunId: runId,
-    commentId: String(item.cid || '').substring(0, 50),
-    videoId: String(item.videoId || '').substring(0, 20),
-    videoUrl: item.pageUrl ? String(item.pageUrl).substring(0, 500) : null,
-    videoTitle: item.title ? String(item.title).substring(0, 255) : null,
-    commentText: String(item.comment || ''),
-    author: item.author ? String(item.author).substring(0, 100) : null,
-    voteCount: parseInt(String(item.voteCount || 0), 10) || 0,
-    replyCount: parseInt(String(item.replyCount || 0), 10) || 0,
-    hasCreatorHeart: Boolean(item.hasCreatorHeart),
-    authorIsChannelOwner: Boolean(item.authorIsChannelOwner),
-    replyToCid: item.replyToCid ? String(item.replyToCid).substring(0, 50) : null,
-    totalCommentsCount: item.commentsCount ? parseInt(String(item.commentsCount), 10) || null : null,
-  };
+  replyCount: number;
 }
 
 /**
- * Scrapes comments from a single video URL via Apify.
- * Returns raw items (unfiltered).
+ * Fetch up to maxComments top-level comments for a video.
+ * Uses commentThreads.list with order=relevance (= YouTube "Top comments").
+ * Paginates automatically.
  */
-async function scrapeVideoComments(videoUrl: string, maxComments: number): Promise<ApifyComment[]> {
-  const apifyRun = await apify.actor('streamers/youtube-comments-scraper').call({
-    maxComments,
-    startUrls: [{ url: videoUrl, method: 'GET' }],
-  });
+async function fetchVideoComments(videoId: string, maxComments: number): Promise<RawComment[]> {
+  const results: RawComment[] = [];
+  let pageToken: string | undefined;
 
-  log(`[YT] Apify run ID: ${apifyRun.id} | status: ${apifyRun.status}`);
+  while (results.length < maxComments) {
+    const remaining = maxComments - results.length;
+    const pageSize = Math.min(100, remaining);
 
-  try {
-    const actorLog = await apify.run(apifyRun.id).log().get();
-    if (actorLog) {
-      actorLog.trim().split('\n').slice(0, 100).forEach((line: string) => {
-        if (line.trim()) sessionLogs.push(`[APIFY] ${line}`);
+    const params: Record<string, string> = {
+      part: 'snippet',
+      videoId,
+      order: 'relevance',
+      maxResults: String(pageSize),
+      textFormat: 'plainText',
+    };
+    if (pageToken) params.pageToken = pageToken;
+
+    let data: any;
+    try {
+      data = await ytGet('commentThreads', params);
+    } catch (e: any) {
+      // Comments disabled or video unavailable — not a fatal error
+      if (e.message.includes('disabled') || e.message.includes('403') || e.message.includes('404')) {
+        log(`[YT] Comments unavailable for ${videoId}: ${e.message}`);
+      } else {
+        log(`[WARN] commentThreads error for ${videoId}: ${e.message}`);
+      }
+      break;
+    }
+
+    for (const item of (data?.items ?? [])) {
+      const top = item?.snippet?.topLevelComment?.snippet;
+      if (!top?.textDisplay?.trim()) continue;
+      results.push({
+        commentId: item.snippet.topLevelComment.id,
+        videoId: item.snippet.videoId,
+        commentText: top.textDisplay,
+        author: top.authorDisplayName ?? null,
+        voteCount: top.likeCount ?? 0,
+        replyCount: item.snippet.totalReplyCount ?? 0,
       });
     }
-  } catch {}
 
-  const { items } = await apify.dataset(apifyRun.defaultDatasetId).listItems();
-  return items as unknown as ApifyComment[];
+    pageToken = data?.nextPageToken;
+    if (!pageToken) break;
+  }
+
+  return results;
 }
 
 // ─── LLM pain-point analysis ───────────────────────────────────────────────
@@ -189,7 +173,7 @@ interface ExtractedGap {
 
 async function analyzePainPoints(
   comments: { id: number; commentText: string; voteCount: number; videoTitle: string | null }[],
-  videoTitle: string
+  videoTitle: string,
 ): Promise<ExtractedGap[]> {
   const systemPrompt = `You are an expert in qualitative UX research and target persona analysis.
 You analyze YouTube comments from productivity, focus, and high-performance videos.
@@ -224,12 +208,13 @@ RESPONSE FORMAT (JSON only, no markdown):
 }
 
 category must be one of: focus | energy | burnout | relationships | systems | tech | mindset | health
-sourceCommentIndices: 1-based indices of the comments that support this pain point.
+sourceCommentIndices: 1-based indices of comments supporting this pain point.
 Return ONLY valid JSON, no markdown, no explanations.`;
 
-  const userContent = `Video: "${videoTitle}"\n\nAnalyze these ${comments.length} YouTube comments:\n\n` +
-    comments.map((c, i) => `[${i + 1}] (votes:${c.voteCount}) ${c.commentText.substring(0, 400)}`).join('\n\n') +
-    `\n\nExtract 2–5 pain points. Focus on EMOTIONAL and SYSTEMIC problems, not technical questions.`;
+  const userContent =
+    `Video: "${videoTitle}"\n\nAnalyze these ${comments.length} YouTube comments:\n\n` +
+    comments.map((c, i) => `[${i + 1}] (likes:${c.voteCount}) ${c.commentText.substring(0, 400)}`).join('\n\n') +
+    `\n\nExtract 2–5 pain points. Focus on EMOTIONAL and SYSTEMIC problems.`;
 
   try {
     const response = await openai.chat.completions.create({
@@ -243,30 +228,22 @@ Return ONLY valid JSON, no markdown, no explanations.`;
     });
 
     const raw = (response.choices[0]?.message?.content || '')
-      .replace(/^```(?:json)?\s*/i, '')
-      .replace(/\s*```\s*$/i, '')
-      .trim();
+      .replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim();
 
     log(`[LLM] Raw response (200 chars): ${raw.substring(0, 200)}`);
     const parsed = JSON.parse(raw);
-    const painPoints = parsed.painPoints || [];
 
-    return painPoints.map((p: any) => ({
+    return (parsed.painPoints || []).map((p: any) => ({
       painPointTitle: String(p.title || '').substring(0, 255),
       painPointDescription: String(p.description || ''),
       emotionalIntensity: Math.min(10, Math.max(1, parseInt(String(p.emotionalIntensity || 5), 10))),
       frequency: Math.max(1, parseInt(String(p.frequency || 1), 10)),
-      vocabularyQuotes: Array.isArray(p.vocabularyQuotes)
-        ? p.vocabularyQuotes.slice(0, 5).map(String)
-        : [],
+      vocabularyQuotes: Array.isArray(p.vocabularyQuotes) ? p.vocabularyQuotes.slice(0, 5).map(String) : [],
       category: ['focus','energy','burnout','relationships','systems','tech','mindset','health'].includes(p.category)
-        ? p.category
-        : 'focus',
+        ? p.category : 'focus',
       suggestedArticleAngle: p.suggestedAngle ? String(p.suggestedAngle) : null,
       sourceCommentIds: Array.isArray(p.sourceCommentIndices)
-        ? p.sourceCommentIndices
-            .map((idx: number) => comments[idx - 1]?.id)
-            .filter(Boolean)
+        ? p.sourceCommentIndices.map((idx: number) => comments[idx - 1]?.id).filter(Boolean)
         : [],
     }));
   } catch (e: any) {
@@ -275,51 +252,59 @@ Return ONLY valid JSON, no markdown, no explanations.`;
   }
 }
 
-// ─── Process one video URL (shared by both target types) ──────────────────
+// ─── Process one video ─────────────────────────────────────────────────────
 
-async function processVideoUrl(
-  videoUrl: string,
-  targetLabel: string,
-  targetVideoId: string | null,
+async function processVideo(
+  videoId: string,
+  videoTitle: string,
   maxComments: number,
   existingCids: Set<string>,
-  totalComments: number,
-  totalPainPoints: number,
+  runningComments: number,
+  runningPainPoints: number,
 ): Promise<{ comments: number; painPoints: number }> {
-  log(`[YT] Processing video: ${videoUrl}`);
+  log(`[YT] Video: ${videoId} — "${videoTitle}"`);
 
-  const rawItems = await scrapeVideoComments(videoUrl, maxComments);
-  log(`[YT] Fetched ${rawItems.length} raw items from Apify`);
+  const raw = await fetchVideoComments(videoId, maxComments);
+  log(`[YT] Fetched ${raw.length} comments from YouTube API`);
 
-  const newItems = rawItems.filter(item =>
-    item.cid &&
-    !existingCids.has(item.cid) &&
-    !item.replyToCid &&
-    item.comment &&
-    item.comment.length > 15
+  // Dedup + filter meaningful length
+  const newItems = raw.filter(c =>
+    c.commentId &&
+    !existingCids.has(c.commentId) &&
+    c.commentText.length > 15
   );
-  log(`[YT] ${newItems.length} new top-level comments (${rawItems.length - newItems.length} skipped)`);
+  log(`[YT] ${newItems.length} new comments (${raw.length - newItems.length} skipped)`);
 
   if (!newItems.length) return { comments: 0, painPoints: 0 };
 
-  const dbRows = newItems.map(c => mapToDbComment(c, SCRAPE_RUN_ID));
-  const inserted = await db.insert(ytComments).values(dbRows).returning({
-    id: ytComments.id,
-    commentText: ytComments.commentText,
-    voteCount: ytComments.voteCount,
-    videoTitle: ytComments.videoTitle,
-  });
+  // Insert into DB
+  const inserted = await db.insert(ytComments).values(
+    newItems.map(c => ({
+      scrapeRunId: SCRAPE_RUN_ID,
+      commentId: c.commentId.substring(0, 50),
+      videoId: c.videoId.substring(0, 20),
+      videoUrl: `https://www.youtube.com/watch?v=${c.videoId}`,
+      videoTitle: videoTitle.substring(0, 255),
+      commentText: c.commentText,
+      author: c.author ? c.author.substring(0, 100) : null,
+      voteCount: c.voteCount,
+      replyCount: c.replyCount,
+      hasCreatorHeart: false,
+      authorIsChannelOwner: false,
+      replyToCid: null,
+      totalCommentsCount: null,
+    }))
+  ).returning({ id: ytComments.id, commentText: ytComments.commentText, voteCount: ytComments.voteCount, videoTitle: ytComments.videoTitle });
 
-  newItems.forEach(item => existingCids.add(item.cid));
+  newItems.forEach(c => existingCids.add(c.commentId));
 
-  const newTotalComments = totalComments + inserted.length;
+  const newTotalComments = runningComments + inserted.length;
   process.stdout.write(`commentsCollected:${newTotalComments}\n`);
 
-  const videoTitle = newItems[0]?.title ?? targetLabel;
-  const videoId = targetVideoId ?? (newItems[0]?.videoId ? String(newItems[0].videoId).substring(0, 20) : null);
+  // LLM analysis
   const chunks = chunkArray(inserted, CHUNK_SIZE);
-
   let newPainPoints = 0;
+
   for (let i = 0; i < chunks.length; i++) {
     log(`[LLM] Chunk ${i + 1}/${chunks.length} for "${videoTitle}" (${chunks[i].length} comments)`);
     const gaps = await analyzePainPoints(chunks[i], videoTitle);
@@ -335,7 +320,7 @@ async function processVideoUrl(
           frequency: gap.frequency,
           vocabularyQuotes: gap.vocabularyQuotes,
           sourceCommentIds: gap.sourceCommentIds,
-          sourceVideoId: videoId,
+          sourceVideoId: videoId.substring(0, 20),
           sourceVideoTitle: videoTitle.substring(0, 255),
           suggestedArticleAngle: gap.suggestedArticleAngle,
           category: gap.category,
@@ -343,7 +328,7 @@ async function processVideoUrl(
         }))
       );
       newPainPoints += gaps.length;
-      process.stdout.write(`painPointsExtracted:${totalPainPoints + newPainPoints}\n`);
+      process.stdout.write(`painPointsExtracted:${runningPainPoints + newPainPoints}\n`);
     }
   }
 
@@ -353,10 +338,8 @@ async function processVideoUrl(
 // ─── Main ──────────────────────────────────────────────────────────────────
 
 async function run() {
-  if (!SCRAPE_RUN_ID) {
-    console.error('[ERROR] SCRAPE_RUN_ID env var required');
-    process.exit(1);
-  }
+  if (!SCRAPE_RUN_ID) { console.error('[ERROR] SCRAPE_RUN_ID required'); process.exit(1); }
+  if (!YT_API_KEY)    { console.error('[ERROR] YOUTUBE_API_KEY required'); process.exit(1); }
 
   const startedAt = Date.now();
 
@@ -368,17 +351,14 @@ async function run() {
     ? await db.select().from(ytTargets).where(inArray(ytTargets.id, targetIds))
     : await db.select().from(ytTargets).where(eq(ytTargets.isActive, true));
 
-  log(`[YT] Starting YouTube Comments Scraper — ${targets.length} targets, run #${SCRAPE_RUN_ID}`);
+  log(`[YT] Starting — ${targets.length} targets, run #${SCRAPE_RUN_ID}`);
 
-  if (!YOUTUBE_API_KEY) {
-    log('[WARN] YOUTUBE_API_KEY not set — channel targets will be skipped');
-  }
-
-  // Preload existing commentIds for dedup
+  // Preload existing commentIds for global dedup
   let existingCids: Set<string> = new Set();
   try {
     const existing = await db.select({ commentId: ytComments.commentId }).from(ytComments);
     existingCids = new Set(existing.map(r => r.commentId));
+    log(`[YT] Loaded ${existingCids.size} existing commentIds for dedup`);
   } catch {}
 
   let totalComments = 0;
@@ -389,71 +369,54 @@ async function run() {
 
     try {
       if (target.type === 'channel') {
-        // ── Channel mode: discover top videos, then scrape each ──────────
+        // ── Channel: discover top videos, scrape each ──────────────────
         const identifier = target.channelHandle ?? extractChannelIdentifier(target.url);
-        if (!identifier) {
-          log(`[WARN] Cannot extract channel identifier from: ${target.url}`);
-          continue;
-        }
+        if (!identifier) { log(`[WARN] Cannot extract channel from: ${target.url}`); continue; }
 
         const channelId = await resolveChannelId(identifier);
-        if (!channelId) {
-          log(`[WARN] Could not resolve channelId for "${identifier}" — check YOUTUBE_API_KEY`);
-          continue;
-        }
+        if (!channelId) { log(`[WARN] Could not resolve channelId for "${identifier}"`); continue; }
 
         const maxVideos = target.maxVideosPerChannel ?? MAX_VIDEOS_PER_CH;
-        const videoUrls = await getTopChannelVideos(channelId, maxVideos);
+        const videos = await getTopChannelVideos(channelId, maxVideos);
+        log(`[YT] Channel ${channelId}: ${videos.length} videos to process`);
 
-        if (!videoUrls.length) {
-          log(`[WARN] No videos found for channel ${channelId}`);
-          continue;
-        }
-
-        for (const videoUrl of videoUrls) {
+        for (const video of videos) {
           try {
-            const { comments, painPoints } = await processVideoUrl(
-              videoUrl,
-              target.label,
-              null,
+            const { comments, painPoints } = await processVideo(
+              video.videoId, video.title,
               target.maxComments ?? MAX_COMMENTS,
-              existingCids,
-              totalComments,
-              totalPainPoints,
+              existingCids, totalComments, totalPainPoints,
             );
             totalComments += comments;
             totalPainPoints += painPoints;
           } catch (e: any) {
-            log(`[WARN] Video ${videoUrl} failed: ${e.message}`);
+            log(`[WARN] Video ${video.videoId} failed: ${e.message}`);
           }
         }
 
       } else {
-        // ── Video mode: single URL ────────────────────────────────────────
-        const { comments, painPoints } = await processVideoUrl(
-          target.url,
-          target.label,
-          target.videoId,
+        // ── Single video ───────────────────────────────────────────────
+        const videoId = target.videoId ?? new URL(target.url).searchParams.get('v') ?? '';
+        if (!videoId) { log(`[WARN] No videoId for target ${target.id}`); continue; }
+
+        const title = await getVideoTitle(videoId);
+        const { comments, painPoints } = await processVideo(
+          videoId, title,
           target.maxComments ?? MAX_COMMENTS,
-          existingCids,
-          totalComments,
-          totalPainPoints,
+          existingCids, totalComments, totalPainPoints,
         );
         totalComments += comments;
         totalPainPoints += painPoints;
       }
 
-      await db.update(ytTargets)
-        .set({ lastScrapedAt: new Date() })
-        .where(eq(ytTargets.id, target.id));
-
+      await db.update(ytTargets).set({ lastScrapedAt: new Date() }).where(eq(ytTargets.id, target.id));
       await db.update(ytScrapeRuns).set({
         commentsCollected: totalComments,
         targetsScraped: targets.map(t => t.label),
       }).where(eq(ytScrapeRuns.id, SCRAPE_RUN_ID));
 
     } catch (e: any) {
-      log(`[WARN] Failed scraping "${target.label}": ${e.message}`);
+      log(`[WARN] Failed: "${target.label}": ${e.message}`);
     }
   }
 
@@ -467,8 +430,20 @@ async function run() {
     logs: sessionLogs,
   }).where(eq(ytScrapeRuns.id, SCRAPE_RUN_ID));
 
-  log(`[YT] Done. ${totalComments} comments collected, ${totalPainPoints} pain points extracted.`);
+  log(`[YT] Done. ${totalComments} comments, ${totalPainPoints} pain points.`);
   process.stdout.write(`RESULT_JSON:${JSON.stringify({ commentsCollected: totalComments, painPointsExtracted: totalPainPoints })}\n`);
+}
+
+function extractChannelIdentifier(url: string): string | null {
+  try {
+    if (/^@[\w.-]+$/.test(url.trim())) return url.trim().replace(/^@/, '');
+    const parsed = new URL(url.trim());
+    const parts = parsed.pathname.split('/').filter(Boolean);
+    if (parts[0] === 'channel') return parts[1] ?? null;
+    if (parts[0]?.startsWith('@')) return parts[0].replace('@', '');
+    if (parts[0] === 'c' || parts[0] === 'user') return parts[1] ?? null;
+    return null;
+  } catch { return null; }
 }
 
 run().catch(async (e) => {
@@ -477,10 +452,8 @@ run().catch(async (e) => {
   if (SCRAPE_RUN_ID) {
     try {
       await db.update(ytScrapeRuns).set({
-        status: 'failed',
-        errorMessage: String(e.message),
-        finishedAt: new Date(),
-        logs: sessionLogs,
+        status: 'failed', errorMessage: String(e.message),
+        finishedAt: new Date(), logs: sessionLogs,
       }).where(eq(ytScrapeRuns.id, SCRAPE_RUN_ID));
     } catch {}
   }
