@@ -51,9 +51,14 @@ const targets = await db.select().from(redditTargets).orderBy(desc(redditTargets
 
     <!-- TARGETS TABLE -->
     <div class="targets-table-wrap">
+      <div class="bulk-actions">
+        <button class="bulk-btn" onclick="selectAll()">Select All</button>
+        <button class="bulk-btn" onclick="deselectAll()">Deselect All</button>
+      </div>
       <table class="targets-table" id="targets-table">
         <thead>
           <tr>
+            <th><input type="checkbox" id="check-all" onchange="toggleCheckAll(this)" /></th>
             <th>Label</th>
             <th>Type</th>
             <th>Value</th>
@@ -65,6 +70,7 @@ const targets = await db.select().from(redditTargets).orderBy(desc(redditTargets
         <tbody>
           {targets.map(t => (
             <tr id={`trow-${t.id}`}>
+              <td><input type="checkbox" class="row-check" data-id={t.id} /></td>
               <td class="td-label">{t.label}</td>
               <td><span class={`type-badge type-${t.type}`}>{t.type === 'subreddit' ? 'sub' : 'kw'}</span></td>
               <td class="td-value">{t.value}</td>
@@ -136,9 +142,26 @@ document.getElementById('add-form')?.addEventListener('submit', async (e) => {
   else { const d = await res.json(); alert(d.error || 'Failed'); }
 });
 
+function selectAll() {
+  document.querySelectorAll<HTMLInputElement>('.row-check').forEach(cb => cb.checked = true);
+  (document.getElementById('check-all') as HTMLInputElement).checked = true;
+}
+
+function deselectAll() {
+  document.querySelectorAll<HTMLInputElement>('.row-check').forEach(cb => cb.checked = false);
+  (document.getElementById('check-all') as HTMLInputElement).checked = false;
+}
+
+function toggleCheckAll(master: HTMLInputElement) {
+  document.querySelectorAll<HTMLInputElement>('.row-check').forEach(cb => cb.checked = master.checked);
+}
+
 (window as any).toggleTarget = toggleTarget;
 (window as any).deleteTarget = deleteTarget;
 (window as any).quickAdd = quickAdd;
+(window as any).selectAll = selectAll;
+(window as any).deselectAll = deselectAll;
+(window as any).toggleCheckAll = toggleCheckAll;
 </script>
 
 <style>
@@ -166,6 +189,9 @@ document.getElementById('add-form')?.addEventListener('submit', async (e) => {
   .preset-btn { padding: 0.2rem 0.5rem; background: none; border: 1px solid var(--border); color: var(--text-muted); border-radius: 0.25rem; font-family: var(--font-mono); font-size: 0.65rem; cursor: pointer; }
   .preset-btn:hover { border-color: var(--teal); color: var(--teal); }
   .targets-table-wrap { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 0.5rem; overflow: hidden; }
+  .bulk-actions { display: flex; gap: 0.5rem; padding: 0.625rem 1rem; border-bottom: 1px solid var(--border); background: rgba(255,255,255,0.02); }
+  .bulk-btn { padding: 0.25rem 0.75rem; background: none; border: 1px solid var(--border); color: var(--text-muted); border-radius: 0.25rem; font-family: var(--font-mono); font-size: 0.65rem; cursor: pointer; }
+  .bulk-btn:hover { border-color: var(--teal); color: var(--teal); }
   .targets-table { width: 100%; border-collapse: collapse; font-family: var(--font-mono); font-size: var(--text-xs); }
   .targets-table th { padding: 0.5rem 1rem; text-align: left; font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid var(--border); background: rgba(255,255,255,0.02); }
   .targets-table td { padding: 0.5rem 1rem; color: var(--text-secondary); border-bottom: 1px solid rgba(255,255,255,0.04); }
