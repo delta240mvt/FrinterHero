@@ -99,19 +99,26 @@ const CATEGORIES = ['focus','energy','burnout','relationships','systems','tech',
       <aside class="yt-sidebar">
         <div class="sidebar-section">
           <div class="sidebar-title-row">
-            <span class="sidebar-title">Video Targets</span>
+            <span class="sidebar-title">Targets</span>
             <div class="select-btns">
               <button class="sel-btn" onclick="selectAllTargets()">All</button>
               <button class="sel-btn" onclick="deselectAllTargets()">None</button>
+              <a href="/admin/youtube/targets" class="sel-btn sel-btn--manage">⚙ Manage</a>
             </div>
           </div>
           <div id="target-list" class="target-list">
-            {allTargets.filter(t => t.isActive).map(t => (
-              <label class="target-item">
-                <input type="checkbox" checked name="target" value={String(t.id)} class="target-cb" />
-                <span class="target-label">{t.label}</span>
-                <span class="target-type">▶</span>
-              </label>
+            {allTargets.map(t => (
+              <div class="target-item-row">
+                <label class={`target-item ${!t.isActive ? 'target-item--inactive' : ''}`}>
+                  <input type="checkbox" checked={t.isActive} name="target" value={String(t.id)} class="target-cb" />
+                  <span class="target-label">{t.label}</span>
+                  <span class="target-type">{t.type === 'channel' ? '📺' : '▶'}</span>
+                </label>
+                <div class="target-item-actions">
+                  <a href="/admin/youtube/targets" class="tia-btn" title="Edit">✏</a>
+                  <button class="tia-btn tia-btn--del" onclick={`deleteSidebarTarget(${t.id}, '${t.label.replace(/'/g, "\\'")}')`} title="Delete">✕</button>
+                </div>
+              </div>
             ))}
           </div>
           <button id="btn-start-scrape" class="btn-start-scrape" onclick="startScraping()">
@@ -344,6 +351,15 @@ function deselectAllTargets() {
 (window as any).deleteRun = deleteRun;
 (window as any).selectAllTargets = selectAllTargets;
 (window as any).deselectAllTargets = deselectAllTargets;
+(window as any).deleteSidebarTarget = deleteSidebarTarget;
+
+async function deleteSidebarTarget(id: number, label: string) {
+  if (!confirm(`Delete "${label}"?`)) return;
+  const res = await fetch(`/api/youtube/targets/${id}`, { method: 'DELETE' });
+  if (res.ok || res.status === 204) {
+    document.querySelector(`.target-item-row:has([value="${id}"])`)?.remove();
+  }
+}
 </script>
 
 <style>
@@ -377,11 +393,20 @@ function deselectAllTargets() {
   .sidebar-title-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; }
   .sidebar-title { font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
   .select-btns { display: flex; gap: 0.3rem; }
-  .sel-btn { padding: 0.15rem 0.45rem; background: none; border: 1px solid var(--border); color: var(--text-muted); border-radius: 0.2rem; font-family: var(--font-mono); font-size: 0.6rem; cursor: pointer; }
+  .sel-btn { padding: 0.15rem 0.45rem; background: none; border: 1px solid var(--border); color: var(--text-muted); border-radius: 0.2rem; font-family: var(--font-mono); font-size: 0.6rem; cursor: pointer; text-decoration: none; }
   .sel-btn:hover { border-color: var(--teal); color: var(--teal); }
+  .sel-btn--manage { border-color: rgba(255,107,107,0.3); color: #ff6b6b; }
+  .sel-btn--manage:hover { border-color: #ff6b6b; }
   .target-list { display: flex; flex-direction: column; gap: 0.4rem; margin-bottom: 0.875rem; }
-  .target-item { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; padding: 0.3rem; border-radius: 0.25rem; }
-  .target-item:hover { background: rgba(255,255,255,0.04); }
+  .target-item-row { display: flex; align-items: center; justify-content: space-between; border-radius: 0.25rem; }
+  .target-item-row:hover { background: rgba(255,255,255,0.04); }
+  .target-item-row:hover .target-item-actions { opacity: 1; }
+  .target-item { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; padding: 0.3rem; flex: 1; min-width: 0; }
+  .target-item--inactive { opacity: 0.4; }
+  .target-item-actions { display: flex; gap: 0.2rem; opacity: 0; transition: opacity 0.15s; padding-right: 0.3rem; flex-shrink: 0; }
+  .tia-btn { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.65rem; padding: 0.15rem 0.3rem; border-radius: 0.2rem; text-decoration: none; line-height: 1; }
+  .tia-btn:hover { color: var(--teal); background: rgba(74,141,131,0.1); }
+  .tia-btn--del:hover { color: #ef4444; background: rgba(239,68,68,0.1); }
   .target-cb { accent-color: var(--teal); }
   .target-label { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-secondary); flex: 1; }
   .target-type { font-family: var(--font-mono); font-size: 0.6rem; color: #ff6b6b; padding: 0.1rem 0.3rem; background: rgba(255,0,0,0.08); border-radius: 0.15rem; }
