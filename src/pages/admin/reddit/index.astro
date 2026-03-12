@@ -93,7 +93,13 @@ const CATEGORIES = ['focus','energy','burnout','relationships','systems','tech']
       <!-- SIDEBAR -->
       <aside class="reddit-sidebar">
         <div class="sidebar-section">
-          <div class="sidebar-title">Scraping Targets</div>
+          <div class="sidebar-title-row">
+            <span class="sidebar-title">Scraping Targets</span>
+            <div class="select-btns">
+              <button class="sel-btn" onclick="selectAllTargets()">All</button>
+              <button class="sel-btn" onclick="deselectAllTargets()">None</button>
+            </div>
+          </div>
           <div id="target-list" class="target-list">
             {activeTargets.map(t => (
               <label class="target-item">
@@ -332,12 +338,22 @@ async function deleteRun(id: number) {
   }
 }
 
+function selectAllTargets() {
+  document.querySelectorAll<HTMLInputElement>('.target-cb').forEach(cb => cb.checked = true);
+}
+
+function deselectAllTargets() {
+  document.querySelectorAll<HTMLInputElement>('.target-cb').forEach(cb => cb.checked = false);
+}
+
 // Expose to inline onclick handlers
 (window as any).rgapToggle = rgapToggle;
 (window as any).rgapApprove = rgapApprove;
 (window as any).rgapReject = rgapReject;
 (window as any).startScraping = startScraping;
 (window as any).deleteRun = deleteRun;
+(window as any).selectAllTargets = selectAllTargets;
+(window as any).deselectAllTargets = deselectAllTargets;
 </script>
 
 <style>
@@ -366,7 +382,11 @@ async function deleteRun(id: number) {
 
   .reddit-sidebar { display: flex; flex-direction: column; gap: 1rem; }
   .sidebar-section { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 0.5rem; padding: 1rem; }
-  .sidebar-title { font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.75rem; }
+  .sidebar-title-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; }
+  .sidebar-title { font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+  .select-btns { display: flex; gap: 0.3rem; }
+  .sel-btn { padding: 0.15rem 0.45rem; background: none; border: 1px solid var(--border); color: var(--text-muted); border-radius: 0.2rem; font-family: var(--font-mono); font-size: 0.6rem; cursor: pointer; }
+  .sel-btn:hover { border-color: var(--teal); color: var(--teal); }
   .target-list { display: flex; flex-direction: column; gap: 0.4rem; margin-bottom: 0.875rem; }
   .target-item { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; padding: 0.3rem; border-radius: 0.25rem; }
   .target-item:hover { background: rgba(255,255,255,0.04); }
