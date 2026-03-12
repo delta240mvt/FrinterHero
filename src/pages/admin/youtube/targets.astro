@@ -25,181 +25,212 @@ const targets = await db.select().from(ytTargets).orderBy(desc(ytTargets.priorit
   </header>
 
   <main class="admin-main">
-    <h1 class="page-title">YouTube Scraping Targets</h1>
-
-    <!-- TYPE TABS -->
-    <div class="type-tabs">
-      <button class="type-tab active" id="tab-channel" onclick="switchTab('channel')">
-        📺 Channel <span class="tab-hint">recommended</span>
-      </button>
-      <button class="type-tab" id="tab-video" onclick="switchTab('video')">
-        ▶ Single Video
-      </button>
+    <div class="page-header">
+      <h1 class="page-title">YouTube Scraping Targets</h1>
+      <button class="btn-add-new" onclick="openAddPanel()">+ Add Target</button>
     </div>
 
-    <!-- ADD FORM — CHANNEL -->
-    <div class="add-form-wrap" id="form-channel">
-      <h2 class="section-title">Add Channel Target</h2>
-      <p class="form-hint">System will automatically discover top <strong>N most popular videos</strong> from the channel and scrape their comments.</p>
-      <form id="add-form-channel" class="add-form">
-        <input type="hidden" name="type" value="channel" />
-        <input name="url" class="form-input url-input"
-          placeholder="https://www.youtube.com/@channelhandle" required />
-        <input name="label" class="form-input" placeholder="Channel label" required />
-        <input name="maxVideosPerChannel" type="number" class="form-input mv-input"
-          placeholder="5" min="1" max="20" value="5" title="Max videos to scrape per channel" />
-        <input name="maxComments" type="number" class="form-input mc-input"
-          placeholder="300" min="10" max="2000" value="300" title="Max comments per video" />
-        <input name="priority" type="number" class="form-input priority-input"
-          placeholder="50" min="0" max="100" value="50" />
-        <button type="submit" class="btn-add">Add Channel</button>
-      </form>
+    <!-- ADD PANEL (hidden by default) -->
+    <div class="add-panel" id="add-panel" style="display:none">
+      <div class="add-panel-inner">
+        <div class="panel-header">
+          <span class="panel-title">Add New Target</span>
+          <button class="panel-close" onclick="closeAddPanel()">✕</button>
+        </div>
 
-      <div class="presets">
-        <span class="presets-label">Quick add:</span>
-        {[
-          { label: 'Ali Abdaal',        url: 'https://www.youtube.com/@aliabdaal' },
-          { label: 'Huberman Lab',      url: 'https://www.youtube.com/@hubermanlab' },
-          { label: 'Cal Newport',       url: 'https://www.youtube.com/@CalNewportMedia' },
-          { label: 'Thomas Frank',      url: 'https://www.youtube.com/@Thomasfrank' },
-          { label: 'Andrew Kirby',      url: 'https://www.youtube.com/@AndrewKirby' },
-          { label: 'Matt D\'Avella',    url: 'https://www.youtube.com/@mattdavella' },
-          { label: 'Better Ideas',      url: 'https://www.youtube.com/@betterideas' },
-          { label: 'Mike and Matty',    url: 'https://www.youtube.com/@MikeandMatty' },
-          { label: 'Rian Doris',        url: 'https://www.youtube.com/@RianDoris' },
-          { label: 'Improvement Pill',  url: 'https://www.youtube.com/@ImprovementPill' },
-        ].map(preset => (
-          <button class="preset-btn" onclick={`quickAddChannel('${preset.url}', '${preset.label}')`}>{preset.label}</button>
-        ))}
+        <!-- TYPE SWITCH -->
+        <div class="type-tabs">
+          <button class="type-tab active" id="tab-channel" onclick="switchTab('channel')">📺 Channel <span class="tab-rec">recommended</span></button>
+          <button class="type-tab" id="tab-video" onclick="switchTab('video')">▶ Single Video</button>
+        </div>
+
+        <form id="add-form" class="add-form" onsubmit="submitAdd(event)">
+          <input type="hidden" name="type" id="input-type" value="channel" />
+
+          <div class="field-row">
+            <label class="field-label" id="url-label">Channel URL</label>
+            <input name="url" id="input-url" class="form-input url-input"
+              placeholder="https://www.youtube.com/@channelhandle" required />
+          </div>
+          <div class="field-row">
+            <label class="field-label">Label</label>
+            <input name="label" class="form-input" placeholder="Display name" required />
+          </div>
+          <div class="field-row-inline">
+            <div class="field-group" id="field-videos">
+              <label class="field-label">Top Videos</label>
+              <input name="maxVideosPerChannel" type="number" class="form-input num-input"
+                placeholder="5" min="1" max="20" value="5" title="Videos to scrape per channel" />
+            </div>
+            <div class="field-group">
+              <label class="field-label">Max Comments</label>
+              <input name="maxComments" type="number" class="form-input num-input"
+                placeholder="300" min="10" max="2000" value="300" />
+            </div>
+            <div class="field-group">
+              <label class="field-label">Priority</label>
+              <input name="priority" type="number" class="form-input num-input"
+                placeholder="50" min="0" max="100" value="50" />
+            </div>
+          </div>
+
+          <!-- Channel presets -->
+          <div class="presets" id="channel-presets">
+            <span class="presets-label">Quick add:</span>
+            {[
+              { label: 'Ali Abdaal',       url: 'https://www.youtube.com/@aliabdaal' },
+              { label: 'Cal Newport',      url: 'https://www.youtube.com/@CalNewportMedia' },
+              { label: 'Huberman Lab',     url: 'https://www.youtube.com/@hubermanlab' },
+              { label: 'Thomas Frank',     url: 'https://www.youtube.com/@Thomasfrank' },
+              { label: 'Andrew Kirby',     url: 'https://www.youtube.com/@AndrewKirby' },
+              { label: 'Matt D\'Avella',   url: 'https://www.youtube.com/@mattdavella' },
+              { label: 'Better Ideas',     url: 'https://www.youtube.com/@betterideas' },
+              { label: 'Rian Doris',       url: 'https://www.youtube.com/@RianDoris' },
+              { label: 'Improvement Pill', url: 'https://www.youtube.com/@ImprovementPill' },
+              { label: 'Mike & Matty',     url: 'https://www.youtube.com/@MikeandMatty' },
+            ].map(p => (
+              <button type="button" class="preset-btn" onclick={`fillPreset('${p.url}','${p.label}')`}>{p.label}</button>
+            ))}
+          </div>
+
+          <div class="form-actions">
+            <button type="submit" class="btn-submit">Add Target</button>
+            <button type="button" class="btn-cancel" onclick="closeAddPanel()">Cancel</button>
+          </div>
+        </form>
       </div>
-    </div>
-
-    <!-- ADD FORM — VIDEO -->
-    <div class="add-form-wrap" id="form-video" style="display:none">
-      <h2 class="section-title">Add Single Video Target</h2>
-      <p class="form-hint">Scrape comments from one specific video URL.</p>
-      <form id="add-form-video" class="add-form">
-        <input type="hidden" name="type" value="video" />
-        <input name="url" class="form-input url-input"
-          placeholder="https://www.youtube.com/watch?v=..." required />
-        <input name="label" class="form-input" placeholder="Display label" required />
-        <input name="maxComments" type="number" class="form-input mc-input"
-          placeholder="300" min="10" max="2000" value="300" />
-        <input name="priority" type="number" class="form-input priority-input"
-          placeholder="50" min="0" max="100" value="50" />
-        <button type="submit" class="btn-add">Add Video</button>
-      </form>
     </div>
 
     <!-- TARGETS TABLE -->
-    <div class="targets-table-wrap">
-      <div class="bulk-actions">
-        <button class="bulk-btn" onclick="selectAll()">Select All</button>
-        <button class="bulk-btn" onclick="deselectAll()">Deselect All</button>
-      </div>
+    <div class="targets-wrap">
       <table class="targets-table" id="targets-table">
         <thead>
           <tr>
-            <th><input type="checkbox" id="check-all" onchange="toggleCheckAll(this)" /></th>
-            <th>Type</th>
-            <th>Label</th>
-            <th>URL / Handle</th>
-            <th>Videos</th>
-            <th>Max Comments</th>
-            <th>Priority</th>
-            <th>Active</th>
-            <th></th>
+            <th class="th-type">Type</th>
+            <th class="th-label">Label</th>
+            <th class="th-handle">Channel / URL</th>
+            <th class="th-num">Videos</th>
+            <th class="th-num">Comments</th>
+            <th class="th-num">Priority</th>
+            <th class="th-status">Active</th>
+            <th class="th-actions">Actions</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody id="targets-body">
           {targets.map(t => (
-            <tr id={`trow-${t.id}`}>
-              <td><input type="checkbox" class="row-check" data-id={t.id} /></td>
-              <td>
+            <tr id={`row-${t.id}`} class="target-row">
+              <!-- VIEW mode -->
+              <td class="view-cell td-type">
                 <span class={`type-badge type-badge--${t.type}`}>
                   {t.type === 'channel' ? '📺' : '▶'} {t.type}
                 </span>
               </td>
-              <td class="td-label">{t.label}</td>
-              <td class="td-value">
+              <td class="view-cell td-label">{t.label}</td>
+              <td class="view-cell td-handle">
                 {t.type === 'channel' && t.channelHandle
                   ? <span class="handle-tag">@{t.channelHandle}</span>
-                  : (
-                    <a href={t.url} target="_blank" rel="noopener" class="url-link">
-                      {t.url.substring(0, 40)}{t.url.length > 40 ? '...' : ''}
-                    </a>
-                  )
+                  : <a href={t.url} target="_blank" rel="noopener" class="url-link">{t.url.substring(0,38)}…</a>
                 }
               </td>
-              <td class="td-center">
-                {t.type === 'channel' ? t.maxVideosPerChannel : '—'}
-              </td>
-              <td class="td-center">{t.maxComments}</td>
-              <td class="td-center">{t.priority}</td>
-              <td>
+              <td class="view-cell td-num td-center">{t.type === 'channel' ? t.maxVideosPerChannel : '—'}</td>
+              <td class="view-cell td-num td-center">{t.maxComments}</td>
+              <td class="view-cell td-num td-center">{t.priority}</td>
+              <td class="view-cell">
                 <button
                   class={`toggle-btn ${t.isActive ? 'active' : 'inactive'}`}
-                  onclick={`toggleTarget(${t.id}, ${!t.isActive})`}
-                >
-                  {t.isActive ? 'ON' : 'OFF'}
-                </button>
+                  onclick={`toggleActive(${t.id}, ${!t.isActive})`}
+                >{t.isActive ? 'ON' : 'OFF'}</button>
               </td>
-              <td>
+              <td class="view-cell td-actions">
+                <button class="btn-edit" onclick={`startEdit(${t.id})`}>Edit</button>
                 <button class="btn-delete" onclick={`deleteTarget(${t.id})`}>Delete</button>
+              </td>
+
+              <!-- EDIT mode (hidden) -->
+              <td class="edit-cell td-type" style="display:none">
+                <span class={`type-badge type-badge--${t.type}`}>
+                  {t.type === 'channel' ? '📺' : '▶'} {t.type}
+                </span>
+              </td>
+              <td class="edit-cell" style="display:none">
+                <input class="form-input edit-input" data-field="label" value={t.label} />
+              </td>
+              <td class="edit-cell" style="display:none">
+                <span class="handle-tag">{t.channelHandle ? `@${t.channelHandle}` : t.url.substring(0,25)}</span>
+              </td>
+              <td class="edit-cell td-center" style="display:none">
+                {t.type === 'channel'
+                  ? <input class="form-input edit-input num-input" data-field="maxVideosPerChannel" type="number" value={t.maxVideosPerChannel} min="1" max="20" />
+                  : <span class="td-muted">—</span>
+                }
+              </td>
+              <td class="edit-cell td-center" style="display:none">
+                <input class="form-input edit-input num-input" data-field="maxComments" type="number" value={t.maxComments} min="10" max="2000" />
+              </td>
+              <td class="edit-cell td-center" style="display:none">
+                <input class="form-input edit-input num-input" data-field="priority" type="number" value={t.priority} min="0" max="100" />
+              </td>
+              <td class="edit-cell" style="display:none">
+                <button
+                  class={`toggle-btn ${t.isActive ? 'active' : 'inactive'}`}
+                  onclick={`toggleActive(${t.id}, ${!t.isActive})`}
+                >{t.isActive ? 'ON' : 'OFF'}</button>
+              </td>
+              <td class="edit-cell td-actions" style="display:none">
+                <button class="btn-save" onclick={`saveEdit(${t.id})`}>Save</button>
+                <button class="btn-cancel-edit" onclick={`cancelEdit(${t.id})`}>Cancel</button>
               </td>
             </tr>
           ))}
         </tbody>
       </table>
+
+      {targets.length === 0 && (
+        <div class="empty-state">No targets yet. Add your first channel above.</div>
+      )}
     </div>
   </main>
 </div>
 </Base>
 
 <script>
+// ─── Add panel ──────────────────────────────────────────────────────────────
+
+function openAddPanel() {
+  document.getElementById('add-panel')!.style.display = 'block';
+  document.getElementById('add-panel')!.scrollIntoView({ behavior: 'smooth' });
+}
+function closeAddPanel() {
+  document.getElementById('add-panel')!.style.display = 'none';
+  (document.getElementById('add-form') as HTMLFormElement).reset();
+  switchTab('channel');
+}
+
 function switchTab(tab: string) {
   const isChannel = tab === 'channel';
-  document.getElementById('form-channel')!.style.display = isChannel ? '' : 'none';
-  document.getElementById('form-video')!.style.display = isChannel ? 'none' : '';
+  (document.getElementById('input-type') as HTMLInputElement).value = tab;
+  (document.getElementById('url-label') as HTMLElement).textContent = isChannel ? 'Channel URL' : 'Video URL';
+  (document.getElementById('input-url') as HTMLInputElement).placeholder =
+    isChannel ? 'https://www.youtube.com/@channelhandle' : 'https://www.youtube.com/watch?v=...';
+  document.getElementById('field-videos')!.style.display = isChannel ? '' : 'none';
+  document.getElementById('channel-presets')!.style.display = isChannel ? '' : 'none';
   document.getElementById('tab-channel')!.classList.toggle('active', isChannel);
   document.getElementById('tab-video')!.classList.toggle('active', !isChannel);
 }
 
-async function toggleTarget(id: number, newState: boolean) {
-  const res = await fetch(`/api/youtube/targets/${id}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ isActive: newState }),
-  });
-  if (res.ok) {
-    const btn = document.querySelector(`#trow-${id} .toggle-btn`) as HTMLButtonElement;
-    if (btn) {
-      btn.textContent = newState ? 'ON' : 'OFF';
-      btn.className = `toggle-btn ${newState ? 'active' : 'inactive'}`;
-      btn.setAttribute('onclick', `toggleTarget(${id}, ${!newState})`);
-    }
-  }
+function fillPreset(url: string, label: string) {
+  (document.getElementById('input-url') as HTMLInputElement).value = url;
+  (document.querySelector('#add-form [name="label"]') as HTMLInputElement).value = label;
+  (document.querySelector('#add-form [name="priority"]') as HTMLInputElement).value = '80';
 }
 
-async function deleteTarget(id: number) {
-  if (!confirm('Delete this target?')) return;
-  const res = await fetch(`/api/youtube/targets/${id}`, { method: 'DELETE' });
-  if (res.ok || res.status === 204) document.getElementById(`trow-${id}`)?.remove();
-}
-
-function quickAddChannel(url: string, label: string) {
-  switchTab('channel');
-  const form = document.getElementById('add-form-channel') as HTMLFormElement;
-  (form.elements.namedItem('url') as HTMLInputElement).value = url;
-  (form.elements.namedItem('label') as HTMLInputElement).value = label;
-  (form.elements.namedItem('priority') as HTMLInputElement).value = '80';
-  form.scrollIntoView({ behavior: 'smooth' });
-}
-
-async function submitForm(formId: string) {
-  const form = document.getElementById(formId) as HTMLFormElement;
-  if (!form.checkValidity()) { form.reportValidity(); return; }
+async function submitAdd(e: Event) {
+  e.preventDefault();
+  const form = e.target as HTMLFormElement;
   const data = Object.fromEntries(new FormData(form));
+  const btn = form.querySelector('button[type="submit"]') as HTMLButtonElement;
+  btn.textContent = 'Adding…'; btn.disabled = true;
+
   const res = await fetch('/api/youtube/targets', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -210,36 +241,101 @@ async function submitForm(formId: string) {
       maxVideosPerChannel: data.maxVideosPerChannel ? parseInt(data.maxVideosPerChannel as string, 10) : 5,
     }),
   });
-  if (res.ok) location.reload();
-  else { const d = await res.json(); alert(d.error || 'Failed'); }
+
+  if (res.ok) {
+    location.reload();
+  } else {
+    const d = await res.json();
+    alert(d.error || 'Failed to add');
+    btn.textContent = 'Add Target'; btn.disabled = false;
+  }
 }
 
-document.getElementById('add-form-channel')?.addEventListener('submit', (e) => {
-  e.preventDefault(); submitForm('add-form-channel');
-});
-document.getElementById('add-form-video')?.addEventListener('submit', (e) => {
-  e.preventDefault(); submitForm('add-form-video');
-});
+// ─── Inline edit ────────────────────────────────────────────────────────────
 
-function selectAll() {
-  document.querySelectorAll<HTMLInputElement>('.row-check').forEach(cb => cb.checked = true);
-  (document.getElementById('check-all') as HTMLInputElement).checked = true;
-}
-function deselectAll() {
-  document.querySelectorAll<HTMLInputElement>('.row-check').forEach(cb => cb.checked = false);
-  (document.getElementById('check-all') as HTMLInputElement).checked = false;
-}
-function toggleCheckAll(master: HTMLInputElement) {
-  document.querySelectorAll<HTMLInputElement>('.row-check').forEach(cb => cb.checked = master.checked);
+function startEdit(id: number) {
+  const row = document.getElementById(`row-${id}`)!;
+  row.querySelectorAll('.view-cell').forEach(el => (el as HTMLElement).style.display = 'none');
+  row.querySelectorAll('.edit-cell').forEach(el => (el as HTMLElement).style.display = '');
+  row.classList.add('editing');
 }
 
-(window as any).toggleTarget = toggleTarget;
-(window as any).deleteTarget = deleteTarget;
-(window as any).quickAddChannel = quickAddChannel;
-(window as any).selectAll = selectAll;
-(window as any).deselectAll = deselectAll;
-(window as any).toggleCheckAll = toggleCheckAll;
+function cancelEdit(id: number) {
+  const row = document.getElementById(`row-${id}`)!;
+  row.querySelectorAll('.view-cell').forEach(el => (el as HTMLElement).style.display = '');
+  row.querySelectorAll('.edit-cell').forEach(el => (el as HTMLElement).style.display = 'none');
+  row.classList.remove('editing');
+}
+
+async function saveEdit(id: number) {
+  const row = document.getElementById(`row-${id}`)!;
+  const updates: Record<string, any> = {};
+
+  row.querySelectorAll<HTMLInputElement>('.edit-input').forEach(input => {
+    const field = input.dataset.field!;
+    updates[field] = input.type === 'number' ? parseInt(input.value, 10) : input.value;
+  });
+
+  const btn = row.querySelector('.btn-save') as HTMLButtonElement;
+  btn.textContent = 'Saving…'; btn.disabled = true;
+
+  const res = await fetch(`/api/youtube/targets/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(updates),
+  });
+
+  if (res.ok) {
+    location.reload();
+  } else {
+    alert('Save failed');
+    btn.textContent = 'Save'; btn.disabled = false;
+  }
+}
+
+// ─── Toggle active ───────────────────────────────────────────────────────────
+
+async function toggleActive(id: number, newState: boolean) {
+  const res = await fetch(`/api/youtube/targets/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ isActive: newState }),
+  });
+  if (res.ok) {
+    // Update both view and edit mode toggle buttons
+    document.querySelectorAll(`#row-${id} .toggle-btn`).forEach(btn => {
+      btn.textContent = newState ? 'ON' : 'OFF';
+      btn.className = `toggle-btn ${newState ? 'active' : 'inactive'}`;
+      btn.setAttribute('onclick', `toggleActive(${id}, ${!newState})`);
+    });
+  }
+}
+
+// ─── Delete ──────────────────────────────────────────────────────────────────
+
+async function deleteTarget(id: number) {
+  const label = document.querySelector(`#row-${id} .td-label`)?.textContent ?? '';
+  if (!confirm(`Delete "${label}"?`)) return;
+  const res = await fetch(`/api/youtube/targets/${id}`, { method: 'DELETE' });
+  if (res.ok || res.status === 204) {
+    document.getElementById(`row-${id}`)?.remove();
+    if (!document.querySelector('.target-row')) {
+      document.querySelector('.targets-wrap')!.innerHTML += '<div class="empty-state">No targets. Add one above.</div>';
+    }
+  }
+}
+
+// expose to inline handlers
+(window as any).openAddPanel = openAddPanel;
+(window as any).closeAddPanel = closeAddPanel;
 (window as any).switchTab = switchTab;
+(window as any).fillPreset = fillPreset;
+(window as any).submitAdd = submitAdd;
+(window as any).startEdit = startEdit;
+(window as any).cancelEdit = cancelEdit;
+(window as any).saveEdit = saveEdit;
+(window as any).toggleActive = toggleActive;
+(window as any).deleteTarget = deleteTarget;
 </script>
 
 <style>
@@ -249,63 +345,94 @@ function toggleCheckAll(master: HTMLInputElement) {
   .breadcrumb { display: flex; align-items: center; gap: 0.5rem; flex: 1; }
   .bc-link { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); text-decoration: none; }
   .bc-link:hover { color: var(--teal); }
-  .bc-sep { color: var(--text-muted); font-size: var(--text-xs); }
-  .bc-current { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-secondary); }
+  .bc-sep, .bc-current { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); }
   .btn-logout { padding: 0.35rem 0.75rem; background: none; border: 1px solid rgba(239,68,68,0.2); color: rgba(239,68,68,0.7); border-radius: 0.25rem; font-family: var(--font-mono); font-size: var(--text-xs); text-decoration: none; }
-  .admin-main { padding: 1.5rem; max-width: 1000px; margin: 0 auto; }
-  .page-title { font-family: var(--font-mono); font-size: var(--text-lg); color: var(--text-primary); margin-bottom: 1.25rem; }
 
-  /* Type tabs */
-  .type-tabs { display: flex; gap: 0.5rem; margin-bottom: 1.25rem; }
-  .type-tab { padding: 0.5rem 1.25rem; background: var(--bg-elevated); border: 1px solid var(--border); color: var(--text-muted); border-radius: 0.375rem; font-family: var(--font-mono); font-size: var(--text-xs); cursor: pointer; display: flex; align-items: center; gap: 0.4rem; }
-  .type-tab.active { border-color: #ff6b6b; color: #ff6b6b; background: rgba(255,107,107,0.06); }
-  .tab-hint { font-size: 0.6rem; background: rgba(74,141,131,0.2); color: var(--teal); padding: 0.1rem 0.35rem; border-radius: 0.2rem; }
+  .admin-main { padding: 1.5rem; max-width: 1050px; margin: 0 auto; }
 
-  /* Form */
-  .section-title { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--text-primary); margin-bottom: 0.4rem; }
-  .form-hint { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); margin-bottom: 0.875rem; line-height: 1.5; }
-  .form-hint strong { color: var(--text-secondary); }
-  .add-form-wrap { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 0.5rem; padding: 1.25rem; margin-bottom: 1.5rem; }
-  .add-form { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.875rem; }
+  .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem; }
+  .page-title { font-family: var(--font-mono); font-size: var(--text-lg); color: var(--text-primary); margin: 0; }
+  .btn-add-new { padding: 0.45rem 1.125rem; background: #ff6b6b; border: none; color: #fff; border-radius: 0.3rem; font-family: var(--font-mono); font-size: var(--text-xs); cursor: pointer; font-weight: 600; }
+  .btn-add-new:hover { background: #ff4444; }
+
+  /* Add panel */
+  .add-panel { background: var(--bg-elevated); border: 1px solid rgba(255,107,107,0.3); border-radius: 0.5rem; margin-bottom: 1.5rem; overflow: hidden; }
+  .add-panel-inner { padding: 1.25rem; }
+  .panel-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+  .panel-title { font-family: var(--font-mono); font-size: var(--text-sm); font-weight: 700; color: var(--text-primary); }
+  .panel-close { background: none; border: none; color: var(--text-muted); font-size: 1rem; cursor: pointer; padding: 0.2rem 0.4rem; }
+  .panel-close:hover { color: #ef4444; }
+
+  .type-tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+  .type-tab { padding: 0.4rem 1rem; background: var(--bg-base); border: 1px solid var(--border); color: var(--text-muted); border-radius: 0.3rem; font-family: var(--font-mono); font-size: var(--text-xs); cursor: pointer; display: flex; align-items: center; gap: 0.35rem; }
+  .type-tab.active { border-color: #ff6b6b; color: #ff6b6b; background: rgba(255,107,107,0.05); }
+  .tab-rec { font-size: 0.6rem; background: rgba(74,141,131,0.2); color: var(--teal); padding: 0.1rem 0.3rem; border-radius: 0.15rem; }
+
+  .add-form { display: flex; flex-direction: column; gap: 0.75rem; }
+  .field-row { display: flex; flex-direction: column; gap: 0.3rem; }
+  .field-row-inline { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+  .field-group { display: flex; flex-direction: column; gap: 0.3rem; }
+  .field-label { font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
   .form-input { background: var(--bg-base); border: 1px solid var(--border); color: var(--text-primary); font-family: var(--font-mono); font-size: var(--text-xs); padding: 0.4rem 0.625rem; border-radius: 0.25rem; outline: none; }
   .form-input:focus { border-color: var(--teal); }
-  .url-input { flex: 1; min-width: 260px; }
-  .mc-input { width: 80px; }
-  .mv-input { width: 70px; }
-  .priority-input { width: 65px; }
-  .btn-add { padding: 0.4rem 1rem; background: #ff6b6b; border: none; color: #fff; border-radius: 0.25rem; font-family: var(--font-mono); font-size: var(--text-xs); cursor: pointer; font-weight: 600; white-space: nowrap; }
-  .btn-add:hover { background: #ff4444; }
+  .url-input { width: 100%; }
+  .num-input { width: 80px; }
 
-  /* Presets */
-  .presets { display: flex; align-items: center; gap: 0.375rem; flex-wrap: wrap; }
-  .presets-label { font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-muted); white-space: nowrap; }
-  .preset-btn { padding: 0.2rem 0.5rem; background: none; border: 1px solid var(--border); color: var(--text-muted); border-radius: 0.25rem; font-family: var(--font-mono); font-size: 0.65rem; cursor: pointer; }
+  .presets { display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap; }
+  .presets-label { font-family: var(--font-mono); font-size: 0.6rem; color: var(--text-muted); }
+  .preset-btn { padding: 0.18rem 0.45rem; background: none; border: 1px solid var(--border); color: var(--text-muted); border-radius: 0.2rem; font-family: var(--font-mono); font-size: 0.6rem; cursor: pointer; }
   .preset-btn:hover { border-color: #ff6b6b; color: #ff6b6b; }
 
-  /* Table */
-  .targets-table-wrap { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 0.5rem; overflow: hidden; }
-  .bulk-actions { display: flex; gap: 0.5rem; padding: 0.625rem 1rem; border-bottom: 1px solid var(--border); background: rgba(255,255,255,0.02); }
-  .bulk-btn { padding: 0.25rem 0.75rem; background: none; border: 1px solid var(--border); color: var(--text-muted); border-radius: 0.25rem; font-family: var(--font-mono); font-size: 0.65rem; cursor: pointer; }
-  .bulk-btn:hover { border-color: var(--teal); color: var(--teal); }
-  .targets-table { width: 100%; border-collapse: collapse; font-family: var(--font-mono); font-size: var(--text-xs); }
-  .targets-table th { padding: 0.5rem 0.875rem; text-align: left; font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid var(--border); background: rgba(255,255,255,0.02); white-space: nowrap; }
-  .targets-table td { padding: 0.5rem 0.875rem; color: var(--text-secondary); border-bottom: 1px solid rgba(255,255,255,0.04); }
-  .td-label { font-weight: 600; }
-  .td-value { color: var(--text-muted); font-size: 0.65rem; max-width: 200px; }
-  .td-center { text-align: center; }
-  .url-link { color: var(--text-muted); font-size: 0.65rem; text-decoration: none; }
-  .url-link:hover { color: #ff6b6b; }
+  .form-actions { display: flex; gap: 0.5rem; padding-top: 0.25rem; }
+  .btn-submit { padding: 0.45rem 1.25rem; background: #ff6b6b; border: none; color: #fff; border-radius: 0.25rem; font-family: var(--font-mono); font-size: var(--text-xs); cursor: pointer; font-weight: 600; }
+  .btn-submit:disabled { opacity: 0.6; cursor: not-allowed; }
+  .btn-cancel { padding: 0.45rem 0.875rem; background: none; border: 1px solid var(--border); color: var(--text-muted); border-radius: 0.25rem; font-family: var(--font-mono); font-size: var(--text-xs); cursor: pointer; }
 
-  .type-badge { padding: 0.15rem 0.45rem; border-radius: 0.2rem; font-family: var(--font-mono); font-size: 0.6rem; font-weight: 600; }
+  /* Table */
+  .targets-wrap { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 0.5rem; overflow: hidden; }
+  .targets-table { width: 100%; border-collapse: collapse; font-family: var(--font-mono); font-size: var(--text-xs); }
+  .targets-table th { padding: 0.5rem 0.875rem; text-align: left; font-size: 0.6rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid var(--border); background: rgba(255,255,255,0.02); white-space: nowrap; }
+  .targets-table td { padding: 0.5rem 0.875rem; color: var(--text-secondary); border-bottom: 1px solid rgba(255,255,255,0.04); vertical-align: middle; }
+  .target-row:last-child td { border-bottom: none; }
+  .target-row.editing { background: rgba(255,107,107,0.03); }
+  .target-row:hover td { background: rgba(255,255,255,0.015); }
+  .target-row.editing:hover td { background: rgba(255,107,107,0.03); }
+
+  .th-type    { width: 90px; }
+  .th-label   { width: 160px; }
+  .th-handle  { width: 160px; }
+  .th-num     { width: 80px; text-align: center; }
+  .th-status  { width: 70px; }
+  .th-actions { text-align: right; }
+
+  .td-center { text-align: center; }
+  .td-label { font-weight: 600; color: var(--text-primary); }
+  .td-muted { color: var(--text-muted); }
+
+  .type-badge { padding: 0.15rem 0.45rem; border-radius: 0.2rem; font-size: 0.6rem; font-weight: 600; white-space: nowrap; }
   .type-badge--channel { background: rgba(255,0,0,0.1); color: #ff6b6b; border: 1px solid rgba(255,0,0,0.2); }
   .type-badge--video   { background: rgba(74,141,131,0.12); color: var(--teal); border: 1px solid rgba(74,141,131,0.25); }
 
-  .handle-tag { font-family: var(--font-mono); font-size: 0.65rem; color: #ff6b6b; }
+  .handle-tag { font-size: 0.65rem; color: #ff6b6b; }
+  .url-link { font-size: 0.65rem; color: var(--text-muted); text-decoration: none; }
+  .url-link:hover { color: #ff6b6b; }
 
   .toggle-btn { padding: 0.2rem 0.5rem; border: none; border-radius: 0.2rem; font-family: var(--font-mono); font-size: 0.6rem; cursor: pointer; font-weight: 700; }
   .toggle-btn.active   { background: rgba(74,141,131,0.2); color: var(--teal); }
   .toggle-btn.inactive { background: rgba(255,255,255,0.06); color: var(--text-muted); }
-  .btn-delete { padding: 0.2rem 0.5rem; background: none; border: 1px solid rgba(239,68,68,0.2); color: rgba(239,68,68,0.6); border-radius: 0.2rem; font-family: var(--font-mono); font-size: 0.65rem; cursor: pointer; }
+
+  .td-actions { text-align: right; white-space: nowrap; display: flex; gap: 0.35rem; justify-content: flex-end; }
+  .btn-edit   { padding: 0.2rem 0.6rem; background: none; border: 1px solid var(--border); color: var(--text-muted); border-radius: 0.2rem; font-family: var(--font-mono); font-size: 0.65rem; cursor: pointer; }
+  .btn-edit:hover { border-color: var(--teal); color: var(--teal); }
+  .btn-save   { padding: 0.2rem 0.6rem; background: var(--teal); border: none; color: #fff; border-radius: 0.2rem; font-family: var(--font-mono); font-size: 0.65rem; cursor: pointer; font-weight: 600; }
+  .btn-save:disabled { opacity: 0.6; }
+  .btn-cancel-edit { padding: 0.2rem 0.6rem; background: none; border: 1px solid var(--border); color: var(--text-muted); border-radius: 0.2rem; font-family: var(--font-mono); font-size: 0.65rem; cursor: pointer; }
+  .btn-delete { padding: 0.2rem 0.6rem; background: none; border: 1px solid rgba(239,68,68,0.2); color: rgba(239,68,68,0.6); border-radius: 0.2rem; font-family: var(--font-mono); font-size: 0.65rem; cursor: pointer; }
   .btn-delete:hover { border-color: rgba(239,68,68,0.5); color: #ef4444; }
+
+  /* Edit inputs in table */
+  .edit-input { padding: 0.25rem 0.45rem; font-size: var(--text-xs); }
+  .edit-cell .num-input { width: 65px; }
+
+  .empty-state { padding: 2rem; text-align: center; font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); }
 </style>
-</Base>
