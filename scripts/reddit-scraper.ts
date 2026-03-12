@@ -151,6 +151,7 @@ Return ONLY valid JSON, no markdown, no explanations.`;
     });
 
     const raw = (response.choices[0]?.message?.content || '').replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim();
+    log(`[LLM] Raw response (200 chars): ${raw.substring(0, 200)}`);
     const parsed = JSON.parse(raw);
     const painPoints = parsed.painPoints || [];
 
@@ -233,11 +234,25 @@ async function run() {
         const inserted = await db.insert(redditPosts).values(dbRows).returning({ id: redditPosts.id });
         const ids = inserted.map(r => r.id);
         allDbPostIds.push(...ids);
-        // Add raw items with db ids for analysis
-        newItems.forEach((item, i) => {
-          (item as any)._dbId = ids[i];
+        // Normalize items for analysis (Apify field names differ from DB field names)
+        const normalizedItems = newItems.map((item, i) => {
+          const comments: string[] = [];
+          if (Array.isArray(item.comments)) {
+            item.comments.slice(0, 5).forEach((c: any) => {
+              const text = c.body || c.text || c.content || '';
+              if (text) comments.push(String(text).substring(0, 300));
+            });
+          }
+          return {
+            _dbId: ids[i],
+            subreddit: String(item.subreddit || item.community || 'unknown'),
+            title: String(item.title || item.parsedTitle || ''),
+            body: String(item.text || item.selftext || item.body || item.content || ''),
+            upvotes: parseInt(String(item.score || item.upvotes || 0), 10) || 0,
+            topComments: comments,
+          };
         });
-        allPosts.push(...newItems);
+        allPosts.push(...normalizedItems);
         newItems.forEach(item => existingIds.add(String(item.id || '')));
       }
 
