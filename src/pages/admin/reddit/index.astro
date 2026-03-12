@@ -205,12 +205,7 @@ async function rgapApprove(id: number) {
 
   if (res.ok) {
     const card = document.getElementById(`rgap-${id}`);
-    if (card) {
-      card.style.opacity = '0.5';
-      card.style.pointerEvents = 'none';
-      const title = card.querySelector('.rgap-title');
-      if (title) title.textContent = '✓ Approved — ' + title.textContent;
-    }
+    if (card) card.remove();
     // Update pending count
     const badge = document.querySelector('.stat-number[style*="ef4444"]');
     if (badge) badge.textContent = String(Math.max(0, parseInt(badge.textContent || '0') - 1));

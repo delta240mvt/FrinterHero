@@ -23,6 +23,7 @@ const { runs } = Astro.props;
         <tr>
           <th>#</th>
           <th>Date</th>
+          <th>Targets</th>
           <th>Posts</th>
           <th>Pain pts</th>
           <th>Gaps</th>
@@ -38,6 +39,12 @@ const { runs } = Astro.props;
             <tr>
               <td class="run-id"><a href={`/admin/reddit/run/${run.id}`}>#{run.id}</a></td>
               <td class="run-date">{date}</td>
+              <td class="run-targets">
+                {run.targetsScraped.length === 0
+                  ? <span class="targets-empty">—</span>
+                  : run.targetsScraped.map(t => <span class="target-tag">{t}</span>)
+                }
+              </td>
               <td>{run.postsCollected}</td>
               <td>{run.painPointsExtracted}</td>
               <td>{run.gapsCreated}</td>
@@ -79,6 +86,19 @@ const { runs } = Astro.props;
   .run-id a { color: var(--teal); text-decoration: none; font-weight: 600; }
   .run-id a:hover { text-decoration: underline; }
   .run-date { color: var(--text-muted); }
+  .run-targets { max-width: 220px; }
+  .target-tag {
+    display: inline-block;
+    background: rgba(74,141,131,0.15);
+    color: var(--teal);
+    border: 1px solid rgba(74,141,131,0.3);
+    border-radius: 3px;
+    padding: 0.1rem 0.35rem;
+    font-size: 0.6rem;
+    margin: 0.1rem 0.15rem 0.1rem 0;
+    white-space: nowrap;
+  }
+  .targets-empty { color: var(--text-muted); }
   .run-status { font-weight: 700; text-transform: uppercase; font-size: 0.65rem; }
   
   .btn-delete-run {
