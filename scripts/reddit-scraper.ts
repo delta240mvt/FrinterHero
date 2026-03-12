@@ -41,26 +41,26 @@ function parseTargets(raw: string) {
   }));
 }
 
-function buildApifyInput(target: { value: string }) {
-  const name = target.value.replace(/^r\//, '');
+function buildApifyInput(target: { value: string; type: string }) {
+  if (target.type === 'subreddit') {
+    const name = target.value.replace(/^r\//, '');
+    return {
+      startUrls: [{ url: `https://www.reddit.com/r/${name}/hot` }],
+      maxItems: MAX_ITEMS,
+      maxPostCount: MAX_ITEMS,
+      maxComments: 5,
+    };
+  }
+  // keyword search — sort:new + time:month (confirmed working with trudax/reddit-scraper-lite)
   return {
-    startUrls: [{ url: `https://www.reddit.com/r/${name}/top/?t=year` }],
+    searches: [target.value],
+    type: 'post',
+    sort: 'new',
+    time: 'month',
     maxItems: MAX_ITEMS,
     maxPostCount: MAX_ITEMS,
     maxComments: 5,
   };
-}
-
-// Direct Reddit JSON API for keyword searches (Apify actor can't handle search pages reliably)
-async function fetchRedditKeyword(query: string, limit: number): Promise<any[]> {
-  const q = encodeURIComponent(query);
-  const url = `https://www.reddit.com/search.json?q=${q}&sort=top&t=year&type=link&limit=${limit}`;
-  const res = await fetch(url, {
-    headers: { 'User-Agent': 'FrinterBot/1.0 (research tool; github.com/delta240mvt/FrinterHero)' },
-  });
-  if (!res.ok) throw new Error(`Reddit API ${res.status}: ${await res.text().then(t => t.substring(0, 200))}`);
-  const json = await res.json() as any;
-  return (json?.data?.children || []).map((c: any) => c.data);
 }
 
 function mapToDbPost(runId: number, item: any) {
@@ -215,23 +215,13 @@ async function run() {
   for (const target of targets) {
     log(`[SCRAPE] Target: ${target.value} (${target.type})`);
     try {
-      let rawItems: any[] = [];
-
-      if (target.type === 'keyword_search') {
-        // Reddit JSON API directly — Apify actor doesn't handle search pages reliably
-        log(`[REDDIT] Fetching keyword search via Reddit API...`);
-        rawItems = await fetchRedditKeyword(target.value, MAX_ITEMS * 3);
-        log(`[REDDIT] Got ${rawItems.length} posts from Reddit API`);
-      } else {
-        // Subreddit — use Apify actor (handles subreddit listing pages well)
-        const input = buildApifyInput(target);
-        log(`[APIFY] Input: ${JSON.stringify(input)}`);
-        const apifyRun = await apify.actor('trudax/reddit-scraper-lite').call(input);
-        log(`[APIFY] Run ID: ${apifyRun.id} | status: ${apifyRun.status}`);
-        const { items } = await apify.dataset(apifyRun.defaultDatasetId).listItems();
-        rawItems = items as any[];
-        log(`[APIFY] Raw items from dataset: ${rawItems.length}`);
-      }
+      const input = buildApifyInput(target);
+      log(`[APIFY] Input: ${JSON.stringify(input)}`);
+      const apifyRun = await apify.actor('trudax/reddit-scraper-lite').call(input);
+      log(`[APIFY] Run ID: ${apifyRun.id} | status: ${apifyRun.status}`);
+      const { items } = await apify.dataset(apifyRun.defaultDatasetId).listItems();
+      const rawItems = items as any[];
+      log(`[APIFY] Raw items from dataset: ${rawItems.length}`);
 
       // Deduplicate and filter by date
       const newItems = rawItems.filter(item => {
