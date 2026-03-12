@@ -1,0 +1,190 @@
+---
+interface SourceComment {
+  id: number;
+  commentText: string;
+  author: string | null;
+  voteCount: number;
+  videoTitle: string | null;
+}
+
+interface Props {
+  gap: {
+    id: number;
+    painPointTitle: string;
+    painPointDescription: string;
+    emotionalIntensity: number;
+    frequency: number;
+    vocabularyQuotes: string[];
+    sourceComments: SourceComment[];
+    sourceVideoId: string | null;
+    sourceVideoTitle: string | null;
+    suggestedArticleAngle: string | null;
+    category: string | null;
+    status: string;
+    scrapeRunId: number;
+    createdAt: Date;
+  };
+}
+
+const { gap } = Astro.props;
+
+const intensityColor = gap.emotionalIntensity >= 8 ? '#ef4444' : gap.emotionalIntensity >= 5 ? 'var(--gold)' : 'var(--text-muted)';
+const categoryColors: Record<string, string> = {
+  focus: 'var(--teal)', energy: 'var(--gold)', burnout: '#ef4444',
+  relationships: 'var(--violet)', systems: '#60a5fa', tech: '#a78bfa',
+  mindset: '#34d399', health: '#f472b6',
+};
+const categoryColor = categoryColors[gap.category || 'focus'] || 'var(--text-muted)';
+
+const timeAgo = (() => {
+  const diff = Date.now() - new Date(gap.createdAt).getTime();
+  const h = Math.floor(diff / 3600000);
+  if (h < 1) return 'just now';
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+})();
+---
+
+<div class="ygap-card" id={`ygap-${gap.id}`} data-gap-id={gap.id}>
+  <!-- Collapsed header -->
+  <div class="ygap-header">
+    <div class="ygap-badges">
+      <span class="intensity-badge" style={`background:${intensityColor}22;color:${intensityColor};border-color:${intensityColor}44`}>
+        {gap.emotionalIntensity}/10
+      </span>
+      <span class="category-badge" style={`background:${categoryColor}22;color:${categoryColor}`}>
+        {gap.category || 'focus'}
+      </span>
+      {gap.sourceVideoTitle && (
+        <span class="video-badge">
+          ▶ {gap.sourceVideoTitle.substring(0, 40)}{gap.sourceVideoTitle.length > 40 ? '...' : ''}
+        </span>
+      )}
+    </div>
+    <h3 class="ygap-title">{gap.painPointTitle}</h3>
+    <div class="ygap-meta">
+      <span>{gap.frequency} comments</span>
+      <span>·</span>
+      <span>Run #{gap.scrapeRunId}</span>
+      <span>·</span>
+      <span>{timeAgo}</span>
+    </div>
+  </div>
+
+  <!-- Collapsed actions -->
+  <div class="ygap-actions-row" id={`ygap-actions-${gap.id}`}>
+    <button class="btn-yg-expand" onclick={`ygapToggle(${gap.id})`}>▼ Expand</button>
+    <button class="btn-yg-approve" onclick={`ygapApprove(${gap.id})`}>✓ Approve</button>
+    <button class="btn-yg-reject" onclick={`ygapReject(${gap.id})`}>✕ Reject</button>
+  </div>
+
+  <!-- Expanded content (hidden by default) -->
+  <div class="ygap-expanded" id={`ygap-expanded-${gap.id}`} style="display:none">
+    <div class="yexp-section">
+      <div class="yexp-label">Pain Point Description</div>
+      <p class="yexp-desc">{gap.painPointDescription}</p>
+    </div>
+
+    {gap.sourceVideoId && (
+      <div class="yexp-section">
+        <div class="yexp-label">Source Video</div>
+        <a
+          href={`https://www.youtube.com/watch?v=${gap.sourceVideoId}`}
+          target="_blank"
+          rel="noopener"
+          class="source-video-link"
+        >
+          ▶ {gap.sourceVideoTitle || gap.sourceVideoId}
+        </a>
+      </div>
+    )}
+
+    {gap.sourceComments.length > 0 && (
+      <div class="yexp-section">
+        <div class="yexp-label">Source Comments ({gap.frequency} total)</div>
+        <div class="source-comments">
+          {gap.sourceComments.map(comment => (
+            <div class="source-comment">
+              <span class="sc-votes">▲ {comment.voteCount}</span>
+              <span class="sc-text">"{comment.commentText.substring(0, 150)}{comment.commentText.length > 150 ? '...' : ''}"</span>
+              {comment.author && <span class="sc-author">{comment.author}</span>}
+            </div>
+          ))}
+        </div>
+      </div>
+    )}
+
+    {gap.vocabularyQuotes.length > 0 && (
+      <div class="yexp-section">
+        <div class="yexp-label">Voice of Customer</div>
+        <div class="vocab-chips">
+          {gap.vocabularyQuotes.map(q => <span class="vocab-chip">"{q}"</span>)}
+        </div>
+      </div>
+    )}
+
+    {gap.suggestedArticleAngle && (
+      <div class="yexp-section highlight-section">
+        <div class="yexp-label">Suggested Article Angle</div>
+        <p class="yexp-angle">{gap.suggestedArticleAngle}</p>
+      </div>
+    )}
+
+    <div class="yexp-section">
+      <div class="yexp-label">Author Notes (optional)</div>
+      <textarea
+        id={`ygap-notes-${gap.id}`}
+        class="yexp-notes"
+        rows={3}
+        placeholder="Add notes before approving..."
+      ></textarea>
+    </div>
+
+    <div class="yexp-actions">
+      <button class="btn-yg-approve-full" onclick={`ygapApprove(${gap.id})`}>✓ Approve → Create Gap</button>
+      <button class="btn-yg-reject-full" onclick={`ygapReject(${gap.id})`}>✕ Reject</button>
+      <button class="btn-yg-close" onclick={`ygapToggle(${gap.id})`}>✕ Close</button>
+    </div>
+  </div>
+</div>
+
+<style>
+  .ygap-card { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 0.5rem; overflow: hidden; transition: border-color 0.15s; margin-bottom: 0.75rem; }
+  .ygap-card:hover { border-color: rgba(239,68,68,0.2); }
+  .ygap-header { padding: 0.875rem 1.25rem 0.5rem; }
+  .ygap-badges { display: flex; gap: 0.5rem; margin-bottom: 0.5rem; flex-wrap: wrap; }
+  .intensity-badge { padding: 0.15rem 0.5rem; border-radius: 0.25rem; font-family: var(--font-mono); font-size: 0.65rem; font-weight: 700; border: 1px solid; }
+  .category-badge { padding: 0.15rem 0.5rem; border-radius: 0.25rem; font-family: var(--font-mono); font-size: 0.65rem; text-transform: uppercase; }
+  .video-badge { padding: 0.15rem 0.5rem; border-radius: 0.25rem; font-family: var(--font-mono); font-size: 0.65rem; background: rgba(255,0,0,0.1); color: #ff6b6b; border: 1px solid rgba(255,0,0,0.2); max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ygap-title { font-family: var(--font-mono); font-size: var(--text-sm); font-weight: 600; color: var(--text-primary); margin-bottom: 0.375rem; line-height: 1.4; }
+  .ygap-meta { font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-muted); display: flex; gap: 0.4rem; flex-wrap: wrap; }
+  .ygap-actions-row { padding: 0.5rem 1.25rem 0.75rem; display: flex; gap: 0.5rem; }
+  .btn-yg-expand { padding: 0.3rem 0.75rem; background: none; border: 1px solid var(--border); color: var(--text-secondary); border-radius: 0.25rem; font-family: var(--font-mono); font-size: var(--text-xs); cursor: pointer; }
+  .btn-yg-expand:hover { border-color: var(--teal); color: var(--teal); }
+  .btn-yg-approve { padding: 0.3rem 0.75rem; background: rgba(74,141,131,0.15); border: 1px solid rgba(74,141,131,0.3); color: var(--teal); border-radius: 0.25rem; font-family: var(--font-mono); font-size: var(--text-xs); cursor: pointer; }
+  .btn-yg-approve:hover { background: rgba(74,141,131,0.25); }
+  .btn-yg-reject { padding: 0.3rem 0.75rem; background: none; border: 1px solid rgba(239,68,68,0.2); color: rgba(239,68,68,0.7); border-radius: 0.25rem; font-family: var(--font-mono); font-size: var(--text-xs); cursor: pointer; margin-left: auto; }
+  .btn-yg-reject:hover { border-color: rgba(239,68,68,0.5); color: #ef4444; }
+  .ygap-expanded { border-top: 1px solid var(--border); }
+  .yexp-section { padding: 0.75rem 1.25rem; border-bottom: 1px solid rgba(255,255,255,0.04); }
+  .yexp-section.highlight-section { background: rgba(74,141,131,0.04); }
+  .yexp-label { font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.4rem; }
+  .yexp-desc { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--text-secondary); line-height: 1.6; }
+  .yexp-angle { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--teal); line-height: 1.6; font-style: italic; }
+  .source-video-link { font-family: var(--font-mono); font-size: var(--text-xs); color: #ff6b6b; text-decoration: none; }
+  .source-video-link:hover { color: #ff4444; text-decoration: underline; }
+  .source-comments { display: flex; flex-direction: column; gap: 0.4rem; }
+  .source-comment { display: flex; align-items: flex-start; gap: 0.5rem; padding: 0.35rem 0.625rem; background: rgba(255,255,255,0.03); border-radius: 0.25rem; }
+  .sc-votes { font-family: var(--font-mono); font-size: 0.65rem; color: var(--gold); white-space: nowrap; margin-top: 0.1rem; }
+  .sc-text { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-secondary); flex: 1; line-height: 1.5; font-style: italic; }
+  .sc-author { font-family: var(--font-mono); font-size: 0.6rem; color: var(--text-muted); white-space: nowrap; }
+  .vocab-chips { display: flex; flex-wrap: wrap; gap: 0.375rem; }
+  .vocab-chip { padding: 0.2rem 0.5rem; background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.2); color: rgba(239,68,68,0.8); border-radius: 0.25rem; font-family: var(--font-mono); font-size: 0.65rem; font-style: italic; }
+  .yexp-notes { width: 100%; background: var(--bg-base); border: 1px solid var(--border); border-radius: 0.25rem; color: var(--text-primary); font-family: var(--font-mono); font-size: var(--text-xs); padding: 0.5rem; resize: vertical; outline: none; line-height: 1.5; }
+  .yexp-notes:focus { border-color: var(--teal); }
+  .yexp-actions { padding: 0.75rem 1.25rem; display: flex; gap: 0.5rem; flex-wrap: wrap; }
+  .btn-yg-approve-full { padding: 0.4rem 1rem; background: var(--teal); border: none; color: #fff; border-radius: 0.25rem; font-family: var(--font-mono); font-size: var(--text-xs); cursor: pointer; font-weight: 600; }
+  .btn-yg-approve-full:hover { opacity: 0.85; }
+  .btn-yg-reject-full { padding: 0.4rem 0.875rem; background: none; border: 1px solid rgba(239,68,68,0.3); color: rgba(239,68,68,0.8); border-radius: 0.25rem; font-family: var(--font-mono); font-size: var(--text-xs); cursor: pointer; }
+  .btn-yg-close { padding: 0.4rem 0.75rem; background: none; border: 1px solid var(--border); color: var(--text-muted); border-radius: 0.25rem; font-family: var(--font-mono); font-size: var(--text-xs); cursor: pointer; margin-left: auto; }
+</style>

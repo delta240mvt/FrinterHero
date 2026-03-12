@@ -1,4 +1,4 @@
-import { pgTable, serial, text, timestamp, boolean, integer, varchar, index } from 'drizzle-orm/pg-core';
+import { pgTable, serial, text, timestamp, boolean, integer, varchar, index, uniqueIndex } from 'drizzle-orm/pg-core';
 
 // ========================================
 // EXISTING TABLES (preserved + enhanced)
@@ -213,4 +213,85 @@ export const redditExtractedGaps = pgTable('reddit_extracted_gaps', {
   statusIdx: index('idx_reddit_gaps_status').on(table.status),
   intensityIdx: index('idx_reddit_gaps_intensity').on(table.emotionalIntensity),
   runIdx: index('idx_reddit_gaps_run').on(table.scrapeRunId),
+}));
+
+// ========================================
+// YouTube Intelligence: WebScraping Module
+// ========================================
+
+// YouTube video targets — admin manages this list
+export const ytTargets = pgTable('yt_targets', {
+  id: serial('id').primaryKey(),
+  type: varchar('type', { length: 20 }).notNull().default('video'), // v1: 'video' only
+  url: varchar('url', { length: 500 }).notNull(),                   // Full YouTube video URL
+  label: varchar('label', { length: 100 }).notNull(),              // Human display name
+  videoId: varchar('video_id', { length: 20 }),                    // Extracted from ?v= param, used for dedup
+  isActive: boolean('is_active').notNull().default(true),
+  priority: integer('priority').notNull().default(50),             // 0–100, higher = scraped first
+  maxComments: integer('max_comments').notNull().default(300),     // Per-video Apify comment limit
+  lastScrapedAt: timestamp('last_scraped_at'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+
+// One record per YouTube scraping job execution
+export const ytScrapeRuns = pgTable('yt_scrape_runs', {
+  id: serial('id').primaryKey(),
+  runAt: timestamp('run_at').notNull().defaultNow(),
+  status: varchar('status', { length: 20 }).notNull().default('running'), // 'running' | 'completed' | 'failed'
+  targetsScraped: text('targets_scraped').array().notNull().default([]),
+  commentsCollected: integer('comments_collected').notNull().default(0),
+  painPointsExtracted: integer('pain_points_extracted').notNull().default(0),
+  gapsCreated: integer('gaps_created').notNull().default(0),
+  errorMessage: text('error_message'),
+  logs: text('logs').array().notNull().default([]),
+  finishedAt: timestamp('finished_at'),
+  durationMs: integer('duration_ms'),
+});
+
+// Raw comments fetched from YouTube via Apify
+export const ytComments = pgTable('yt_comments', {
+  id: serial('id').primaryKey(),
+  scrapeRunId: integer('scrape_run_id').notNull().references(() => ytScrapeRuns.id, { onDelete: 'cascade' }),
+  commentId: varchar('comment_id', { length: 50 }).notNull(),      // Apify 'cid' field — globally unique
+  videoId: varchar('video_id', { length: 20 }).notNull(),
+  videoUrl: varchar('video_url', { length: 500 }),
+  videoTitle: varchar('video_title', { length: 255 }),
+  commentText: text('comment_text').notNull(),
+  author: varchar('author', { length: 100 }),
+  voteCount: integer('vote_count').notNull().default(0),
+  replyCount: integer('reply_count').notNull().default(0),
+  hasCreatorHeart: boolean('has_creator_heart').notNull().default(false),
+  authorIsChannelOwner: boolean('author_is_channel_owner').notNull().default(false),
+  replyToCid: varchar('reply_to_cid', { length: 50 }),             // null = top-level comment
+  totalCommentsCount: integer('total_comments_count'),
+  scrapedAt: timestamp('scraped_at').notNull().defaultNow(),
+}, (table) => ({
+  scrapeRunIdx: index('idx_yt_comments_run').on(table.scrapeRunId),
+  videoIdx: index('idx_yt_comments_video').on(table.videoId),
+  commentIdUniq: uniqueIndex('idx_yt_comments_cid_uniq').on(table.commentId),
+}));
+
+// Pain points extracted by LLM — awaiting admin review before becoming contentGaps
+export const ytExtractedGaps = pgTable('yt_extracted_gaps', {
+  id: serial('id').primaryKey(),
+  scrapeRunId: integer('scrape_run_id').notNull().references(() => ytScrapeRuns.id, { onDelete: 'cascade' }),
+  painPointTitle: varchar('pain_point_title', { length: 255 }).notNull(),
+  painPointDescription: text('pain_point_description').notNull(),
+  emotionalIntensity: integer('emotional_intensity').notNull().default(5), // 1–10
+  frequency: integer('frequency').notNull().default(1),
+  vocabularyQuotes: text('vocabulary_quotes').array().notNull().default([]),
+  sourceCommentIds: integer('source_comment_ids').array().notNull().default([]),
+  sourceVideoId: varchar('source_video_id', { length: 20 }),
+  sourceVideoTitle: varchar('source_video_title', { length: 255 }),
+  suggestedArticleAngle: text('suggested_article_angle'),
+  category: varchar('category', { length: 50 }), // 'focus' | 'energy' | 'burnout' | 'relationships' | 'systems' | 'tech' | 'mindset' | 'health'
+  status: varchar('status', { length: 20 }).notNull().default('pending'), // 'pending' | 'approved' | 'rejected'
+  approvedAt: timestamp('approved_at'),
+  rejectedAt: timestamp('rejected_at'),
+  contentGapId: integer('content_gap_id').references(() => contentGaps.id),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => ({
+  statusIdx: index('idx_yt_gaps_status').on(table.status),
+  intensityIdx: index('idx_yt_gaps_intensity').on(table.emotionalIntensity),
+  runIdx: index('idx_yt_gaps_run').on(table.scrapeRunId),
 }));

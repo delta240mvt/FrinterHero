@@ -155,6 +155,17 @@ function pageUrl(p: number) {
         </div>
         <span class="hub-arrow">→</span>
       </a>
+      <a href="/admin/youtube" class="hub-card hub-card--youtube">
+        <div class="hub-icon">▶</div>
+        <div class="hub-body">
+          <div class="hub-title">YouTube Intelligence</div>
+          <div class="hub-meta">
+            <span class="hub-badge hub-badge--youtube">comments</span>
+          </div>
+          <div class="hub-desc">Pain Point Discovery · YouTube Comments via Apify</div>
+        </div>
+        <span class="hub-arrow">→</span>
+      </a>
     </section>
 
     <!-- ===== GEO MONITOR ===== -->
@@ -680,7 +691,7 @@ function pageUrl(p: number) {
 .stat-divider { width: 1px; background: var(--border); flex-shrink: 0; }
 
 /* ─── HUB NAVIGATION ─────────────────────────────────────── */
-.hub-grid { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 1rem; }
+.hub-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; }
 .hub-card {
   display: flex; align-items: center; gap: 1.125rem;
   background: var(--bg-elevated); border: 1px solid var(--border);
@@ -692,6 +703,8 @@ function pageUrl(p: number) {
 .hub-card--kb:hover     { border-color: var(--violet); box-shadow: 0 0 0 1px rgba(138,78,100,0.1); }
 .hub-card--reddit:hover { border-color: rgba(239,68,68,0.4); box-shadow: 0 0 0 1px rgba(239,68,68,0.1); }
 .hub-badge--reddit { background: rgba(239,68,68,0.12); color: #ef4444; border: 1px solid rgba(239,68,68,0.25); }
+.hub-card--youtube:hover { border-color: rgba(255,0,0,0.4); box-shadow: 0 0 0 1px rgba(255,0,0,0.1); }
+.hub-badge--youtube { background: rgba(255,0,0,0.12); color: #ff6b6b; border: 1px solid rgba(255,0,0,0.25); }
 .hub-icon  { font-size: 1.75rem; line-height: 1; flex-shrink: 0; }
 .hub-body  { flex: 1; display: flex; flex-direction: column; gap: 0.3rem; }
 .hub-title { font-family: var(--font-mono); font-size: var(--text-sm); font-weight: 700; color: var(--text-primary); }

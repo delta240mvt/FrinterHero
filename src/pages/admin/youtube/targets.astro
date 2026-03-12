@@ -1,0 +1,217 @@
+---
+import Base from '@/components/layouts/Base.astro';
+import { db } from '@/db/client';
+import { ytTargets } from '@/db/schema';
+import { desc } from 'drizzle-orm';
+
+const session = Astro.cookies.get('session')?.value;
+if (!session) return Astro.redirect('/admin/login');
+
+const targets = await db.select().from(ytTargets).orderBy(desc(ytTargets.priority));
+---
+
+<Base title="YouTube Targets — Admin" description="Manage YouTube video scraping targets">
+<div class="admin-layout">
+  <header class="admin-header">
+    <a href="/admin" class="admin-logo">P·F</a>
+    <nav class="breadcrumb">
+      <a href="/admin" class="bc-link">Admin</a>
+      <span class="bc-sep">›</span>
+      <a href="/admin/youtube" class="bc-link">YouTube Intelligence</a>
+      <span class="bc-sep">›</span>
+      <span class="bc-current">Targets</span>
+    </nav>
+    <a href="/api/logout" class="btn-logout">Logout</a>
+  </header>
+
+  <main class="admin-main">
+    <h1 class="page-title">YouTube Video Targets</h1>
+
+    <!-- ADD FORM -->
+    <div class="add-form-wrap">
+      <h2 class="section-title">Add New Target</h2>
+      <form id="add-form" class="add-form">
+        <input type="hidden" name="type" value="video" />
+        <input name="url" class="form-input url-input" placeholder="https://www.youtube.com/watch?v=..." required />
+        <input name="label" class="form-input" placeholder="Display label" required />
+        <input name="maxComments" type="number" class="form-input mc-input" placeholder="300" min="10" max="2000" value="300" />
+        <input name="priority" type="number" class="form-input priority-input" placeholder="50" min="0" max="100" value="50" />
+        <button type="submit" class="btn-add">Add Target</button>
+      </form>
+
+      <div class="presets">
+        <span class="presets-label">Quick add:</span>
+        {[
+          { label: 'Ali Abdaal: Time Management', url: 'https://www.youtube.com/watch?v=JDqMpJi4LNA' },
+          { label: 'Huberman Lab: Focus', url: 'https://www.youtube.com/watch?v=KSHU_7MIc1M' },
+          { label: 'Andrew Huberman: Morning Routine', url: 'https://www.youtube.com/watch?v=wfKv4qPBqZc' },
+          { label: 'Cal Newport: Deep Work', url: 'https://www.youtube.com/watch?v=J5vlPPpVIJU' },
+          { label: 'Thomas Frank: Productivity', url: 'https://www.youtube.com/watch?v=dABmkdRvN-A' },
+        ].map(preset => (
+          <button class="preset-btn" onclick={`quickAdd('${preset.url}', '${preset.label}')`}>{preset.label}</button>
+        ))}
+      </div>
+    </div>
+
+    <!-- TARGETS TABLE -->
+    <div class="targets-table-wrap">
+      <div class="bulk-actions">
+        <button class="bulk-btn" onclick="selectAll()">Select All</button>
+        <button class="bulk-btn" onclick="deselectAll()">Deselect All</button>
+      </div>
+      <table class="targets-table" id="targets-table">
+        <thead>
+          <tr>
+            <th><input type="checkbox" id="check-all" onchange="toggleCheckAll(this)" /></th>
+            <th>Label</th>
+            <th>URL</th>
+            <th>Max Comments</th>
+            <th>Priority</th>
+            <th>Active</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {targets.map(t => (
+            <tr id={`trow-${t.id}`}>
+              <td><input type="checkbox" class="row-check" data-id={t.id} /></td>
+              <td class="td-label">{t.label}</td>
+              <td class="td-value">
+                <a href={t.url} target="_blank" rel="noopener" class="url-link">
+                  {t.url.substring(0, 45)}{t.url.length > 45 ? '...' : ''}
+                </a>
+              </td>
+              <td>{t.maxComments}</td>
+              <td>{t.priority}</td>
+              <td>
+                <button
+                  class={`toggle-btn ${t.isActive ? 'active' : 'inactive'}`}
+                  onclick={`toggleTarget(${t.id}, ${!t.isActive})`}
+                >
+                  {t.isActive ? 'ON' : 'OFF'}
+                </button>
+              </td>
+              <td>
+                <button class="btn-delete" onclick={`deleteTarget(${t.id})`}>Delete</button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </main>
+</div>
+</Base>
+
+<script>
+async function toggleTarget(id: number, newState: boolean) {
+  const res = await fetch(`/api/youtube/targets/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ isActive: newState }),
+  });
+  if (res.ok) {
+    const btn = document.querySelector(`#trow-${id} .toggle-btn`) as HTMLButtonElement;
+    if (btn) {
+      btn.textContent = newState ? 'ON' : 'OFF';
+      btn.className = `toggle-btn ${newState ? 'active' : 'inactive'}`;
+      btn.setAttribute('onclick', `toggleTarget(${id}, ${!newState})`);
+    }
+  }
+}
+
+async function deleteTarget(id: number) {
+  if (!confirm('Delete this target?')) return;
+  const res = await fetch(`/api/youtube/targets/${id}`, { method: 'DELETE' });
+  if (res.ok || res.status === 204) {
+    document.getElementById(`trow-${id}`)?.remove();
+  }
+}
+
+function quickAdd(url: string, label: string) {
+  const form = document.getElementById('add-form') as HTMLFormElement;
+  (form.elements.namedItem('url') as HTMLInputElement).value = url;
+  (form.elements.namedItem('label') as HTMLInputElement).value = label;
+  (form.elements.namedItem('priority') as HTMLInputElement).value = '80';
+  form.scrollIntoView({ behavior: 'smooth' });
+}
+
+document.getElementById('add-form')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const form = e.target as HTMLFormElement;
+  const data = Object.fromEntries(new FormData(form));
+  const res = await fetch('/api/youtube/targets', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      ...data,
+      priority: parseInt(data.priority as string, 10),
+      maxComments: parseInt(data.maxComments as string, 10),
+    }),
+  });
+  if (res.ok) location.reload();
+  else { const d = await res.json(); alert(d.error || 'Failed'); }
+});
+
+function selectAll() {
+  document.querySelectorAll<HTMLInputElement>('.row-check').forEach(cb => cb.checked = true);
+  (document.getElementById('check-all') as HTMLInputElement).checked = true;
+}
+function deselectAll() {
+  document.querySelectorAll<HTMLInputElement>('.row-check').forEach(cb => cb.checked = false);
+  (document.getElementById('check-all') as HTMLInputElement).checked = false;
+}
+function toggleCheckAll(master: HTMLInputElement) {
+  document.querySelectorAll<HTMLInputElement>('.row-check').forEach(cb => cb.checked = master.checked);
+}
+
+(window as any).toggleTarget = toggleTarget;
+(window as any).deleteTarget = deleteTarget;
+(window as any).quickAdd = quickAdd;
+(window as any).selectAll = selectAll;
+(window as any).deselectAll = deselectAll;
+(window as any).toggleCheckAll = toggleCheckAll;
+</script>
+
+<style>
+  .admin-layout { min-height: 100vh; background: var(--bg-base); }
+  .admin-header { display: flex; align-items: center; gap: 1rem; padding: 0.875rem 1.5rem; border-bottom: 1px solid var(--border); background: var(--bg-elevated); }
+  .admin-logo { font-family: var(--font-mono); font-size: var(--text-sm); font-weight: 700; color: var(--teal); text-decoration: none; }
+  .breadcrumb { display: flex; align-items: center; gap: 0.5rem; flex: 1; }
+  .bc-link { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); text-decoration: none; }
+  .bc-link:hover { color: var(--teal); }
+  .bc-sep { color: var(--text-muted); font-size: var(--text-xs); }
+  .bc-current { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-secondary); }
+  .btn-logout { padding: 0.35rem 0.75rem; background: none; border: 1px solid rgba(239,68,68,0.2); color: rgba(239,68,68,0.7); border-radius: 0.25rem; font-family: var(--font-mono); font-size: var(--text-xs); text-decoration: none; }
+  .admin-main { padding: 1.5rem; max-width: 900px; margin: 0 auto; }
+  .page-title { font-family: var(--font-mono); font-size: var(--text-lg); color: var(--text-primary); margin-bottom: 1.5rem; }
+  .section-title { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--text-primary); margin-bottom: 0.875rem; }
+  .add-form-wrap { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 0.5rem; padding: 1.25rem; margin-bottom: 1.5rem; }
+  .add-form { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.875rem; }
+  .form-input { background: var(--bg-base); border: 1px solid var(--border); color: var(--text-primary); font-family: var(--font-mono); font-size: var(--text-xs); padding: 0.4rem 0.625rem; border-radius: 0.25rem; outline: none; }
+  .form-input:focus { border-color: var(--teal); }
+  .url-input { flex: 1; min-width: 250px; }
+  .mc-input { width: 80px; }
+  .priority-input { width: 70px; }
+  .btn-add { padding: 0.4rem 1rem; background: var(--teal); border: none; color: #fff; border-radius: 0.25rem; font-family: var(--font-mono); font-size: var(--text-xs); cursor: pointer; font-weight: 600; }
+  .presets { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
+  .presets-label { font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-muted); }
+  .preset-btn { padding: 0.2rem 0.5rem; background: none; border: 1px solid var(--border); color: var(--text-muted); border-radius: 0.25rem; font-family: var(--font-mono); font-size: 0.65rem; cursor: pointer; }
+  .preset-btn:hover { border-color: #ff6b6b; color: #ff6b6b; }
+  .targets-table-wrap { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 0.5rem; overflow: hidden; }
+  .bulk-actions { display: flex; gap: 0.5rem; padding: 0.625rem 1rem; border-bottom: 1px solid var(--border); background: rgba(255,255,255,0.02); }
+  .bulk-btn { padding: 0.25rem 0.75rem; background: none; border: 1px solid var(--border); color: var(--text-muted); border-radius: 0.25rem; font-family: var(--font-mono); font-size: 0.65rem; cursor: pointer; }
+  .bulk-btn:hover { border-color: var(--teal); color: var(--teal); }
+  .targets-table { width: 100%; border-collapse: collapse; font-family: var(--font-mono); font-size: var(--text-xs); }
+  .targets-table th { padding: 0.5rem 1rem; text-align: left; font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid var(--border); background: rgba(255,255,255,0.02); }
+  .targets-table td { padding: 0.5rem 1rem; color: var(--text-secondary); border-bottom: 1px solid rgba(255,255,255,0.04); }
+  .td-label { font-weight: 600; }
+  .td-value { color: var(--text-muted); font-size: 0.65rem; }
+  .url-link { color: var(--text-muted); font-size: 0.65rem; text-decoration: none; }
+  .url-link:hover { color: #ff6b6b; }
+  .toggle-btn { padding: 0.2rem 0.5rem; border: none; border-radius: 0.2rem; font-family: var(--font-mono); font-size: 0.6rem; cursor: pointer; font-weight: 700; }
+  .toggle-btn.active { background: rgba(74,141,131,0.2); color: var(--teal); }
+  .toggle-btn.inactive { background: rgba(255,255,255,0.06); color: var(--text-muted); }
+  .btn-delete { padding: 0.2rem 0.5rem; background: none; border: 1px solid rgba(239,68,68,0.2); color: rgba(239,68,68,0.6); border-radius: 0.2rem; font-family: var(--font-mono); font-size: 0.65rem; cursor: pointer; }
+  .btn-delete:hover { border-color: rgba(239,68,68,0.5); color: #ef4444; }
+</style>

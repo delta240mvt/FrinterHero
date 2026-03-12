@@ -118,10 +118,12 @@ FrinterHero runs a **GEO (Generative Engine Optimization) content engine** — a
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│  STAGE 0 · REDDIT INTELLIGENCE                                  │
+│  STAGE 0 · INTELLIGENCE LAYER (Reddit + YouTube)                │
 │                                                                 │
-│  Apify scrapes subreddits + keyword searches (niche-restricted) │
+│  Reddit: Apify scrapes subreddits + keyword searches            │
 │  → posts filtered to last 12 months, deduplicated               │
+│  YouTube: Apify scrapes video comment sections                  │
+│  → top-level comments deduplicated by commentId                 │
 │  → Claude extracts pain points: title · intensity · quotes      │
 │  → pending gaps queue in admin panel → approve → Stage 3        │
 └───────────────────────┬─────────────────────────────────────────┘
@@ -155,7 +157,7 @@ FrinterHero runs a **GEO (Generative Engine Optimization) content engine** — a
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### Reddit Intelligence — How It Works
+### Stage 0 Intelligence — Reddit + YouTube
 
 Targets two input types, both routed through [Apify](https://apify.com) (`trudax/reddit-scraper-lite`):
 
@@ -217,12 +219,15 @@ ANTHROPIC_API_KEY=sk-ant-placeholder
 PERPLEXITY_API_KEY=pplx-placeholder
 NODE_ENV=development
 
-# Reddit scraping engine
+# Stage 0 — Reddit + YouTube scraping
 APIFY_API_TOKEN=apify_api_placeholder
 OPENROUTER_API_KEY=sk-or-placeholder
 REDDIT_MAX_ITEMS_PER_TARGET=3       # posts per scrape target
 REDDIT_CHUNK_SIZE=10                # posts per LLM analysis batch
 REDDIT_ANALYSIS_MODEL=anthropic/claude-sonnet-4-6
+YT_MAX_COMMENTS_PER_TARGET=300      # comments per YouTube video
+YT_CHUNK_SIZE=80                    # comments per LLM analysis batch
+YT_ANALYSIS_MODEL=anthropic/claude-sonnet-4-6
 ```
 
 ### AI Integration
@@ -233,7 +238,7 @@ REDDIT_ANALYSIS_MODEL=anthropic/claude-sonnet-4-6
 | `Anthropic` | `ANTHROPIC_API_KEY` | Deep context analysis |
 | `Perplexity` | `PERPLEXITY_API_KEY` | Live web search integration |
 | `OpenRouter` | `OPENROUTER_API_KEY` | Reddit pain-point extraction + draft generation |
-| `Apify` | `APIFY_API_TOKEN` | Reddit scraping via `trudax/reddit-scraper-lite` |
+| `Apify` | `APIFY_API_TOKEN` | Reddit (`trudax/reddit-scraper-lite`) + YouTube (`streamers/youtube-comments-scraper`) |
 
 ---
 
@@ -286,6 +291,7 @@ REDDIT_ANALYSIS_MODEL=anthropic/claude-sonnet-4-6
 - [x] Retro aesthetic design system
 - [x] Semantic HTML and SEO foundations
 - [x] Reddit scraping engine (Apify + LLM pain-point extraction)
+- [x] YouTube comments scraping engine (Apify + LLM pain-point extraction)
 - [x] GEO monitor — gap detection across OpenAI / Claude / Gemini
 - [x] Admin draft generator — mega-prompt → full article
 - [x] Internal linking from Knowledge Base hints
