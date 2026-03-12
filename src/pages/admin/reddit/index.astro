@@ -321,11 +321,23 @@ function connectSSE() {
   }
 })();
 
+async function deleteRun(id: number) {
+  if (!confirm(`Are you sure you want to delete run #${id}? This will also delete all associated posts and pain points.`)) return;
+  
+  const res = await fetch(`/api/reddit/runs/${id}`, { method: 'DELETE' });
+  if (res.ok) {
+    location.reload();
+  } else {
+    alert('Delete failed');
+  }
+}
+
 // Expose to inline onclick handlers
 (window as any).rgapToggle = rgapToggle;
 (window as any).rgapApprove = rgapApprove;
 (window as any).rgapReject = rgapReject;
 (window as any).startScraping = startScraping;
+(window as any).deleteRun = deleteRun;
 </script>
 
 <style>

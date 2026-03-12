@@ -27,6 +27,7 @@ const { runs } = Astro.props;
           <th>Pain pts</th>
           <th>Gaps</th>
           <th>Status</th>
+          <th style="text-align: right;">Actions</th>
         </tr>
       </thead>
       <tbody>
@@ -41,6 +42,11 @@ const { runs } = Astro.props;
               <td>{run.painPointsExtracted}</td>
               <td>{run.gapsCreated}</td>
               <td><span class="run-status" style={`color:${statusColor}`}>{run.status}</span></td>
+              <td style="text-align: right;">
+                <button class="btn-delete-run" onclick={`event.stopPropagation(); deleteRun(${run.id})`} title="Delete run">
+                  🗑️
+                </button>
+              </td>
             </tr>
           );
         })}
@@ -74,6 +80,20 @@ const { runs } = Astro.props;
   .run-id a:hover { text-decoration: underline; }
   .run-date { color: var(--text-muted); }
   .run-status { font-weight: 700; text-transform: uppercase; font-size: 0.65rem; }
+  
+  .btn-delete-run {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 0.875rem;
+    opacity: 0.4;
+    transition: opacity 0.2s, transform 0.2s;
+    padding: 0.25rem;
+  }
+  .btn-delete-run:hover {
+    opacity: 1;
+    transform: scale(1.2);
+  }
   
   @media (max-width: 640px) {
     .runs-table th, .runs-table td { padding: 0.5rem; font-size: 0.7rem; }

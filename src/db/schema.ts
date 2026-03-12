@@ -167,6 +167,7 @@ export const redditScrapeRuns = pgTable('reddit_scrape_runs', {
   painPointsExtracted: integer('pain_points_extracted').notNull().default(0),
   gapsCreated: integer('gaps_created').notNull().default(0),
   errorMessage: text('error_message'),
+  logs: text('logs').array().notNull().default([]),
   finishedAt: timestamp('finished_at'),
   durationMs: integer('duration_ms'),
 });
@@ -174,7 +175,7 @@ export const redditScrapeRuns = pgTable('reddit_scrape_runs', {
 // Raw posts fetched from Reddit via Apify
 export const redditPosts = pgTable('reddit_posts', {
   id: serial('id').primaryKey(),
-  scrapeRunId: integer('scrape_run_id').notNull().references(() => redditScrapeRuns.id),
+  scrapeRunId: integer('scrape_run_id').notNull().references(() => redditScrapeRuns.id, { onDelete: 'cascade' }),
   redditId: varchar('reddit_id', { length: 20 }).notNull(),
   subreddit: varchar('subreddit', { length: 100 }).notNull(),
   title: text('title').notNull(),
@@ -194,7 +195,7 @@ export const redditPosts = pgTable('reddit_posts', {
 // Pain points extracted by LLM — awaiting admin review before becoming contentGaps
 export const redditExtractedGaps = pgTable('reddit_extracted_gaps', {
   id: serial('id').primaryKey(),
-  scrapeRunId: integer('scrape_run_id').notNull().references(() => redditScrapeRuns.id),
+  scrapeRunId: integer('scrape_run_id').notNull().references(() => redditScrapeRuns.id, { onDelete: 'cascade' }),
   painPointTitle: varchar('pain_point_title', { length: 255 }).notNull(),
   painPointDescription: text('pain_point_description').notNull(),
   emotionalIntensity: integer('emotional_intensity').notNull().default(5), // 1-10

@@ -89,6 +89,7 @@ const statusBadge = {
       <span class="bc-current">Run #{run.id}</span>
     </nav>
     <div class="header-actions">
+      <button class="btn-logout" style="border-color: rgba(239,68,68,0.4); color: #ef4444;" onclick={`deleteRun(${run.id})`}>🗑️ Delete Run</button>
       <a href="/admin/reddit" class="btn-secondary">← Back</a>
       <a href="/api/logout" class="btn-logout">Logout</a>
     </div>
@@ -182,6 +183,19 @@ const statusBadge = {
       ))
     )}
 
+    <!-- RUN LOGS -->
+    {run.logs && run.logs.length > 0 && (
+      <section class="run-logs-section">
+        <div class="gap-group-header">
+          <span class="gap-group-title">📜 Execution Logs</span>
+          <button id="btn-download-logs" class="btn-download-logs">Download .txt</button>
+        </div>
+        <div class="run-logs-container">
+          {run.logs.map(line => <div class="log-line">{line}</div>)}
+        </div>
+      </section>
+    )}
+
   </main>
 </div>
 </Base>
@@ -243,6 +257,36 @@ async function rgapReject(id: number) {
 (window as any).rgapToggle = rgapToggle;
 (window as any).rgapApprove = rgapApprove;
 (window as any).rgapReject = rgapReject;
+
+async function deleteRun(id: number) {
+  if (!confirm(`Are you sure you want to delete run #${id}? This will also delete all associated posts and pain points.`)) return;
+  const res = await fetch(`/api/reddit/runs/${id}`, { method: 'DELETE' });
+  if (res.ok) {
+    location.href = '/admin/reddit';
+  } else {
+    alert('Delete failed');
+  }
+}
+(window as any).deleteRun = deleteRun;
+
+// Download logs logic
+document.getElementById('btn-download-logs')?.addEventListener('click', () => {
+  const container = document.querySelector('.run-logs-container');
+  if (!container) return;
+  const text = Array.from(container.querySelectorAll('.log-line'))
+    .map(el => el.textContent)
+    .join('\n');
+  
+  const blob = new Blob([text], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `reddit-run-${(document as any).querySelector('.run-id').textContent.replace('#', '')}-logs.txt`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+});
 </script>
 
 <style>
@@ -300,4 +344,11 @@ async function rgapReject(id: number) {
   /* Empty state */
   .empty-state { padding: 3rem 2rem; text-align: center; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 0.5rem; }
   .empty-state p { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--text-muted); }
+
+  /* Logs */
+  .run-logs-section { margin-top: 3rem; }
+  .btn-download-logs { margin-left: auto; padding: 0.25rem 0.625rem; background: none; border: 1px solid var(--border); color: var(--text-muted); border-radius: 0.25rem; font-family: var(--font-mono); font-size: 0.65rem; cursor: pointer; }
+  .btn-download-logs:hover { border-color: var(--teal); color: var(--teal); }
+  .run-logs-container { background: #000; border: 1px solid var(--border); border-radius: 0.5rem; padding: 1rem; max-height: 500px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.2rem; }
+  .log-line { font-family: var(--font-mono); font-size: 0.7rem; color: #a1a1aa; white-space: pre-wrap; word-break: break-all; line-height: 1.4; }
 </style>
