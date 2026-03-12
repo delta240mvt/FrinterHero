@@ -2,8 +2,8 @@
 import BlogPost from '@/components/layouts/BlogPost.astro';
 import BlogCard from '@/components/BlogCard.astro';
 import { db } from '@/db/client';
-import { articles } from '@/db/schema';
-import { eq, and, ne, sql } from 'drizzle-orm';
+import { articles, articleGenerations, knowledgeEntries } from '@/db/schema';
+import { eq, and, ne, sql, inArray } from 'drizzle-orm';
 
 const { slug } = Astro.params;
 
@@ -13,6 +13,7 @@ if (!slug) {
 
 let article: any = null;
 let relatedArticles: any[] = [];
+let kbLinkedArticles: { slug: string; title: string }[] = [];
 
 try {
   const [result] = await db
@@ -36,6 +37,42 @@ try {
       )
       .limit(3);
   }
+
+  // KB-based internal links: find published articles that were used as KB hints during generation
+  const [gen] = await db
+    .select({ kbEntriesUsed: articleGenerations.kbEntriesUsed })
+    .from(articleGenerations)
+    .where(eq(articleGenerations.articleId, article.id))
+    .limit(1);
+
+  if (gen?.kbEntriesUsed?.length > 0) {
+    const kbEntries = await db
+      .select({ sourceUrl: knowledgeEntries.sourceUrl, title: knowledgeEntries.title })
+      .from(knowledgeEntries)
+      .where(
+        and(
+          inArray(knowledgeEntries.id, gen.kbEntriesUsed),
+          eq(knowledgeEntries.type, 'published_article')
+        )
+      );
+
+    const slugsFromKb = kbEntries
+      .map(e => e.sourceUrl?.match(/\/blog\/([^/?#]+)/)?.[1])
+      .filter((s): s is string => !!s && s !== slug);
+
+    if (slugsFromKb.length > 0) {
+      kbLinkedArticles = await db
+        .select({ slug: articles.slug, title: articles.title })
+        .from(articles)
+        .where(
+          and(
+            inArray(articles.slug, slugsFromKb),
+            eq(articles.status, 'published')
+          )
+        )
+        .limit(4);
+    }
+  }
 } catch {
   // DB error
 }
@@ -57,6 +94,17 @@ if (!article) {
 >
   <div set:html={article.content} />
 
+  {kbLinkedArticles.length > 0 && (
+    <nav class="also-reading" aria-label="See also">
+      <span class="also-reading-label">See also</span>
+      <ul class="also-reading-list">
+        {kbLinkedArticles.map(a => (
+          <li><a href={`/blog/${a.slug}`}>{a.title}</a></li>
+        ))}
+      </ul>
+    </nav>
+  )}
+
   {relatedArticles.length > 0 && (
     <aside class="related-articles">
       <h2 class="related-title">Related Articles</h2>
@@ -77,6 +125,43 @@ if (!article) {
 </BlogPost>
 
 <style>
+  .also-reading {
+    margin-top: 2.5rem;
+    padding: 1rem 1.25rem;
+    border-left: 2px solid var(--border);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.5rem 1rem;
+  }
+  .also-reading-label {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+  .also-reading-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 1.5rem;
+  }
+  .also-reading-list a {
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .also-reading-list a:hover {
+    color: var(--teal);
+    border-bottom-color: var(--teal);
+  }
+
   .related-articles {
     margin-top: 3rem;
     padding-top: 2rem;
