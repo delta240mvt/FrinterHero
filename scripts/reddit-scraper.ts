@@ -41,6 +41,13 @@ function parseTargets(raw: string) {
   }));
 }
 
+// Subreddits relevant to Frinter niche — used for keyword restricted search
+const NICHE_SUBREDDITS = [
+  'productivity', 'Entrepreneur', 'selfimprovement', 'getdisciplined',
+  'DecidingToBeBetter', 'digitalminimalism', 'deepwork', 'meditation',
+  'nosurf', 'ADHD_Programmers', 'cogsci', 'neuroscience',
+].join('+');
+
 function buildApifyInput(target: { value: string; type: string }) {
   if (target.type === 'subreddit') {
     const name = target.value.replace(/^r\//, '');
@@ -51,12 +58,13 @@ function buildApifyInput(target: { value: string; type: string }) {
       maxComments: 5,
     };
   }
-  // keyword search — sort:new + time:month (confirmed working with trudax/reddit-scraper-lite)
+  // keyword search — restricted to niche subreddits so the page structure
+  // matches a subreddit listing (which the actor parses correctly)
+  const q = encodeURIComponent(target.value);
   return {
-    searches: [target.value],
-    type: 'post',
-    sort: 'new',
-    time: 'month',
+    startUrls: [{
+      url: `https://www.reddit.com/r/${NICHE_SUBREDDITS}/search/?q=${q}&sort=new&restrict_sr=1&t=month`,
+    }],
     maxItems: MAX_ITEMS,
     maxPostCount: MAX_ITEMS,
     maxComments: 5,
