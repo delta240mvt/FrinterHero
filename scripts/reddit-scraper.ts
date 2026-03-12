@@ -51,12 +51,10 @@ function buildApifyInput(target: { value: string; type: string }) {
       maxComments: 5,
     };
   }
-  // keyword search — sort:top + time:year (time filter only works with sort:top/relevance)
+  // keyword search — use startUrls (Reddit blocks searches/.json with 403)
+  const q = encodeURIComponent(target.value);
   return {
-    searches: [target.value],
-    type: 'post',
-    sort: 'top',
-    time: 'year',
+    startUrls: [{ url: `https://www.reddit.com/search/?q=${q}&sort=top&t=year&type=link` }],
     maxItems: MAX_ITEMS,
     maxPostCount: MAX_ITEMS,
     maxComments: 5,
