@@ -59,11 +59,10 @@ async function start() {
             sort: "new",          // Szukamy najświeższych problemów
             time: "month",        // Z ostatniego miesiąca
             maxItems: 30,         // 30 najnowszych postów wystarczy do zbadania trendu
-            proxy: { useApifyProxy: true },
         };
 
-        // Odpalamy scraper (można zmienić na trudax/reddit-scraper-lite lub inny w razie potrzeby)
-        const run = await client.actor("trudax/reddit-scraper").call(input);
+        // Odpalamy scraper (używamy wersji lite, która nie wymaga miesięcznego wynajmu, darmowe kredyty działają)
+        const run = await client.actor("trudax/reddit-scraper-lite").call(input);
         
         console.log(`✅ Pobieranie z Reddita zakończone (Run ID: ${run.id}). Pobieranie wyników...`);
 

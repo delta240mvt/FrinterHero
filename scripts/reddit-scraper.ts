@@ -45,7 +45,6 @@ function buildApifyInput(target: { value: string; type: string }) {
       maxItems: MAX_ITEMS,
       maxPostCount: MAX_ITEMS,
       maxComments: 5,
-      proxy: { useApifyProxy: true },
     };
   }
   // keyword search
@@ -57,7 +56,6 @@ function buildApifyInput(target: { value: string; type: string }) {
     maxItems: MAX_ITEMS,
     maxPostCount: MAX_ITEMS,
     maxComments: 5,
-    proxy: { useApifyProxy: true },
   };
 }
 
@@ -210,7 +208,7 @@ async function run() {
     log(`[APIFY] Scraping: ${target.value}`);
     try {
       const input = buildApifyInput(target);
-      const apifyRun = await apify.actor('trudax/reddit-scraper').call(input);
+      const apifyRun = await apify.actor('trudax/reddit-scraper-lite').call(input);
       const { items } = await apify.dataset(apifyRun.defaultDatasetId).listItems();
 
       log(`[APIFY] Got ${items.length} posts from ${target.value}`);
