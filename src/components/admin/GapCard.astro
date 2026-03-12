@@ -11,6 +11,7 @@ interface Props {
     status: string;
     createdAt: Date;
     knowledge_base_hints?: Array<{ id: number; title: string; importanceScore: number; type: string }>;
+    draftArticleId?: number | null;
   };
 }
 
@@ -74,6 +75,9 @@ const timeAgo = (() => {
     <button class="btn-approve" onclick={`approveGap(${gap.id})`} disabled={gap.status === 'in_progress'}>
       {gap.status === 'in_progress' ? 'In Progress...' : 'Approve & Generate'}
     </button>
+    {gap.status === 'in_progress' && gap.draftArticleId && (
+      <a href={`/admin/article/${gap.draftArticleId}`} class="btn-see-draft">See Draft →</a>
+    )}
     <button class="btn-archive" onclick={`archiveGap(${gap.id})`}>Archive</button>
   </div>
 </div>
@@ -111,6 +115,8 @@ const timeAgo = (() => {
   .btn-approve { padding: 0.4rem 0.875rem; background: var(--teal); border: none; color: #fff; border-radius: 0.25rem; font-family: var(--font-mono); font-size: var(--text-xs); cursor: pointer; transition: opacity 0.15s; }
   .btn-approve:hover:not(:disabled) { opacity: 0.85; }
   .btn-approve:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-see-draft { padding: 0.4rem 0.875rem; background: rgba(214,183,121,0.12); border: 1px solid rgba(214,183,121,0.35); color: var(--gold); border-radius: 0.25rem; font-family: var(--font-mono); font-size: var(--text-xs); text-decoration: none; transition: all 0.15s; white-space: nowrap; }
+  .btn-see-draft:hover { background: rgba(214,183,121,0.2); border-color: var(--gold); }
   .btn-archive { padding: 0.4rem 0.875rem; background: none; border: 1px solid rgba(239,68,68,0.2); color: rgba(239,68,68,0.7); border-radius: 0.25rem; font-family: var(--font-mono); font-size: var(--text-xs); cursor: pointer; transition: all 0.15s; margin-left: auto; }
   .btn-archive:hover { border-color: rgba(239,68,68,0.5); color: #ef4444; background: rgba(239,68,68,0.06); }
 </style>

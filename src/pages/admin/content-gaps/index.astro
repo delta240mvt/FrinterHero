@@ -3,8 +3,8 @@ import Base from '@/components/layouts/Base.astro';
 import GapCard from '@/components/admin/GapCard.astro';
 import GapExpandedCard from '@/components/admin/GapExpandedCard.astro';
 import { db } from '@/db/client';
-import { contentGaps, geoRuns } from '@/db/schema';
-import { desc, eq, count, isNotNull } from 'drizzle-orm';
+import { contentGaps, geoRuns, articles } from '@/db/schema';
+import { desc, eq, count, isNotNull, inArray } from 'drizzle-orm';
 
 const url = new URL(Astro.request.url);
 const statusFilter  = url.searchParams.get('status')         || '';
@@ -55,6 +55,16 @@ try {
         proposals   : cProp[0].c,
       };
     }
+  }
+  // Enrich in_progress gaps with draft article id
+  const inProgressIds = gaps.filter(g => g.status === 'in_progress').map(g => g.id);
+  if (inProgressIds.length > 0) {
+    const draftArticles = await db
+      .select({ id: articles.id, sourceGapId: articles.sourceGapId })
+      .from(articles)
+      .where(inArray(articles.sourceGapId, inProgressIds));
+    const draftMap = new Map(draftArticles.map(a => [a.sourceGapId, a.id]));
+    gaps = gaps.map(g => ({ ...g, draftArticleId: draftMap.get(g.id) ?? null }));
   }
 } catch (e) { console.error(e); }
 
