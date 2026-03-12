@@ -51,11 +51,11 @@ function buildApifyInput(target: { value: string; type: string }) {
       maxComments: 5,
     };
   }
-  // keyword search
+  // keyword search — sort:top + time:year (time filter only works with sort:top/relevance)
   return {
     searches: [target.value],
     type: 'post',
-    sort: 'new',
+    sort: 'top',
     time: 'year',
     maxItems: MAX_ITEMS,
     maxPostCount: MAX_ITEMS,
@@ -213,10 +213,12 @@ async function run() {
     log(`[APIFY] Scraping: ${target.value}`);
     try {
       const input = buildApifyInput(target);
+      log(`[APIFY] Input: ${JSON.stringify(input)}`);
       const apifyRun = await apify.actor('trudax/reddit-scraper-lite').call(input);
+      log(`[APIFY] Actor run ID: ${apifyRun.id} | status: ${apifyRun.status} | dataset: ${apifyRun.defaultDatasetId}`);
       const { items } = await apify.dataset(apifyRun.defaultDatasetId).listItems();
 
-      log(`[APIFY] Got ${items.length} posts from ${target.value}`);
+      log(`[APIFY] Raw items from dataset: ${items.length}`);
 
       const oneYearAgo = new Date();
       oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
@@ -228,6 +230,8 @@ async function run() {
         if (createdAt && createdAt < oneYearAgo) return false;
         return true;
       });
+
+      log(`[APIFY] After dedup+date filter: ${newItems.length} new items (skipped ${items.length - newItems.length})`);
 
       if (newItems.length > 0) {
         const dbRows = newItems.map(item => mapToDbPost(SCRAPE_RUN_ID, item));
