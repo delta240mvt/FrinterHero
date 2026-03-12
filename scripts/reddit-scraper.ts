@@ -313,12 +313,14 @@ async function run() {
 
 run().catch(async (e) => {
   console.error('[FATAL]', e.message);
+  log(`[FATAL] ${e.message}`);
   if (SCRAPE_RUN_ID) {
     try {
       await db.update(redditScrapeRuns).set({
         status: 'failed',
         errorMessage: String(e.message),
         finishedAt: new Date(),
+        logs: sessionLogs,
       }).where(eq(redditScrapeRuns.id, SCRAPE_RUN_ID));
     } catch {}
   }
