@@ -49,7 +49,7 @@ async function start() {
     console.log(`\n🔍 Rozpoczynam radar na Reddicie dla niszy: "${searchTopic}"...\n`);
 
     try {
-        // 1. Zlecamy zadanie do Apify (Aktor: apify/reddit-scraper to popularny oficjalny scraper)
+        // 1. Zlecamy zadanie do Apify (Aktor: trudax/reddit-scraper)
         console.log("⏳ Zlecam pobieranie danych do Apify (to może potrwać od kilku do kilkudziesięciu sekund)...");
         
         // Zależnie od struktury Aktora (używamy standardowego)
@@ -63,7 +63,7 @@ async function start() {
         };
 
         // Odpalamy scraper (można zmienić na trudax/reddit-scraper-lite lub inny w razie potrzeby)
-        const run = await client.actor("apify/reddit-scraper").call(input);
+        const run = await client.actor("trudax/reddit-scraper").call(input);
         
         console.log(`✅ Pobieranie z Reddita zakończone (Run ID: ${run.id}). Pobieranie wyników...`);
 
@@ -126,7 +126,7 @@ Oczekiwany format:
         console.error("❌ Wystąpił błąd podczas scrappowania lub łączenia z AI!");
         console.error(err.message || err);
         if(err.message?.includes('does not exist')) {
-            console.log("\n💡 Wskazówka: Wygląda na to, że użyto niepoprawnego Id Aktora. Użyj nazwy `trudax/reddit-scraper-lite` na platformie Apify zamiast `apify/reddit-scraper`.");
+            console.log("\n💡 Wskazówka: Wygląda na to, że użyto niepoprawnego Id Aktora. Upewnij się, że używasz `trudax/reddit-scraper`.");
         }
     }
 }

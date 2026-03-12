@@ -164,7 +164,7 @@ The LLM agent should hunt for and extract **raw phrases** such as:
 ║  ┌───────────────────────────▼─────────────────────────────────┐  ║
 ║  │  scripts/reddit-scraper.ts (DB-integrated, new file)        │  ║
 ║  │                                                             │  ║
-║  │  1. Apify Actor: apify/reddit-scraper                       │  ║
+║  │  1. Apify Actor: trudax/reddit-scraper                       │  ║
 ║  │     • input: searches[] | startUrls[] (subreddit URL)       │  ║
 ║  │     • sort: "hot" + "new"                                   │  ║
 ║  │     • time: "month"                                         │  ║
@@ -356,7 +356,7 @@ async function run() {
     // - type='keyword'   → searches: [target.value]
     // sort: 'hot', time: 'month', maxItems: 50, includeComments: true
 
-    const run = await apify.actor("apify/reddit-scraper").call(input);
+    const run = await apify.actor("trudax/reddit-scraper").call(input);
     const { items } = await apify.dataset(run.defaultDatasetId).listItems();
 
     log(`[APIFY] Got ${items.length} posts from ${target.value}`);

@@ -41,23 +41,23 @@ function buildApifyInput(target: { value: string; type: string }) {
   if (target.type === 'subreddit') {
     const name = target.value.replace(/^r\//, '');
     return {
-      startUrls: [{ url: `https://www.reddit.com/r/${name}/` }],
-      sort: 'hot',
-      time: 'month',
+      startUrls: [{ url: `https://www.reddit.com/r/${name}/hot` }],
       maxItems: MAX_ITEMS,
-      proxy: { useApifyProxy: true },
-      includeComments: true,
+      maxPostCount: MAX_ITEMS,
       maxComments: 5,
+      proxy: { useApifyProxy: true },
     };
   }
+  // keyword search
   return {
     searches: [target.value],
+    type: 'post',
     sort: 'new',
     time: 'month',
     maxItems: MAX_ITEMS,
-    proxy: { useApifyProxy: true },
-    includeComments: true,
+    maxPostCount: MAX_ITEMS,
     maxComments: 5,
+    proxy: { useApifyProxy: true },
   };
 }
 
@@ -175,7 +175,8 @@ async function deduplicateAgainstExisting(gaps: ExtractedGap[]): Promise<Extract
       const existing = await db.execute(
         sql`SELECT id FROM content_gaps WHERE to_tsvector('english', gap_title) @@ plainto_tsquery('english', ${gap.painPointTitle}) AND created_at > NOW() - INTERVAL '90 days' LIMIT 1`
       );
-      if ((existing as any[]).length > 0) {
+      const rows = (existing as unknown as any[]);
+      if (rows.length > 0) {
         log(`[DEDUP] Skipped (similar exists): ${gap.painPointTitle}`);
         continue;
       }
@@ -209,7 +210,7 @@ async function run() {
     log(`[APIFY] Scraping: ${target.value}`);
     try {
       const input = buildApifyInput(target);
-      const apifyRun = await apify.actor('apify/reddit-scraper').call(input);
+      const apifyRun = await apify.actor('trudax/reddit-scraper').call(input);
       const { items } = await apify.dataset(apifyRun.defaultDatasetId).listItems();
 
       log(`[APIFY] Got ${items.length} posts from ${target.value}`);
