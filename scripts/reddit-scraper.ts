@@ -219,6 +219,17 @@ async function run() {
       log(`[APIFY] Input: ${JSON.stringify(input)}`);
       const apifyRun = await apify.actor('trudax/reddit-scraper-lite').call(input);
       log(`[APIFY] Run ID: ${apifyRun.id} | status: ${apifyRun.status}`);
+
+      // Fetch full actor log and append to sessionLogs
+      try {
+        const actorLog = await apify.run(apifyRun.id).log().get();
+        if (actorLog) {
+          actorLog.trim().split('\n').forEach((line: string) => {
+            if (line.trim()) sessionLogs.push(line);
+          });
+        }
+      } catch {}
+
       const { items } = await apify.dataset(apifyRun.defaultDatasetId).listItems();
       const rawItems = items as any[];
       log(`[APIFY] Raw items from dataset: ${rawItems.length}`);
