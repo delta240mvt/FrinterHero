@@ -45,7 +45,7 @@ function buildApifyInput(target: { value: string; type: string }) {
   if (target.type === 'subreddit') {
     const name = target.value.replace(/^r\//, '');
     return {
-      startUrls: [{ url: `https://www.reddit.com/r/${name}/hot` }],
+      startUrls: [{ url: `https://www.reddit.com/r/${name}/top/?t=year` }],
       maxItems: MAX_ITEMS,
       maxPostCount: MAX_ITEMS,
       maxComments: 5,
@@ -56,7 +56,7 @@ function buildApifyInput(target: { value: string; type: string }) {
     searches: [target.value],
     type: 'post',
     sort: 'new',
-    time: 'month',
+    time: 'year',
     maxItems: MAX_ITEMS,
     maxPostCount: MAX_ITEMS,
     maxComments: 5,
@@ -217,9 +217,15 @@ async function run() {
 
       log(`[APIFY] Got ${items.length} posts from ${target.value}`);
 
+      const oneYearAgo = new Date();
+      oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+
       const newItems = (items as any[]).filter(item => {
         const id = String(item.id || item.redditId || '');
-        return id && !existingIds.has(id);
+        if (!id || existingIds.has(id)) return false;
+        const createdAt = item.createdAt ? new Date(item.createdAt) : null;
+        if (createdAt && createdAt < oneYearAgo) return false;
+        return true;
       });
 
       if (newItems.length > 0) {
