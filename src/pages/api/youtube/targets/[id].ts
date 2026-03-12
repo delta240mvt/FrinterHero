@@ -21,6 +21,7 @@ export const PUT: APIRoute = async ({ params, request, cookies }) => {
   if (typeof body.priority === 'number') updates.priority = body.priority;
   if (typeof body.label === 'string' && body.label.trim()) updates.label = body.label.trim();
   if (typeof body.maxComments === 'number') updates.maxComments = body.maxComments;
+  if (typeof body.maxVideosPerChannel === 'number') updates.maxVideosPerChannel = body.maxVideosPerChannel;
 
   const [updated] = await db.update(ytTargets).set(updates).where(eq(ytTargets.id, id)).returning();
   if (!updated) return new Response(JSON.stringify({ error: 'Not found' }), { status: 404, headers: { 'Content-Type': 'application/json' } });

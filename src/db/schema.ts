@@ -222,10 +222,12 @@ export const redditExtractedGaps = pgTable('reddit_extracted_gaps', {
 // YouTube video targets — admin manages this list
 export const ytTargets = pgTable('yt_targets', {
   id: serial('id').primaryKey(),
-  type: varchar('type', { length: 20 }).notNull().default('video'), // v1: 'video' only
-  url: varchar('url', { length: 500 }).notNull(),                   // Full YouTube video URL
+  type: varchar('type', { length: 20 }).notNull().default('video'), // 'video' | 'channel'
+  url: varchar('url', { length: 500 }).notNull(),                   // Full YouTube URL (video or channel)
   label: varchar('label', { length: 100 }).notNull(),              // Human display name
-  videoId: varchar('video_id', { length: 20 }),                    // Extracted from ?v= param, used for dedup
+  videoId: varchar('video_id', { length: 20 }),                    // For type='video': ?v= param
+  channelHandle: varchar('channel_handle', { length: 100 }),       // For type='channel': handle without @
+  maxVideosPerChannel: integer('max_videos_per_channel').notNull().default(5), // How many top videos to scrape per channel
   isActive: boolean('is_active').notNull().default(true),
   priority: integer('priority').notNull().default(50),             // 0–100, higher = scraped first
   maxComments: integer('max_comments').notNull().default(300),     // Per-video Apify comment limit
