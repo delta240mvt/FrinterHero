@@ -112,11 +112,21 @@ npm run dev
 
 ## How It Works
 
-FrinterHero runs a **GEO (Generative Engine Optimization) content engine** — an automated loop that monitors AI models, detects where your brand is missing, and generates articles to fix that.
+FrinterHero runs a **GEO (Generative Engine Optimization) content engine** — an automated loop that listens to your niche on Reddit, monitors AI models, detects where your brand is missing, and generates articles to fix that.
 
-### The Engine — 3 Stages
+### The Engine — 4 Stages
 
 ```
+┌─────────────────────────────────────────────────────────────────┐
+│  STAGE 0 · REDDIT INTELLIGENCE                                  │
+│                                                                 │
+│  Apify scrapes subreddits + keyword searches (niche-restricted) │
+│  → posts filtered to last 12 months, deduplicated               │
+│  → Claude extracts pain points: title · intensity · quotes      │
+│  → pending gaps queue in admin panel → approve → Stage 3        │
+└───────────────────────┬─────────────────────────────────────────┘
+                        │
+                        ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │  STAGE 1 · GEO MONITOR                                          │
 │                                                                 │
@@ -145,12 +155,31 @@ FrinterHero runs a **GEO (Generative Engine Optimization) content engine** — a
 └─────────────────────────────────────────────────────────────────┘
 ```
 
+### Reddit Intelligence — How It Works
+
+Targets two input types, both routed through [Apify](https://apify.com) (`trudax/reddit-scraper-lite`):
+
+| Target Type | Example | How Apify Fetches |
+|---|---|---|
+| **Subreddit** | `r/productivity` | `/r/name/hot` — HTML listing, no `.json` |
+| **Keyword** | `focus system` | `/r/[niche-list]/search/?restrict_sr=1` — subreddit-restricted search |
+
+Post-processing pipeline:
+1. **Date filter** — posts older than 12 months discarded server-side
+2. **Deduplication** — `redditId` checked against existing DB records
+3. **LLM analysis** — Claude extracts pain points in batches of 10
+4. **Gap dedup** — full-text search against last 90 days of existing gaps
+5. **Admin queue** — pending gaps appear in `/admin/content-gaps` for review
+
+Niche subreddits searched on keyword targets: `productivity`, `Entrepreneur`, `selfimprovement`, `getdisciplined`, `deepwork`, `digitalminimalism`, `nosurf`, `meditation`, `ADHD_Programmers`, `cogsci`, `neuroscience`.
+
 ### What drives the mega-prompt
 
 | Input | Source |
 |---|---|
 | **Author identity** | `public/llms-full.txt` — who you are, your philosophy, voice rules |
 | **Gap context** | DB — what AI models said instead of mentioning you |
+| **Reddit pain points** | DB — real user language, emotional intensity, vocabulary quotes |
 | **Author notes** | Manual input in admin panel — your angle on the topic |
 | **Knowledge Base** | DB — your expertise entries, fulltext-matched to the gap |
 
@@ -187,17 +216,24 @@ OPENAI_API_KEY=sk-placeholder
 ANTHROPIC_API_KEY=sk-ant-placeholder
 PERPLEXITY_API_KEY=pplx-placeholder
 NODE_ENV=development
+
+# Reddit scraping engine
+APIFY_API_TOKEN=apify_api_placeholder
+OPENROUTER_API_KEY=sk-or-placeholder
+REDDIT_MAX_ITEMS_PER_TARGET=3       # posts per scrape target
+REDDIT_CHUNK_SIZE=10                # posts per LLM analysis batch
+REDDIT_ANALYSIS_MODEL=anthropic/claude-sonnet-4-6
 ```
 
 ### AI Integration
 
-If you want the ecosystem to auto-generate summaries or chat with visitors:
-
-| Model Provider | Key Required | Best For |
-|-------|-----|----------|
-| `OpenAI` | `OPENAI_API_KEY` | General text generation, ChatGPT compatibility |
-| `Anthropic` | `ANTHROPIC_API_KEY` | Deep context analysis, Claude-like reasoning |
+| Provider | Key | Used For |
+|-------|-----|------------|
+| `OpenAI` | `OPENAI_API_KEY` | GEO monitor queries, gap detection |
+| `Anthropic` | `ANTHROPIC_API_KEY` | Deep context analysis |
 | `Perplexity` | `PERPLEXITY_API_KEY` | Live web search integration |
+| `OpenRouter` | `OPENROUTER_API_KEY` | Reddit pain-point extraction + draft generation |
+| `Apify` | `APIFY_API_TOKEN` | Reddit scraping via `trudax/reddit-scraper-lite` |
 
 ---
 
@@ -206,14 +242,16 @@ If you want the ecosystem to auto-generate summaries or chat with visitors:
 | Feature | FrinterHero | Generic Templates | Other Portfolios |
 |---------|:-----------:|:-----------:|:-----------------:|
 | Built for AI indexing / LLM presence | YES | NO | Rarely |
+| Reddit pain-point intelligence (Apify) | YES | NO | NO |
+| LLM gap extraction + admin review queue | YES | NO | NO |
 | Perfect semantic HTML & Schema.org | YES | Varies | Varies |
 | Railway 1-Click deploy with DB | YES | NO | NO |
 | Retro pixel-art aesthetics | YES | NO | NO |
 | Blazing fast (Astro Islands) | YES | NO | Rarely |
 | Type-safe PostgreSQL (Drizzle) | YES | NO | Rarely |
 | Automated SEO metadata | YES | Varies | Varies |
+| Internal linking from KB hints | YES | NO | NO |
 | Animated pixel-art mascot (Frint_bot) | YES | NO | NO |
-| Polish language optimized | YES | YES | Varies |
 
 ---
 
@@ -247,12 +285,15 @@ If you want the ecosystem to auto-generate summaries or chat with visitors:
 - [x] Railway 1-click template with `railway.toml`
 - [x] Retro aesthetic design system
 - [x] Semantic HTML and SEO foundations
+- [x] Reddit scraping engine (Apify + LLM pain-point extraction)
+- [x] GEO monitor — gap detection across OpenAI / Claude / Gemini
+- [x] Admin draft generator — mega-prompt → full article
+- [x] Internal linking from Knowledge Base hints
 - [ ] Blog markdown pipeline
-- [ ] OpenAI / Anthropic metadata generation
 - [ ] Frint_bot interactive AI chat window
 - [ ] RSS Feed generation
 - [ ] Perplexity AI integration for live stats
-- [ ] Custom CLI deployment tools
+- [ ] Railway 1-click deploy button (public template)
 
 ---
 
