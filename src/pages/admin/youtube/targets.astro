@@ -40,8 +40,8 @@ const targets = await db.select().from(ytTargets).orderBy(desc(ytTargets.priorit
 
         <!-- TYPE SWITCH -->
         <div class="type-tabs">
-          <button class="type-tab active" id="tab-channel" onclick="switchTab('channel')">📺 Channel <span class="tab-rec">recommended</span></button>
-          <button class="type-tab" id="tab-video" onclick="switchTab('video')">▶ Single Video</button>
+          <button class="type-tab active" id="tab-channel" onclick="switchTab('channel')">Channel <span class="tab-rec">recommended</span></button>
+          <button class="type-tab" id="tab-video" onclick="switchTab('video')">Single Video</button>
         </div>
 
         <form id="add-form" class="add-form" onsubmit="submitAdd(event)">
@@ -122,7 +122,7 @@ const targets = await db.select().from(ytTargets).orderBy(desc(ytTargets.priorit
               <!-- VIEW mode -->
               <td class="view-cell td-type">
                 <span class={`type-badge type-badge--${t.type}`}>
-                  {t.type === 'channel' ? '📺' : '▶'} {t.type}
+                  {t.type}
                 </span>
               </td>
               <td class="view-cell td-label">{t.label}</td>
@@ -149,7 +149,7 @@ const targets = await db.select().from(ytTargets).orderBy(desc(ytTargets.priorit
               <!-- EDIT mode (hidden) -->
               <td class="edit-cell td-type" style="display:none">
                 <span class={`type-badge type-badge--${t.type}`}>
-                  {t.type === 'channel' ? '📺' : '▶'} {t.type}
+                  {t.type}
                 </span>
               </td>
               <td class="edit-cell" style="display:none">

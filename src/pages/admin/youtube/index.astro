@@ -112,7 +112,6 @@ const CATEGORIES = ['focus','energy','burnout','relationships','systems','tech',
                 <label class={`target-item ${!t.isActive ? 'target-item--inactive' : ''}`}>
                   <input type="checkbox" checked={t.isActive} name="target" value={String(t.id)} class="target-cb" />
                   <span class="target-label">{t.label}</span>
-                  <span class="target-type">{t.type === 'channel' ? '📺' : '▶'}</span>
                 </label>
                 <div class="target-item-actions">
                   <a href="/admin/youtube/targets" class="tia-btn" title="Edit">✏</a>
@@ -447,7 +446,6 @@ async function deleteSidebarTarget(id: number, label: string) {
   .tia-btn--del:hover { color: #ef4444; background: rgba(239,68,68,0.1); }
   .target-cb { accent-color: var(--teal); }
   .target-label { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-secondary); flex: 1; }
-  .target-type { font-family: var(--font-mono); font-size: 0.6rem; color: #ff6b6b; padding: 0.1rem 0.3rem; background: rgba(255,0,0,0.08); border-radius: 0.15rem; }
   .btn-start-scrape { width: 100%; padding: 0.5rem; background: var(--teal); border: none; color: #fff; border-radius: 0.375rem; font-family: var(--font-mono); font-size: var(--text-xs); font-weight: 600; cursor: pointer; }
   .btn-start-scrape:hover:not(:disabled) { opacity: 0.85; }
   .btn-start-scrape:disabled { opacity: 0.5; cursor: not-allowed; }
