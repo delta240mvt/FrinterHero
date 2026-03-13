@@ -133,7 +133,7 @@ ${vocQuotes.map(q => `- "${q}"`).join('\n')}
 
 ` : ''}# SECTION 4: OUTPUT FORMAT SPECIFICATION
 
-Return ONLY valid JSON (no markdown, no code blocks, no explanation):
+Return ONLY valid JSON. The "content" field MUST be a single JSON string containing the full markdown (use \n for newlines). No markdown code blocks around the JSON itself.
 {
   "title": "Compelling, keyword-rich title (max 100 chars)",
   "description": "SEO meta description, 100-160 chars, includes primary keyword + value prop",
@@ -262,24 +262,46 @@ async function callOpenRouter(model: string, prompt: string): Promise<string> {
   }
 }
 
-// Parse JSON from AI response (handle markdown wrapping)
+// Parse JSON from AI response (handle markdown wrapping and unescaped newlines)
 function parseJSONResponse(raw: string): DraftAIResponse {
   // Strip markdown code blocks if present
   let cleaned = raw.trim();
+  
+  // 1. Remove markdown backticks
   cleaned = cleaned.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
 
+  // 2. Extract the JSON object
   const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
   if (!jsonMatch) throw new Error('No JSON object found in response');
+  let jsonStr = jsonMatch[0];
 
-  const parsed = JSON.parse(jsonMatch[0]);
+  // 3. Fix most common LLM JSON error: unescaped newlines in string values
+  // We look for content between colon and comma/brace that starts/ends with quotes
+  jsonStr = jsonStr.replace(/: \s*"([\s\S]*?)"(?=\s*[,\}])/g, (match, content) => {
+    return ': "' + content.replace(/\n/g, '\\n').replace(/\r/g, '\\r') + '"';
+  });
 
-  return {
-    title: parsed.title || '',
-    description: parsed.description || '',
-    content: parsed.content || '',
-    tags: Array.isArray(parsed.tags) ? parsed.tags : [],
-    mentions: Array.isArray(parsed.mentions) ? parsed.mentions : [],
-  };
+  // 4. Fix trailing commas before closing braces/brackets
+  jsonStr = jsonStr.replace(/,\s*([\}\]])/g, '$1');
+
+  // 5. Remove any leading/trailing garbage
+  jsonStr = jsonStr.trim();
+
+  try {
+    const parsed = JSON.parse(jsonStr);
+
+    return {
+      title: parsed.title || '',
+      description: parsed.description || '',
+      content: parsed.content || '',
+      tags: Array.isArray(parsed.tags) ? parsed.tags : [],
+      mentions: Array.isArray(parsed.mentions) ? parsed.mentions : [],
+    };
+  } catch (err: any) {
+    console.error('[DraftGen] Extended JSON parse failure:', err.message);
+    console.error('[DraftGen] Failed string snippet:', jsonStr.slice(0, 500));
+    throw new Error(`JSON_PARSE_ERROR: ${err.message}`);
+  }
 }
 
 // Generate URL slug
