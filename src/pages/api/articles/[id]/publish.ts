@@ -102,6 +102,17 @@ export const POST: APIRoute = async ({ params, request, cookies }) => {
             importanceScore: article.featured ? 85 : 75,
             sourceId: kbSource.id,
           });
+        } else {
+          // Update existing entry (slug or content might have changed)
+          await db.update(knowledgeEntries)
+            .set({
+              content: article.content.replace(/<[^>]+>/g, '').slice(0, 5000),
+              sourceUrl: `/blog/${article.slug}`,
+              tags: article.tags || [],
+              importanceScore: article.featured ? 85 : 75,
+              updatedAt: new Date(),
+            })
+            .where(eq(knowledgeEntries.id, existingKB.id));
         }
       } catch (kbErr) {
         console.error('[Publish] KB flywheel insertion failed (non-fatal):', { articleId: id, error: kbErr });

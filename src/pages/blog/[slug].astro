@@ -56,22 +56,17 @@ try {
         )
       );
 
-    const slugsFromKb = kbEntries
-      .map(e => e.sourceUrl?.match(/\/blog\/([^/?#]+)/)?.[1])
-      .filter((s): s is string => !!s && s !== slug);
-
-    if (slugsFromKb.length > 0) {
-      kbLinkedArticles = await db
-        .select({ slug: articles.slug, title: articles.title })
-        .from(articles)
-        .where(
-          and(
-            inArray(articles.slug, slugsFromKb),
-            eq(articles.status, 'published')
-          )
-        )
-        .limit(4);
-    }
+    // Filter out self-links and map to a consistent structure
+    kbLinkedArticles = kbEntries
+      .map(e => {
+        const match = e.sourceUrl?.match(/\/blog\/([^/?#]+)/);
+        return {
+          slug: match ? match[1] : '',
+          title: e.title
+        };
+      })
+      .filter(a => a.slug && a.slug !== slug)
+      .slice(0, 4);
   }
 } catch {
   // DB error
