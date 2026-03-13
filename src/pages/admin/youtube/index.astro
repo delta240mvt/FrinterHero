@@ -154,7 +154,7 @@ const CATEGORIES = ['focus','energy','burnout','relationships','systems','tech',
               <option value={`/admin/youtube?status=${tabStatus}&category=${cat}`} selected={catFilter === cat}>{cat}</option>
             ))}
           </select>
-          {tabStatus === 'pending' && pendingCount[0].c > 0 && (
+          {tabStatus === 'pending' && (
             <button 
               id="btn-auto-filter" 
               class="btn-auto-filter" 
