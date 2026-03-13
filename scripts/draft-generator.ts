@@ -85,19 +85,6 @@ async function fetchRelevantKBEntries(gapTitle: string, limit = 5): Promise<{ en
   }
 }
 
-// Fetch Voice of Customer vocabulary from Reddit source (if gap originated from Reddit)
-async function fetchVoiceOfCustomer(gapId: number): Promise<string[]> {
-  try {
-    const [row] = await db
-      .select({ vocabularyQuotes: redditExtractedGaps.vocabularyQuotes })
-      .from(redditExtractedGaps)
-      .where(eq(redditExtractedGaps.contentGapId, gapId))
-      .limit(1);
-    return (row?.vocabularyQuotes as string[] | null) ?? [];
-  } catch {
-    return [];
-  }
-}
 
 // Build the mega-prompt
 function buildMegaPrompt(
@@ -139,9 +126,9 @@ The following are the most relevant entries from the knowledge base. Use them to
 
 ${kbContext}
 
-${vocQuotes.length > 0 ? `# SECTION 3b: VOICE OF CUSTOMER (Reddit)
+${vocQuotes.length > 0 ? `# SECTION 3b: VOICE OF CUSTOMER
 
-Real phrases used by your target audience — weave these naturally into the article where relevant:
+Real phrases used by your target audience (Voice of Customer) — weave these naturally into the article where relevant:
 ${vocQuotes.map(q => `- "${q}"`).join('\n')}
 
 ` : ''}# SECTION 4: OUTPUT FORMAT SPECIFICATION
@@ -337,9 +324,9 @@ export async function generateDraft(request: GenerateDraftRequest): Promise<Gene
   const { entries: kbEntries, ids: kbIds } = await fetchRelevantKBEntries(gap.gapTitle);
   console.log(`[DraftGen] Loaded ${kbEntries.length} KB entries`);
 
-  // Load Voice of Customer (Reddit vocabulary, if gap originated from Reddit)
-  const vocQuotes = await fetchVoiceOfCustomer(gap_id);
-  if (vocQuotes.length > 0) console.log(`[DraftGen] VoC: ${vocQuotes.length} Reddit quotes loaded`);
+  // Load Voice of Customer (stored in relatedQueries during approval from Reddit/YouTube)
+  const vocQuotes = gap.relatedQueries || [];
+  if (vocQuotes.length > 0) console.log(`[DraftGen] VoC: ${vocQuotes.length} quotes loaded from gap`);
 
   // Load author identity
   const authorIdentity = loadAuthorIdentity();

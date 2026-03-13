@@ -15,8 +15,11 @@ export const POST: APIRoute = async ({ params, request, cookies }) => {
   if (!gap) return new Response(JSON.stringify({ error: 'Gap not found' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
   if (!['pending', 'rejected'].includes(gap.status)) return new Response(JSON.stringify({ error: 'Gap already processed' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
 
-  let authorNotes: string | undefined;
-  try { const body = await request.json(); authorNotes = body.authorNotes; } catch {}
+  let authorNotes: string | null = null;
+  try {
+    const body = await request.json();
+    authorNotes = body.authorNotes || body.author_notes || null;
+  } catch {}
 
   // Fetch up to 5 source comments for context
   const commentIds = (gap.sourceCommentIds || []).slice(0, 5);
@@ -38,7 +41,6 @@ export const POST: APIRoute = async ({ params, request, cookies }) => {
     gap.vocabularyQuotes.length > 0
       ? `\nVoice of customer: ${gap.vocabularyQuotes.join(', ')}`
       : '',
-    authorNotes ? `\nAuthor notes: ${authorNotes}` : '',
   ].filter(Boolean).join('\n');
 
   const [newGap] = await db.insert(contentGaps).values({
