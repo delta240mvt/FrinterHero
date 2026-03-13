@@ -147,6 +147,16 @@ const CATEGORIES = ['focus','energy','burnout','relationships','systems','tech',
               <option value={`/admin/youtube?status=${tabStatus}&category=${cat}`} selected={catFilter === cat}>{cat}</option>
             ))}
           </select>
+          {tabStatus === 'pending' && pendingCount[0].c > 0 && (
+            <button 
+              id="btn-auto-filter" 
+              class="btn-auto-filter" 
+              onclick="runAutoFilter()"
+              title="Automatically reject content inconsistent with brand (Trauma, Depression, Medical, Legal)"
+            >
+              🛡️ Auto-Filter
+            </button>
+          )}
         </div>
 
         <!-- GAP CARDS -->
@@ -232,6 +242,33 @@ async function ygapReject(id: number) {
     if (card) card.remove();
   } else {
     alert('Reject failed');
+  }
+}
+
+async function runAutoFilter() {
+  const btn = document.getElementById('btn-auto-filter') as HTMLButtonElement;
+  if (!btn) return;
+  if (!confirm('This will automatically REJECT all pending entries containing off-brand keywords (Depression, Trauma, Medical/Legal advice). Continue?')) return;
+
+  const originalContent = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '🛡️ Filtering...';
+
+  try {
+    const res = await fetch('/api/youtube/gaps/auto-filter', { method: 'POST' });
+    if (res.ok) {
+      const data = await res.json();
+      alert(`Auto-filter complete!\nChecked: ${data.processed}\nRejected: ${data.rejectedCount}\nMatches: ${data.matches.map(m => m.keyword).join(', ') || 'None'}`);
+      location.reload();
+    } else {
+      alert('Auto-filter failed');
+    }
+  } catch (err) {
+    console.error(err);
+    alert('An error occurred during filtering');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = originalContent;
   }
 }
 
@@ -347,6 +384,7 @@ function deselectAllTargets() {
 (window as any).ygapToggle = ygapToggle;
 (window as any).ygapApprove = ygapApprove;
 (window as any).ygapReject = ygapReject;
+(window as any).runAutoFilter = runAutoFilter;
 (window as any).startScraping = startScraping;
 (window as any).deleteRun = deleteRun;
 (window as any).selectAllTargets = selectAllTargets;
@@ -421,6 +459,9 @@ async function deleteSidebarTarget(id: number, label: string) {
   .tab-count { padding: 0.1rem 0.35rem; background: rgba(255,255,255,0.08); border-radius: 0.8rem; font-size: 0.6rem; margin-left: 0.25rem; }
   .tab-spacer { flex: 1; }
   .cat-filter { background: var(--bg-elevated); border: 1px solid var(--border); color: var(--text-secondary); font-family: var(--font-mono); font-size: var(--text-xs); padding: 0.25rem 0.5rem; border-radius: 0.25rem; cursor: pointer; }
+  .btn-auto-filter { margin-left: 0.75rem; padding: 0.25rem 0.75rem; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); color: #ef4444; border-radius: 0.25rem; font-family: var(--font-mono); font-size: var(--text-xs); font-weight: 600; cursor: pointer; transition: all 0.2s; }
+  .btn-auto-filter:hover:not(:disabled) { background: #ef4444; color: #fff; border-color: #ef4444; }
+  .btn-auto-filter:disabled { opacity: 0.5; cursor: not-allowed; }
 
   .empty-state { padding: 2rem; text-align: center; }
   .empty-state p { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--text-muted); }

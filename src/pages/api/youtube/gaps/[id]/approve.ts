@@ -13,7 +13,7 @@ export const POST: APIRoute = async ({ params, request, cookies }) => {
 
   const gap = await db.query.ytExtractedGaps.findFirst({ where: eq(ytExtractedGaps.id, id) });
   if (!gap) return new Response(JSON.stringify({ error: 'Gap not found' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
-  if (gap.status !== 'pending') return new Response(JSON.stringify({ error: 'Gap already processed' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+  if (!['pending', 'rejected'].includes(gap.status)) return new Response(JSON.stringify({ error: 'Gap already processed' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
 
   let authorNotes: string | undefined;
   try { const body = await request.json(); authorNotes = body.authorNotes; } catch {}

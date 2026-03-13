@@ -74,8 +74,14 @@ const timeAgo = (() => {
   <!-- Collapsed actions -->
   <div class="ygap-actions-row" id={`ygap-actions-${gap.id}`}>
     <button class="btn-yg-expand" onclick={`ygapToggle(${gap.id})`}>▼ Expand</button>
-    <button class="btn-yg-approve" onclick={`ygapApprove(${gap.id})`}>✓ Approve</button>
-    <button class="btn-yg-reject" onclick={`ygapReject(${gap.id})`}>✕ Reject</button>
+    {gap.status !== 'approved' && (
+      <button class="btn-yg-approve" onclick={`ygapApprove(${gap.id})`}>
+        {gap.status === 'rejected' ? '↺ Approve' : '✓ Approve'}
+      </button>
+    )}
+    {gap.status !== 'rejected' && gap.status !== 'approved' && (
+      <button class="btn-yg-reject" onclick={`ygapReject(${gap.id})`}>✕ Reject</button>
+    )}
   </div>
 
   <!-- Expanded content (hidden by default) -->
@@ -141,8 +147,14 @@ const timeAgo = (() => {
     </div>
 
     <div class="yexp-actions">
-      <button class="btn-yg-approve-full" onclick={`ygapApprove(${gap.id})`}>✓ Approve → Create Gap</button>
-      <button class="btn-yg-reject-full" onclick={`ygapReject(${gap.id})`}>✕ Reject</button>
+      {gap.status !== 'approved' && (
+        <button class="btn-yg-approve-full" onclick={`ygapApprove(${gap.id})`}>
+          {gap.status === 'rejected' ? '↺ Restore & Approve' : '✓ Approve → Create Gap'}
+        </button>
+      )}
+      {gap.status !== 'rejected' && gap.status !== 'approved' && (
+        <button class="btn-yg-reject-full" onclick={`ygapReject(${gap.id})`}>✕ Reject</button>
+      )}
       <button class="btn-yg-close" onclick={`ygapToggle(${gap.id})`}>✕ Close</button>
     </div>
   </div>
