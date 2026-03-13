@@ -52,7 +52,14 @@ const gaps = await Promise.all(rawGaps.map(async (gap) => {
     }).from(ytComments).where(inArray(ytComments.id, commentIds));
   }
   const target = allTargets.find(t => t.videoId === gap.sourceVideoId || (gap.sourceVideoId && t.url.includes(gap.sourceVideoId!)));
-  return { ...gap, sourceComments, targetLabel: target?.label };
+  let targetLabel = target?.label;
+  if (!targetLabel) {
+    const run = recentRuns.find(r => r.id === gap.scrapeRunId);
+    if (run && run.targetsScraped.length === 1) {
+      targetLabel = run.targetsScraped[0];
+    }
+  }
+  return { ...gap, sourceComments, targetLabel };
 }));
 
 const TABS = [

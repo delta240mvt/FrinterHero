@@ -56,16 +56,14 @@ const timeAgo = (() => {
       <span class="category-badge" style={`background:${categoryColor}22;color:${categoryColor}`}>
         {gap.category || 'focus'}
       </span>
-      {gap.targetLabel && (
-        <span class="target-badge">
-          🛡️ {gap.targetLabel}
-        </span>
-      )}
       {gap.sourceVideoTitle && (
         <span class="video-badge">
           {gap.sourceVideoTitle.substring(0, 40)}{gap.sourceVideoTitle.length > 40 ? '...' : ''}
         </span>
       )}
+      <span class="target-badge">
+        🛡️ {gap.targetLabel || `Run #${gap.scrapeRunId}`}
+      </span>
     </div>
     <h3 class="ygap-title">{gap.painPointTitle}</h3>
     <div class="ygap-meta">
