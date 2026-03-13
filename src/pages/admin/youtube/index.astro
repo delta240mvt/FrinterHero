@@ -32,6 +32,12 @@ const rawGaps = await db.select().from(ytExtractedGaps)
   .orderBy(desc(ytExtractedGaps.emotionalIntensity), desc(ytExtractedGaps.createdAt))
   .limit(30);
 
+// Fetch recent runs + all targets
+const [recentRuns, allTargets] = await Promise.all([
+  db.select().from(ytScrapeRuns).orderBy(desc(ytScrapeRuns.runAt)).limit(10),
+  db.select().from(ytTargets).orderBy(desc(ytTargets.priority)),
+]);
+
 // Fetch source comments for each gap
 const gaps = await Promise.all(rawGaps.map(async (gap) => {
   const commentIds = (gap.sourceCommentIds || []).slice(0, 3);
@@ -45,15 +51,9 @@ const gaps = await Promise.all(rawGaps.map(async (gap) => {
       videoTitle: ytComments.videoTitle,
     }).from(ytComments).where(inArray(ytComments.id, commentIds));
   }
-  const target = allTargets.find(t => t.videoId === gap.sourceVideoId || (gap.sourceVideoId && t.url.includes(gap.sourceVideoId)));
+  const target = allTargets.find(t => t.videoId === gap.sourceVideoId || (gap.sourceVideoId && t.url.includes(gap.sourceVideoId!)));
   return { ...gap, sourceComments, targetLabel: target?.label };
 }));
-
-// Fetch recent runs + all targets
-const [recentRuns, allTargets] = await Promise.all([
-  db.select().from(ytScrapeRuns).orderBy(desc(ytScrapeRuns.runAt)).limit(10),
-  db.select().from(ytTargets).orderBy(desc(ytTargets.priority)),
-]);
 
 const TABS = [
   { label: 'Pending', status: 'pending', count: pendingCount[0].c },
