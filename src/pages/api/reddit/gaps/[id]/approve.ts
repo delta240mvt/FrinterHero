@@ -26,10 +26,10 @@ export const POST: APIRoute = async ({ params, request, cookies }) => {
   }
 
   const gapDescription = [
-    gap.painPointDescription,
-    sourcePosts.length > 0 ? `\nReddit sources (${gap.frequency} posts):\n${sourcePosts.map(p => `• "${p.title}" [${p.subreddit}]`).join('\n')}` : '',
-    gap.vocabularyQuotes.length > 0 ? `\nVoice of customer: ${gap.vocabularyQuotes.join(', ')}` : '',
-  ].filter(Boolean).join('\n');
+    `🧩 **Problem Context**\n${gap.painPointDescription}`,
+    sourcePosts.length > 0 ? `\n\n🤖 **Reddit Context**\n- **Sources:** ${gap.frequency} posts analyzed\n${sourcePosts.map(p => `• "${p.title}" [r/${p.subreddit}]`).join('\n')}` : '',
+    gap.vocabularyQuotes.length > 0 ? `\n\n🎙️ **Voice of Customer**\n${gap.vocabularyQuotes.join(', ')}` : '',
+  ].filter(Boolean).join('');
 
   const [newGap] = await db.insert(contentGaps).values({
     gapTitle: gap.painPointTitle,

@@ -135,7 +135,7 @@ RESPONSE FORMAT (JSON only, no markdown):
       "frequency": 3,
       "vocabularyQuotes": ["direct quote 1", "phrase 2"],
       "category": "focus",
-      "suggestedAngle": "Article angle suggestion"
+      "suggestedAngle": "A structured article proposal: 1. Proposed Title (keyword-rich) 2. TL;DR (1-2 sentences) 3. 2-3 H2 headers with a 1-sentence description. Use Markdown formatting."
     }
   ]
 }
