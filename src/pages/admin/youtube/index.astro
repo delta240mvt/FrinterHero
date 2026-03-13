@@ -45,7 +45,8 @@ const gaps = await Promise.all(rawGaps.map(async (gap) => {
       videoTitle: ytComments.videoTitle,
     }).from(ytComments).where(inArray(ytComments.id, commentIds));
   }
-  return { ...gap, sourceComments };
+  const target = allTargets.find(t => t.videoId === gap.sourceVideoId || (gap.sourceVideoId && t.url.includes(gap.sourceVideoId)));
+  return { ...gap, sourceComments, targetLabel: target?.label };
 }));
 
 // Fetch recent runs + all targets
