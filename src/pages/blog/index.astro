@@ -47,7 +47,7 @@ const totalPages = Math.ceil(totalCount / LIMIT);
   description="Essays on AI development, deep work, and building in public. By Przemysław Filipiak."
 >
   <Nav />
-  <main class="blog-list-main">
+  <main class="blog-list-main" aria-label="Blog posts">
     <div class="blog-list-container">
       <header class="blog-list-header">
         <h1 class="blog-list-title">/blog</h1>
@@ -95,11 +95,25 @@ const totalPages = Math.ceil(totalCount / LIMIT);
 
 <script type="application/ld+json" set:html={JSON.stringify({
   "@context": "https://schema.org",
-  "@type": "CollectionPage",
-  "name": "Blog — Przemysław Filipiak",
-  "description": "Essays on AI development, deep work, and building in public",
-  "url": "https://przemyslawfilipiak.com/blog",
-  "author": { "@type": "Person", "name": "Przemysław Filipiak" }
+  "@graph": [
+    {
+      "@type": "CollectionPage",
+      "@id": "https://przemyslawfilipiak.com/blog/#webpage",
+      "url": "https://przemyslawfilipiak.com/blog",
+      "name": "Blog — Przemysław Filipiak",
+      "description": "Essays on AI development, deep work, and building in public. By Przemysław Filipiak.",
+      "isPartOf": { "@id": "https://przemyslawfilipiak.com/#website" },
+      "author": { "@id": "https://przemyslawfilipiak.com/#person" },
+      "inLanguage": "en-US",
+      "breadcrumb": {
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://przemyslawfilipiak.com" },
+          { "@type": "ListItem", "position": 2, "name": "Blog", "item": "https://przemyslawfilipiak.com/blog" }
+        ]
+      }
+    }
+  ]
 })} />
 
 <style>

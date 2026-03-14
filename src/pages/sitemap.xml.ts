@@ -15,16 +15,16 @@ export const GET: APIRoute = async () => {
     // DB unavailable
   }
 
+  const today = new Date().toISOString().split('T')[0];
+
   const staticUrls = [
-    { loc: 'https://przemyslawfilipiak.com', lastmod: new Date().toISOString(), changefreq: 'weekly', priority: '1.0' },
-    { loc: 'https://przemyslawfilipiak.com/blog', lastmod: new Date().toISOString(), changefreq: 'daily', priority: '0.8' },
+    { loc: 'https://przemyslawfilipiak.com', lastmod: today },
+    { loc: 'https://przemyslawfilipiak.com/blog', lastmod: today },
   ];
 
   const articleUrls = publishedArticles.map(a => ({
     loc: `https://przemyslawfilipiak.com/blog/${a.slug}`,
-    lastmod: a.updatedAt?.toISOString() || new Date().toISOString(),
-    changefreq: 'monthly',
-    priority: '0.6',
+    lastmod: a.updatedAt?.toISOString().split('T')[0] || today,
   }));
 
   const allUrls = [...staticUrls, ...articleUrls];
@@ -34,8 +34,6 @@ export const GET: APIRoute = async () => {
 ${allUrls.map(url => `  <url>
     <loc>${url.loc}</loc>
     <lastmod>${url.lastmod}</lastmod>
-    <changefreq>${url.changefreq}</changefreq>
-    <priority>${url.priority}</priority>
   </url>`).join('\n')}
 </urlset>`;
 

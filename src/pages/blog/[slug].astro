@@ -5,6 +5,22 @@ import { db } from '@/db/client';
 import { articles, articleGenerations, knowledgeEntries } from '@/db/schema';
 import { eq, and, ne, sql, inArray } from 'drizzle-orm';
 
+export const prerender = true;
+
+export async function getStaticPaths() {
+  try {
+    const published = await db
+      .select({ slug: articles.slug })
+      .from(articles)
+      .where(eq(articles.status, 'published'));
+
+    return published.map(({ slug }) => ({ params: { slug } }));
+  } catch {
+    // DB unavailable during build — return empty array (no static pages)
+    return [];
+  }
+}
+
 const { slug } = Astro.params;
 
 if (!slug) {
@@ -38,7 +54,7 @@ try {
       .limit(3);
   }
 
-  // KB-based internal links: find published articles that were used as KB hints during generation
+  // KB-based internal links
   const [gen] = await db
     .select({ kbEntriesUsed: articleGenerations.kbEntriesUsed })
     .from(articleGenerations)
@@ -56,7 +72,6 @@ try {
         )
       );
 
-    // Filter out self-links and map to a consistent structure
     kbLinkedArticles = kbEntries
       .map(e => {
         const match = e.sourceUrl?.match(/\/blog\/([^/?#]+)/);

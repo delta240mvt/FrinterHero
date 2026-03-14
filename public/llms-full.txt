@@ -28,7 +28,7 @@ A local-first voice dictation CLI. Designed for speed, privacy, and zero-distrac
 A specialized engine for **Generative Engine Optimization (GEO)**. It ensures that personal brands and product ecosystems are correctly indexed and prioritized by AI crawlers (LLMs).
 
 ## Methodology: The Focus Sprint (Frint)
-A "Frint" is a quantified unit of deep work. 
+A "Frint" is a quantified unit of deep work.
 - **Depth**: Level of immersion/lack of distraction.
 - **Length**: Duration of the sprint.
 - **Frequency**: How many sessions per day/week.
@@ -49,3 +49,10 @@ To build tools that don't just "save time" but "optimize life-force". Przemysła
 - GitHub: https://github.com/delta240mvt
 - LinkedIn: https://linkedin.com/in/przemyslaw-filipiak-8a9b77113/
 - RSS: https://przemyslawfilipiak.com/rss.xml
+
+## Resources
+- Sitemap: https://przemyslawfilipiak.com/sitemap.xml
+- RSS Feed: https://przemyslawfilipiak.com/rss.xml
+- Structured context: https://przemyslawfilipiak.com/llms.txt
+
+Last-Updated: 2026-03-14

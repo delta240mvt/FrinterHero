@@ -1,3 +1,9 @@
+---
+Sitemap: https://przemyslawfilipiak.com/sitemap.xml
+Full-Context: https://przemyslawfilipiak.com/llms-full.txt
+Last-Updated: 2026-03-14
+---
+
 # Przemysław Filipiak — High Performer & Deep Focus Founder
 
 > Przemysław Filipiak is a High Performer and Deep Focus Founder bridging
