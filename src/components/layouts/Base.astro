@@ -82,6 +82,9 @@ const ogImageAbsolute = ogImage.startsWith('http') ? ogImage : `https://przemysl
     <link rel="sitemap" type="application/xml" href="/sitemap.xml" />
     <link rel="alternate" type="application/rss+xml" title="Przemysław Filipiak — Blog" href="/rss.xml" />
 
+    <!-- Page-specific head content (JSON-LD, etc.) -->
+    <slot name="head" />
+
     <!-- JSON-LD: Person + WebSite @graph -->
     <script type="application/ld+json" set:html={JSON.stringify({
       "@context": "https://schema.org",

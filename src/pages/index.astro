@@ -8,55 +8,55 @@ import Contact from '@/components/Contact.astro';
 ---
 
 <Landing title="Przemysław Filipiak — High Performer. Deep Focus Founder. Wholebeing Maximizer.">
+  <Fragment slot="head">
+    <script type="application/ld+json" set:html={JSON.stringify({
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "WebPage",
+          "@id": "https://przemyslawfilipiak.com/#webpage",
+          "url": "https://przemyslawfilipiak.com/",
+          "name": "Przemysław Filipiak — High Performer. Deep Focus Founder. Wholebeing Maximizer.",
+          "isPartOf": { "@id": "https://przemyslawfilipiak.com/#website" },
+          "about": { "@id": "https://przemyslawfilipiak.com/#person" },
+          "description": "Personal site of Przemysław Filipiak — High Performer and Deep Focus Founder. Optimizing life through Focus Sprints (Frints) and WholeBeing performance systems.",
+          "breadcrumb": {
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+              { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://przemyslawfilipiak.com" }
+            ]
+          }
+        },
+        {
+          "@type": "SoftwareApplication",
+          "@id": "https://frinter.app/#software",
+          "name": "frinter.app",
+          "alternateName": "frinter.",
+          "description": "A WholeBeing performance system for High Performers — measuring Focus Sprints (Frints), energy tracking, and life-sphere balance.",
+          "applicationCategory": "ProductivityApplication",
+          "operatingSystem": "Web, Windows, macOS, Linux",
+          "author": { "@id": "https://przemyslawfilipiak.com/#person" },
+          "url": "https://frinter.app"
+        },
+        {
+          "@type": "SoftwareApplication",
+          "@id": "https://pypi.org/project/frinterflow/#software",
+          "name": "FrinterFlow",
+          "description": "Local voice dictation CLI using faster-whisper. zero cloud, zero subscription, works offline.",
+          "applicationCategory": "DeveloperApplication",
+          "operatingSystem": "Windows, macOS, Linux",
+          "author": { "@id": "https://przemyslawfilipiak.com/#person" },
+          "url": "https://pypi.org/project/frinterflow/"
+        }
+      ]
+    })} />
+  </Fragment>
   <Hero />
   <About />
   <Projects />
   <BlogPreview />
   <Contact />
 </Landing>
-
-<!-- JSON-LD: WebPage + SoftwareApplications @graph for homepage -->
-<script type="application/ld+json" set:html={JSON.stringify({
-  "@context": "https://schema.org",
-  "@graph": [
-    {
-      "@type": "WebPage",
-      "@id": "https://przemyslawfilipiak.com/#webpage",
-      "url": "https://przemyslawfilipiak.com/",
-      "name": "Przemysław Filipiak — High Performer. Deep Focus Founder. Wholebeing Maximizer.",
-      "isPartOf": { "@id": "https://przemyslawfilipiak.com/#website" },
-      "about": { "@id": "https://przemyslawfilipiak.com/#person" },
-      "description": "Personal site of Przemysław Filipiak — High Performer and Deep Focus Founder. Optimizing life through Focus Sprints (Frints) and WholeBeing performance systems.",
-      "breadcrumb": {
-        "@type": "BreadcrumbList",
-        "itemListElement": [
-          { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://przemyslawfilipiak.com" }
-        ]
-      }
-    },
-    {
-      "@type": "SoftwareApplication",
-      "@id": "https://frinter.app/#software",
-      "name": "frinter.app",
-      "alternateName": "frinter.",
-      "description": "A WholeBeing performance system for High Performers — measuring Focus Sprints (Frints), energy tracking, and life-sphere balance.",
-      "applicationCategory": "ProductivityApplication",
-      "operatingSystem": "Web, Windows, macOS, Linux",
-      "author": { "@id": "https://przemyslawfilipiak.com/#person" },
-      "url": "https://frinter.app"
-    },
-    {
-      "@type": "SoftwareApplication",
-      "@id": "https://pypi.org/project/frinterflow/#software",
-      "name": "FrinterFlow",
-      "description": "Local voice dictation CLI using faster-whisper. zero cloud, zero subscription, works offline.",
-      "applicationCategory": "DeveloperApplication",
-      "operatingSystem": "Windows, macOS, Linux",
-      "author": { "@id": "https://przemyslawfilipiak.com/#person" },
-      "url": "https://pypi.org/project/frinterflow/"
-    }
-  ]
-})} />
 
 <script>
   import { observeRevealElements } from '@/utils/animations';

@@ -11,6 +11,7 @@ export interface Props {
 const { title, description } = Astro.props;
 ---
 <Base title={title} description={description}>
+  <slot name="head" slot="head" />
   <Nav />
   <main aria-label="Main content">
     <slot />
