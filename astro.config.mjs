@@ -13,7 +13,7 @@ import tailwind from '@astrojs/tailwind';
 //   See: https://docs.astro.build/en/guides/integrations-guide/cloudflare/
 
 export default defineConfig({
-  output: 'hybrid',
+  output: 'server',
   server: {
     host: true, // Listens on 0.0.0.0 which is required for Docker/Railway
     port: process.env.PORT ? parseInt(process.env.PORT) : 4321,
