@@ -1,0 +1,291 @@
+---
+import Base from '@/components/layouts/Base.astro';
+import { db } from '@/db/client';
+import { bcProjects, bcTargetChannels } from '@/db/schema';
+import { eq, asc } from 'drizzle-orm';
+
+const { id } = Astro.params;
+const projectId = parseInt(id || '0', 10);
+
+let project: any = null;
+let channels: any[] = [];
+
+try {
+  const [p] = await db.select().from(bcProjects).where(eq(bcProjects.id, projectId));
+  project = p;
+  if (p) {
+    channels = await db.select().from(bcTargetChannels)
+      .where(eq(bcTargetChannels.projectId, projectId))
+      .orderBy(asc(bcTargetChannels.sortOrder));
+  }
+} catch (e) {
+  console.error('[BC-Channels]', e);
+}
+
+if (!project) {
+  return Astro.redirect('/admin/brand-clarity');
+}
+
+const confirmedCount = channels.filter(c => c.isConfirmed).length;
+---
+
+<Base title={`Channels — ${project.name}`} description="Brand Clarity channel management">
+<div class="admin-layout">
+  <header class="admin-header">
+    <a href="/admin" class="admin-logo">P·F</a>
+    <nav class="breadcrumb">
+      <a href="/admin/brand-clarity" class="bc-link">Brand Clarity</a>
+      <span class="bc-sep">›</span>
+      <span class="bc-current">{project.name}</span>
+      <span class="bc-sep">›</span>
+      <span class="bc-current">Channels</span>
+    </nav>
+    <div class="header-actions">
+      <span class="project-status">{project.status}</span>
+      <a href="/api/logout" class="btn-logout">Logout</a>
+    </div>
+  </header>
+
+  <main class="admin-main">
+    <!-- Stage indicator -->
+    <div class="stage-bar">
+      <span class="stage done">1. LP Parsed</span>
+      <span class="stage-arrow">→</span>
+      <span class="stage active">2. Channels</span>
+      <span class="stage-arrow">→</span>
+      <span class="stage">3. Videos</span>
+      <span class="stage-arrow">→</span>
+      <span class="stage">4. Scrape</span>
+      <span class="stage-arrow">→</span>
+      <span class="stage">5. Review</span>
+      <span class="stage-arrow">→</span>
+      <span class="stage">6. Generate LPs</span>
+    </div>
+
+    <section class="admin-section">
+      <div class="section-header-row">
+        <div class="section-title-block">
+          <h2 class="section-title">YouTube Channels</h2>
+          <p class="section-subtitle">{confirmedCount}/{channels.length} confirmed · Discover niche channels, then confirm them to proceed</p>
+        </div>
+        <div class="header-btns">
+          <button id="discover-btn" class="btn-discover">Discover Channels</button>
+          {confirmedCount > 0 && (
+            <button id="confirm-all-btn" class="btn-confirm-all">Confirm All ({channels.length})</button>
+          )}
+          {confirmedCount > 0 && (
+            <a href={`/admin/brand-clarity/${projectId}/videos`} class="btn-primary">Next: Videos →</a>
+          )}
+        </div>
+      </div>
+
+      <div id="discover-status" class="discover-status" style="display:none"></div>
+
+      {project.nicheKeywords && Array.isArray(project.nicheKeywords) && (
+        <div class="keywords-row">
+          <span class="kw-label">Niche Keywords:</span>
+          {(project.nicheKeywords as string[]).map((kw: string) => (
+            <span class="kw-chip">{kw}</span>
+          ))}
+        </div>
+      )}
+
+      <div id="channels-list">
+        {channels.length === 0 ? (
+          <div class="empty-state">
+            <p>No channels yet. Click "Discover Channels" to auto-discover from niche keywords.</p>
+          </div>
+        ) : (
+          <div class="channels-grid">
+            {channels.map(ch => (
+              <div class={`channel-card ${ch.isConfirmed ? 'confirmed' : ''}`} id={`ch-${ch.id}`}>
+                <div class="ch-header">
+                  <span class={`ch-status ${ch.isConfirmed ? 'ch-confirmed' : 'ch-pending'}`}>
+                    {ch.isConfirmed ? '✓ Confirmed' : 'Pending'}
+                  </span>
+                  <span class="ch-method">{ch.discoveryMethod}</span>
+                </div>
+                <h4 class="ch-name">{ch.channelName}</h4>
+                {ch.subscriberCount && (
+                  <span class="ch-subs">{(ch.subscriberCount / 1000).toFixed(0)}k subs</span>
+                )}
+                {ch.description && (
+                  <p class="ch-desc">{ch.description.substring(0, 120)}{ch.description.length > 120 ? '…' : ''}</p>
+                )}
+                <div class="ch-actions">
+                  <a href={ch.channelUrl} target="_blank" rel="noopener" class="btn-ch-link">View Channel ↗</a>
+                  {!ch.isConfirmed ? (
+                    <button class="btn-ch-confirm" onclick={`confirmChannel(${ch.id})`}>✓ Confirm</button>
+                  ) : (
+                    <button class="btn-ch-unconfirm" onclick={`unconfirmChannel(${ch.id})`}>✕ Remove</button>
+                  )}
+                  <button class="btn-ch-delete" onclick={`deleteChannel(${ch.id})`}>🗑</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
+
+    <!-- Add manual channel -->
+    <section class="admin-section">
+      <details class="add-channel-details">
+        <summary class="add-channel-summary">+ Add Channel Manually</summary>
+        <form id="add-channel-form" class="add-ch-form">
+          <div class="form-row">
+            <input type="text" id="ch-id-input" placeholder="Channel ID (UCxxxxxxx)" class="form-input" required />
+            <input type="text" id="ch-name-input" placeholder="Channel Name" class="form-input" required />
+            <input type="text" id="ch-url-input" placeholder="Channel URL" class="form-input" required />
+          </div>
+          <button type="submit" class="btn-add-ch">Add Channel</button>
+        </form>
+      </details>
+    </section>
+  </main>
+</div>
+
+<script define:vars={{ projectId, currentChannels: channels }}>
+  const PROJECT_ID = projectId;
+
+  async function confirmChannel(channelId) {
+    const res = await fetch(`/api/brand-clarity/${PROJECT_ID}/channels/${channelId}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ isConfirmed: true }),
+    });
+    if (res.ok) window.location.reload();
+    else alert('Failed to confirm channel');
+  }
+
+  async function unconfirmChannel(channelId) {
+    const res = await fetch(`/api/brand-clarity/${PROJECT_ID}/channels/${channelId}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ isConfirmed: false }),
+    });
+    if (res.ok) window.location.reload();
+    else alert('Failed to update channel');
+  }
+
+  async function deleteChannel(channelId) {
+    if (!confirm('Delete this channel?')) return;
+    const res = await fetch(`/api/brand-clarity/${PROJECT_ID}/channels/${channelId}`, { method: 'DELETE' });
+    if (res.ok) window.location.reload();
+    else alert('Failed to delete');
+  }
+
+  window.confirmChannel = confirmChannel;
+  window.unconfirmChannel = unconfirmChannel;
+  window.deleteChannel = deleteChannel;
+
+  // Discover channels
+  const discoverBtn = document.getElementById('discover-btn');
+  const discoverStatus = document.getElementById('discover-status');
+
+  discoverBtn?.addEventListener('click', async () => {
+    if (!confirm('Discover YouTube channels for this project? (Uses ~301 YouTube API quota units)')) return;
+    discoverBtn.disabled = true;
+    discoverBtn.textContent = 'Discovering…';
+    discoverStatus.style.display = 'block';
+    discoverStatus.className = 'discover-status discover-status--running';
+    discoverStatus.textContent = 'Discovering channels from niche keywords…';
+
+    try {
+      const res = await fetch(`/api/brand-clarity/${PROJECT_ID}/discover-channels`, { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed');
+      discoverStatus.className = 'discover-status discover-status--success';
+      discoverStatus.textContent = `Found ${data.channelsFound} channels. Reloading…`;
+      setTimeout(() => window.location.reload(), 1500);
+    } catch (e) {
+      discoverStatus.className = 'discover-status discover-status--error';
+      discoverStatus.textContent = `Error: ${e.message}`;
+      discoverBtn.disabled = false;
+      discoverBtn.textContent = 'Discover Channels';
+    }
+  });
+
+  // Confirm all
+  document.getElementById('confirm-all-btn')?.addEventListener('click', async () => {
+    if (!confirm('Confirm all channels and proceed to video discovery?')) return;
+    const res = await fetch(`/api/brand-clarity/${PROJECT_ID}/channels/confirm-all`, { method: 'POST' });
+    if (res.ok) window.location.href = `/admin/brand-clarity/${PROJECT_ID}/videos`;
+    else alert('Failed to confirm all');
+  });
+
+  // Add manual channel
+  document.getElementById('add-channel-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const channelId = (document.getElementById('ch-id-input')).value.trim();
+    const channelName = (document.getElementById('ch-name-input')).value.trim();
+    const channelUrl = (document.getElementById('ch-url-input')).value.trim();
+    const res = await fetch(`/api/brand-clarity/${PROJECT_ID}/channels`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ channelId, channelName, channelUrl }),
+    });
+    if (res.ok) window.location.reload();
+    else alert('Failed to add channel');
+  });
+</script>
+
+<style>
+.admin-layout { min-height: 100vh; background: var(--bg-base); }
+.admin-header { display: flex; align-items: center; gap: 1.25rem; padding: 0.875rem 1.5rem; background: var(--bg-elevated); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 20; }
+.admin-logo { font-family: var(--font-mono); font-weight: 700; color: var(--teal); text-decoration: none; font-size: 1.1rem; }
+.breadcrumb { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-secondary); display: flex; gap: 0.4rem; align-items: center; }
+.bc-link { color: var(--text-muted); text-decoration: none; }
+.bc-link:hover { color: var(--teal); }
+.bc-sep { color: var(--text-muted); }
+.bc-current { color: var(--text-secondary); }
+.header-actions { margin-left: auto; display: flex; gap: 0.5rem; align-items: center; }
+.project-status { font-family: var(--font-mono); font-size: 0.65rem; color: var(--gold); padding: 0.2rem 0.5rem; background: rgba(214,183,121,0.1); border-radius: 0.2rem; }
+.btn-logout { padding: 0.35rem 0.75rem; color: var(--text-muted); border: 1px solid var(--border); border-radius: 0.25rem; font-family: var(--font-mono); font-size: var(--text-xs); text-decoration: none; }
+.btn-primary { padding: 0.4rem 1rem; background: var(--teal); color: #fff; border: none; border-radius: 0.3rem; font-family: var(--font-mono); font-size: var(--text-xs); text-decoration: none; }
+.admin-main { max-width: 1100px; margin: 0 auto; padding: 1.75rem 1.5rem 3rem; display: flex; flex-direction: column; gap: 2rem; }
+.stage-bar { display: flex; align-items: center; gap: 0.5rem; font-family: var(--font-mono); font-size: 0.65rem; padding: 0.625rem 1rem; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 0.375rem; overflow-x: auto; }
+.stage { color: var(--text-muted); white-space: nowrap; }
+.stage.done { color: var(--teal); }
+.stage.active { color: var(--gold); font-weight: 700; }
+.stage-arrow { color: var(--border); }
+.admin-section { display: flex; flex-direction: column; gap: 1rem; }
+.section-header-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; padding-bottom: 0.875rem; border-bottom: 1px solid var(--border); }
+.section-title-block { display: flex; flex-direction: column; gap: 0.2rem; }
+.section-title { font-family: var(--font-mono); font-size: 1rem; color: var(--text-primary); font-weight: 700; margin: 0; }
+.section-subtitle { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); margin: 0; }
+.header-btns { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.btn-discover { padding: 0.4rem 1rem; background: none; border: 1px solid var(--gold); color: var(--gold); border-radius: 0.3rem; font-family: var(--font-mono); font-size: var(--text-xs); cursor: pointer; }
+.btn-discover:hover { background: rgba(214,183,121,0.08); }
+.btn-discover:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-confirm-all { padding: 0.4rem 1rem; background: rgba(74,141,131,0.12); border: 1px solid rgba(74,141,131,0.3); color: var(--teal); border-radius: 0.3rem; font-family: var(--font-mono); font-size: var(--text-xs); cursor: pointer; }
+.discover-status { padding: 0.625rem 0.875rem; border-radius: 0.375rem; font-family: var(--font-mono); font-size: var(--text-xs); }
+.discover-status--running { background: rgba(214,183,121,0.08); border: 1px solid rgba(214,183,121,0.2); color: var(--gold); }
+.discover-status--success { background: rgba(74,141,131,0.08); border: 1px solid rgba(74,141,131,0.2); color: var(--teal); }
+.discover-status--error   { background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.2); color: #ef4444; }
+.keywords-row { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.kw-label { font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-muted); }
+.kw-chip { padding: 0.15rem 0.4rem; background: rgba(74,141,131,0.1); color: var(--teal); border-radius: 0.2rem; font-family: var(--font-mono); font-size: 0.65rem; }
+.empty-state { padding: 2.5rem; text-align: center; font-family: var(--font-mono); color: var(--text-muted); }
+.channels-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 0.875rem; }
+.channel-card { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 0.5rem; padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem; }
+.channel-card.confirmed { border-color: rgba(74,141,131,0.3); }
+.ch-header { display: flex; justify-content: space-between; align-items: center; }
+.ch-status { font-family: var(--font-mono); font-size: 0.65rem; }
+.ch-confirmed { color: var(--teal); }
+.ch-pending   { color: var(--text-muted); }
+.ch-method { font-family: var(--font-mono); font-size: 0.6rem; color: var(--text-muted); }
+.ch-name { font-family: var(--font-mono); font-size: var(--text-sm); font-weight: 600; color: var(--text-primary); margin: 0; }
+.ch-subs { font-family: var(--font-mono); font-size: 0.65rem; color: var(--gold); }
+.ch-desc { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); line-height: 1.5; margin: 0; }
+.ch-actions { display: flex; gap: 0.375rem; padding-top: 0.375rem; border-top: 1px solid var(--border); flex-wrap: wrap; }
+.btn-ch-link    { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); text-decoration: none; padding: 0.25rem 0.5rem; border: 1px solid var(--border); border-radius: 0.2rem; }
+.btn-ch-confirm { padding: 0.25rem 0.5rem; background: rgba(74,141,131,0.12); border: 1px solid rgba(74,141,131,0.3); color: var(--teal); border-radius: 0.2rem; font-family: var(--font-mono); font-size: var(--text-xs); cursor: pointer; }
+.btn-ch-unconfirm { padding: 0.25rem 0.5rem; background: none; border: 1px solid rgba(239,68,68,0.2); color: rgba(239,68,68,0.7); border-radius: 0.2rem; font-family: var(--font-mono); font-size: var(--text-xs); cursor: pointer; }
+.btn-ch-delete  { padding: 0.25rem 0.4rem; background: none; border: 1px solid var(--border); color: var(--text-muted); border-radius: 0.2rem; font-family: var(--font-mono); font-size: var(--text-xs); cursor: pointer; margin-left: auto; }
+.add-channel-details { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 0.5rem; overflow: hidden; }
+.add-channel-summary { padding: 0.875rem 1.25rem; font-family: var(--font-mono); font-size: var(--text-sm); color: var(--text-secondary); cursor: pointer; }
+.add-ch-form { padding: 1rem 1.25rem; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 0.75rem; }
+.form-row { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.form-input { flex: 1; min-width: 160px; background: var(--bg-base); border: 1px solid var(--border); border-radius: 0.3rem; color: var(--text-primary); font-family: var(--font-mono); font-size: var(--text-xs); padding: 0.45rem 0.75rem; outline: none; }
+.form-input:focus { border-color: var(--teal); }
+.btn-add-ch { padding: 0.4rem 1rem; background: var(--teal); border: none; color: #fff; border-radius: 0.3rem; font-family: var(--font-mono); font-size: var(--text-xs); cursor: pointer; width: fit-content; }
+</style>
+</Base>

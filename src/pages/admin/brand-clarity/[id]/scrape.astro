@@ -1,0 +1,318 @@
+---
+import Base from '@/components/layouts/Base.astro';
+import BcPainPointCard from '@/components/admin/BcPainPointCard.astro';
+import { db } from '@/db/client';
+import { bcProjects, bcExtractedPainPoints } from '@/db/schema';
+import { eq, desc } from 'drizzle-orm';
+
+const { id } = Astro.params;
+const projectId = parseInt(id || '0', 10);
+
+let project: any = null;
+let painPoints: any[] = [];
+
+try {
+  const [p] = await db.select().from(bcProjects).where(eq(bcProjects.id, projectId));
+  project = p;
+  if (p) {
+    painPoints = await db.select().from(bcExtractedPainPoints)
+      .where(eq(bcExtractedPainPoints.projectId, projectId))
+      .orderBy(desc(bcExtractedPainPoints.emotionalIntensity));
+  }
+} catch (e) {
+  console.error('[BC-Scrape]', e);
+}
+
+if (!project) return Astro.redirect('/admin/brand-clarity');
+
+const pending = painPoints.filter(p => p.status === 'pending').length;
+const approved = painPoints.filter(p => p.status === 'approved').length;
+const rejected = painPoints.filter(p => p.status === 'rejected').length;
+---
+
+<Base title={`Scrape & Review — ${project.name}`} description="Brand Clarity scrape console and pain point review">
+<div class="admin-layout">
+  <header class="admin-header">
+    <a href="/admin" class="admin-logo">P·F</a>
+    <nav class="breadcrumb">
+      <a href="/admin/brand-clarity" class="bc-link">Brand Clarity</a>
+      <span class="bc-sep">›</span>
+      <a href={`/admin/brand-clarity/${projectId}/channels`} class="bc-link">{project.name}</a>
+      <span class="bc-sep">›</span>
+      <span class="bc-current">Scrape & Review</span>
+    </nav>
+    <div class="header-actions">
+      <span class="project-status">{project.status}</span>
+      <a href="/api/logout" class="btn-logout">Logout</a>
+    </div>
+  </header>
+
+  <main class="admin-main">
+    <div class="stage-bar">
+      <span class="stage done">1. LP</span><span class="stage-arrow">→</span>
+      <span class="stage done">2. Channels</span><span class="stage-arrow">→</span>
+      <span class="stage done">3. Videos</span><span class="stage-arrow">→</span>
+      <span class="stage active">4. Scrape</span><span class="stage-arrow">→</span>
+      <span class="stage active">5. Review</span><span class="stage-arrow">→</span>
+      <span class="stage">6. Generate LPs</span>
+    </div>
+
+    <!-- Scrape control -->
+    <section class="admin-section">
+      <div class="section-header-row">
+        <div class="section-title-block">
+          <h2 class="section-title">Comment Scrape</h2>
+          <p class="section-subtitle">Scrape YouTube comments · Extract pain points via Haiku · Apply brand filter</p>
+        </div>
+        <button id="scrape-btn" class="btn-scrape">Start Scrape</button>
+      </div>
+
+      <div id="scrape-panel" class="scrape-panel" style="display:none">
+        <div class="scrape-panel-top">
+          <span id="scrape-status" class="scrape-status">Initializing…</span>
+          <button id="scrape-close" class="scrape-close-btn" style="display:none">✕ Close</button>
+        </div>
+        <div class="scrape-metrics">
+          <span class="metric">Comments: <strong id="comments-count">0</strong></span>
+          <span class="metric">Pain Points: <strong id="pp-count">0</strong></span>
+        </div>
+        <div id="scrape-log" class="scrape-log"></div>
+      </div>
+    </section>
+
+    <!-- Pain points review -->
+    <section class="admin-section">
+      <div class="section-header-row">
+        <div class="section-title-block">
+          <h2 class="section-title">Pain Points</h2>
+          <p class="section-subtitle">
+            {pending} pending · {approved} approved · {rejected} rejected
+            {approved >= 2 ? ' — Ready to generate LPs!' : ' — Approve at least 2 to generate LPs'}
+          </p>
+        </div>
+        <div class="header-btns">
+          <button id="auto-filter-btn" class="btn-filter">Auto-Filter (Brand Filter)</button>
+          {approved >= 2 && (
+            <a href={`/admin/brand-clarity/${projectId}/variants`} class="btn-primary">Generate LPs →</a>
+          )}
+        </div>
+      </div>
+
+      {painPoints.length === 0 ? (
+        <div class="empty-state">No pain points yet. Run the scrape above to extract them from YouTube comments.</div>
+      ) : (
+        <div id="pp-list">
+          {painPoints.map(pp => (
+            <BcPainPointCard pp={pp} projectId={projectId} />
+          ))}
+        </div>
+      )}
+    </section>
+  </main>
+</div>
+
+<script define:vars={{ projectId }}>
+  const PROJECT_ID = projectId;
+
+  // ── Scrape SSE ─────────────────────────────────────────────
+  const scrapeBtn   = document.getElementById('scrape-btn');
+  const scrapePanel = document.getElementById('scrape-panel');
+  const scrapeLog   = document.getElementById('scrape-log');
+  const scrapeStatus = document.getElementById('scrape-status');
+  const scrapeClose  = document.getElementById('scrape-close');
+  const commentsCount = document.getElementById('comments-count');
+  const ppCount = document.getElementById('pp-count');
+
+  scrapeClose?.addEventListener('click', () => { scrapePanel.style.display = 'none'; });
+
+  function appendLog(line) {
+    const el = document.createElement('div');
+    el.className = 'scrape-log-line';
+    if (line.includes('[WARN]') || line.includes('[ERROR]')) el.className += ' error';
+    else if (line.includes('pain point') || line.includes('FILTER')) el.className += ' highlight';
+    el.textContent = line;
+    scrapeLog.appendChild(el);
+    scrapeLog.scrollTop = scrapeLog.scrollHeight;
+  }
+
+  async function connectScrapeStream(fromIndex = 0) {
+    try {
+      const res = await fetch(`/api/brand-clarity/${PROJECT_ID}/scrape/stream?from=${fromIndex}`);
+      if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = '';
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const parts = buf.split('\n\n');
+        buf = parts.pop() ?? '';
+        for (const part of parts) {
+          const dataLine = part.split('\n').find(l => l.startsWith('data: '));
+          if (!dataLine) continue;
+          let payload;
+          try { payload = JSON.parse(dataLine.slice(6)); } catch { continue; }
+          if (payload.line) {
+            appendLog(payload.line);
+            const cm = payload.line.match(/commentsCollected:(\d+)/);
+            if (cm) commentsCount.textContent = cm[1];
+            const pm = payload.line.match(/painPointsExtracted:(\d+)/);
+            if (pm) ppCount.textContent = pm[1];
+          }
+          if (payload.done) {
+            const ok = payload.code === 0;
+            scrapeStatus.className = `scrape-status ${ok ? 'done' : 'error'}`;
+            scrapeStatus.textContent = ok ? 'Scrape complete!' : `Error (code ${payload.code})`;
+            scrapeClose.style.display = 'inline-block';
+            scrapeBtn.disabled = false;
+            scrapeBtn.textContent = 'Start Scrape';
+            if (ok) setTimeout(() => window.location.reload(), 2000);
+            return;
+          }
+        }
+      }
+    } catch (e) {
+      scrapeStatus.textContent = `Stream error: ${e.message}`;
+      scrapeStatus.className = 'scrape-status error';
+      scrapeClose.style.display = 'inline-block';
+      scrapeBtn.disabled = false;
+      scrapeBtn.textContent = 'Start Scrape';
+    }
+  }
+
+  // Restore panel on page load if running
+  (async () => {
+    try {
+      const res = await fetch(`/api/brand-clarity/${PROJECT_ID}/scrape/status`);
+      const data = await res.json();
+      if (data.status === 'idle') return;
+      scrapePanel.style.display = 'block';
+      commentsCount.textContent = data.commentsCollected;
+      ppCount.textContent = data.painPointsExtracted;
+      if (data.status === 'running') {
+        scrapeStatus.className = 'scrape-status running';
+        scrapeStatus.textContent = 'Scraping…';
+        scrapeBtn.disabled = true;
+        scrapeBtn.textContent = 'Scraping…';
+        connectScrapeStream(data.linesCount ?? 0);
+      } else {
+        scrapeStatus.className = `scrape-status ${data.status === 'done' ? 'done' : 'error'}`;
+        scrapeStatus.textContent = data.status === 'done' ? 'Scrape complete' : 'Error';
+        scrapeClose.style.display = 'inline-block';
+      }
+    } catch { /* non-critical */ }
+  })();
+
+  scrapeBtn?.addEventListener('click', async () => {
+    if (!confirm('Start comment scraping? This will process all target videos and extract pain points.')) return;
+    const startRes = await fetch(`/api/brand-clarity/${PROJECT_ID}/scrape/start`, { method: 'POST' });
+    if (startRes.status === 409) {
+      scrapePanel.style.display = 'block';
+      scrapeLog.innerHTML = '';
+      connectScrapeStream(0);
+      return;
+    }
+    if (!startRes.ok) {
+      const err = await startRes.json();
+      alert(`Failed: ${err.error}`);
+      return;
+    }
+    scrapePanel.style.display = 'block';
+    scrapeLog.innerHTML = '';
+    scrapeStatus.className = 'scrape-status running';
+    scrapeStatus.textContent = 'Starting…';
+    scrapeClose.style.display = 'none';
+    scrapeBtn.disabled = true;
+    scrapeBtn.textContent = 'Scraping…';
+    connectScrapeStream(0);
+  });
+
+  // ── Pain point actions ─────────────────────────────────────
+  async function bcppSetStatus(ppId, projId, status) {
+    const res = await fetch(`/api/brand-clarity/${projId}/pain-points/${ppId}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status }),
+    });
+    if (res.ok) {
+      const card = document.getElementById(`bcpp-${ppId}`);
+      if (card) {
+        card.dataset.status = status;
+        card.querySelector('.bcpp-status').textContent = status;
+        if (status === 'approved') card.style.borderColor = 'rgba(74,141,131,0.3)';
+        else if (status === 'rejected') card.style.opacity = '0.55';
+        else { card.style.borderColor = ''; card.style.opacity = ''; }
+      }
+    } else alert('Failed to update status');
+  }
+
+  function bcppToggle(ppId) {
+    const expanded = document.getElementById(`bcpp-expanded-${ppId}`);
+    if (expanded) {
+      expanded.style.display = expanded.style.display === 'none' ? 'block' : 'none';
+    }
+  }
+
+  window.bcppSetStatus = bcppSetStatus;
+  window.bcppToggle = bcppToggle;
+
+  // Auto-filter
+  document.getElementById('auto-filter-btn')?.addEventListener('click', async () => {
+    if (!confirm('Apply brand filter to all pending pain points? Off-brand entries will be auto-rejected.')) return;
+    const res = await fetch(`/api/brand-clarity/${PROJECT_ID}/pain-points/auto-filter`, { method: 'POST' });
+    if (res.ok) {
+      const data = await res.json();
+      alert(`Processed ${data.processed}: ${data.approved} approved, ${data.rejected} rejected`);
+      window.location.reload();
+    } else alert('Failed to auto-filter');
+  });
+</script>
+
+<style>
+.admin-layout { min-height: 100vh; background: var(--bg-base); }
+.admin-header { display: flex; align-items: center; gap: 1.25rem; padding: 0.875rem 1.5rem; background: var(--bg-elevated); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 20; }
+.admin-logo { font-family: var(--font-mono); font-weight: 700; color: var(--teal); text-decoration: none; font-size: 1.1rem; }
+.breadcrumb { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-secondary); display: flex; gap: 0.4rem; align-items: center; }
+.bc-link { color: var(--text-muted); text-decoration: none; }
+.bc-link:hover { color: var(--teal); }
+.bc-sep { color: var(--text-muted); }
+.bc-current { color: var(--text-secondary); }
+.header-actions { margin-left: auto; display: flex; gap: 0.5rem; align-items: center; }
+.project-status { font-family: var(--font-mono); font-size: 0.65rem; color: var(--gold); padding: 0.2rem 0.5rem; background: rgba(214,183,121,0.1); border-radius: 0.2rem; }
+.btn-logout { padding: 0.35rem 0.75rem; color: var(--text-muted); border: 1px solid var(--border); border-radius: 0.25rem; font-family: var(--font-mono); font-size: var(--text-xs); text-decoration: none; }
+.btn-primary { padding: 0.4rem 1rem; background: var(--teal); color: #fff; border: none; border-radius: 0.3rem; font-family: var(--font-mono); font-size: var(--text-xs); text-decoration: none; }
+.admin-main { max-width: 900px; margin: 0 auto; padding: 1.75rem 1.5rem 3rem; display: flex; flex-direction: column; gap: 2rem; }
+.stage-bar { display: flex; align-items: center; gap: 0.5rem; font-family: var(--font-mono); font-size: 0.65rem; padding: 0.625rem 1rem; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 0.375rem; overflow-x: auto; }
+.stage { color: var(--text-muted); white-space: nowrap; }
+.stage.done { color: var(--teal); }
+.stage.active { color: var(--gold); font-weight: 700; }
+.stage-arrow { color: var(--border); }
+.admin-section { display: flex; flex-direction: column; gap: 1rem; }
+.section-header-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; padding-bottom: 0.875rem; border-bottom: 1px solid var(--border); }
+.section-title-block { display: flex; flex-direction: column; gap: 0.2rem; }
+.section-title { font-family: var(--font-mono); font-size: 1rem; color: var(--text-primary); font-weight: 700; margin: 0; }
+.section-subtitle { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); margin: 0; }
+.header-btns { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.btn-scrape { padding: 0.5rem 1.25rem; background: transparent; color: var(--gold); border: 1px solid var(--gold); border-radius: 0.375rem; font-family: var(--font-mono); font-size: var(--text-sm); cursor: pointer; }
+.btn-scrape:hover { background: rgba(214,183,121,0.08); }
+.btn-scrape:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-filter { padding: 0.4rem 0.875rem; background: none; border: 1px solid var(--border); color: var(--text-secondary); border-radius: 0.3rem; font-family: var(--font-mono); font-size: var(--text-xs); cursor: pointer; }
+.btn-filter:hover { border-color: var(--violet); color: var(--violet); }
+.scrape-panel { background: var(--bg-elevated); border: 1px solid rgba(214,183,121,0.3); border-radius: 0.5rem; overflow: hidden; }
+.scrape-panel-top { display: flex; align-items: center; justify-content: space-between; padding: 0.625rem 1rem; background: rgba(214,183,121,0.05); border-bottom: 1px solid rgba(214,183,121,0.15); }
+.scrape-status { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); }
+.scrape-status.running { color: var(--gold); }
+.scrape-status.done    { color: var(--teal); }
+.scrape-status.error   { color: #ef4444; }
+.scrape-close-btn { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); background: none; border: 1px solid var(--border); border-radius: 0.2rem; padding: 0.2rem 0.5rem; cursor: pointer; }
+.scrape-metrics { display: flex; gap: 1.5rem; padding: 0.5rem 1rem; border-bottom: 1px solid var(--border); font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); }
+.metric strong { color: var(--gold); }
+.scrape-log { height: 220px; overflow-y: auto; padding: 0.375rem 0; font-family: var(--font-mono); font-size: 0.71rem; line-height: 1.55; }
+.scrape-log-line { padding: 0.1rem 1rem; color: var(--text-muted); border-left: 2px solid transparent; }
+.scrape-log-line.error { color: #ef4444; border-left-color: #ef4444; }
+.scrape-log-line.highlight { color: var(--teal); border-left-color: var(--teal); }
+.scrape-log::-webkit-scrollbar { width: 4px; }
+.scrape-log::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; }
+.empty-state { padding: 2.5rem; text-align: center; font-family: var(--font-mono); color: var(--text-muted); }
+</style>
+</Base>

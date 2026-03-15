@@ -1,4 +1,4 @@
-import { pgTable, serial, text, timestamp, boolean, integer, varchar, index, uniqueIndex } from 'drizzle-orm/pg-core';
+import { pgTable, serial, text, timestamp, boolean, integer, varchar, real, jsonb, index, uniqueIndex } from 'drizzle-orm/pg-core';
 
 // ========================================
 // EXISTING TABLES (preserved + enhanced)
@@ -296,4 +296,119 @@ export const ytExtractedGaps = pgTable('yt_extracted_gaps', {
   statusIdx: index('idx_yt_gaps_status').on(table.status),
   intensityIdx: index('idx_yt_gaps_intensity').on(table.emotionalIntensity),
   runIdx: index('idx_yt_gaps_run').on(table.scrapeRunId),
+}));
+
+// ========================================
+// Brand Clarity: LP Analysis & Generation Module
+// ========================================
+
+// One record per brand analysis project
+export const bcProjects = pgTable('bc_projects', {
+  id: serial('id').primaryKey(),
+  name: varchar('name', { length: 255 }).notNull(),
+  founderDescription: text('founder_description').notNull(),
+  founderVision: text('founder_vision'),
+  projectDocumentation: text('project_documentation'),   // Stage 1.1 — nullable, optional
+  lpRawInput: text('lp_raw_input').notNull(),
+  lpStructureJson: jsonb('lp_structure_json'),           // Extracted LP structure incl. sectionWeaknesses
+  lpTemplateHtml: text('lp_template_html'),
+  nicheKeywords: jsonb('niche_keywords').$type<string[]>().default([]),
+  status: varchar('status', { length: 50 }).notNull().default('draft'),
+  // draft → docs_pending → channels_pending → videos_pending → scraping → pain_points_pending → generating → done
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+// YouTube channels discovered/confirmed for a project
+export const bcTargetChannels = pgTable('bc_target_channels', {
+  id: serial('id').primaryKey(),
+  projectId: integer('project_id').notNull().references(() => bcProjects.id, { onDelete: 'cascade' }),
+  channelId: varchar('channel_id', { length: 100 }).notNull(),
+  channelHandle: varchar('channel_handle', { length: 100 }),
+  channelName: varchar('channel_name', { length: 255 }).notNull(),
+  channelUrl: text('channel_url').notNull(),
+  subscriberCount: integer('subscriber_count'),
+  description: text('description'),
+  discoveryMethod: varchar('discovery_method', { length: 50 }).notNull().default('auto'), // auto | manual
+  isConfirmed: boolean('is_confirmed').notNull().default(false),
+  sortOrder: integer('sort_order').notNull().default(0),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => ({
+  projectIdx: index('idx_bc_channels_project').on(table.projectId),
+}));
+
+// Top videos selected per channel (3 per channel)
+export const bcTargetVideos = pgTable('bc_target_videos', {
+  id: serial('id').primaryKey(),
+  projectId: integer('project_id').notNull().references(() => bcProjects.id, { onDelete: 'cascade' }),
+  channelId: integer('channel_id').notNull().references(() => bcTargetChannels.id, { onDelete: 'cascade' }),
+  videoId: varchar('video_id', { length: 50 }).notNull(),
+  videoUrl: text('video_url').notNull(),
+  title: varchar('title', { length: 500 }).notNull(),
+  description: text('description'),
+  viewCount: integer('view_count'),
+  commentCount: integer('comment_count'),
+  publishedAt: timestamp('published_at'),
+  relevanceScore: real('relevance_score'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => ({
+  projectIdx: index('idx_bc_videos_project').on(table.projectId),
+  channelIdx: index('idx_bc_videos_channel').on(table.channelId),
+}));
+
+// Raw YouTube comments scraped via commentThreads API
+export const bcComments = pgTable('bc_comments', {
+  id: serial('id').primaryKey(),
+  projectId: integer('project_id').notNull().references(() => bcProjects.id, { onDelete: 'cascade' }),
+  videoId: integer('video_id').notNull().references(() => bcTargetVideos.id, { onDelete: 'cascade' }),
+  commentId: varchar('comment_id', { length: 100 }).notNull(),  // YouTube comment ID
+  commentText: text('comment_text').notNull(),
+  voteCount: integer('vote_count').notNull().default(0),
+  author: varchar('author', { length: 255 }),
+  publishedAt: timestamp('published_at'),
+  scrapedAt: timestamp('scraped_at').notNull().defaultNow(),
+}, (table) => ({
+  projectIdx: index('idx_bc_comments_project').on(table.projectId),
+  videoIdx: index('idx_bc_comments_video').on(table.videoId),
+  commentIdIdx: index('idx_bc_comments_cid').on(table.commentId),
+}));
+
+// Pain points extracted by LLM from comments — awaiting review
+export const bcExtractedPainPoints = pgTable('bc_extracted_pain_points', {
+  id: serial('id').primaryKey(),
+  projectId: integer('project_id').notNull().references(() => bcProjects.id, { onDelete: 'cascade' }),
+  painPointTitle: varchar('pain_point_title', { length: 255 }).notNull(),
+  painPointDescription: text('pain_point_description').notNull(),
+  emotionalIntensity: integer('emotional_intensity').notNull().default(5), // 1-10
+  frequency: integer('frequency').notNull().default(1),
+  vocabularyQuotes: text('vocabulary_quotes').array().notNull().default([]),
+  category: varchar('category', { length: 50 }).notNull().default('focus'),
+  customerLanguage: text('customer_language'),
+  desiredOutcome: text('desired_outcome'),
+  status: varchar('status', { length: 20 }).notNull().default('pending'), // pending | approved | rejected
+  sourceVideoIds: integer('source_video_ids').array().notNull().default([]),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => ({
+  projectIdx: index('idx_bc_pp_project').on(table.projectId),
+  statusIdx: index('idx_bc_pp_status').on(table.status),
+  intensityIdx: index('idx_bc_pp_intensity').on(table.emotionalIntensity),
+}));
+
+// Generated landing page variants (3 per project run)
+export const bcLandingPageVariants = pgTable('bc_landing_page_variants', {
+  id: serial('id').primaryKey(),
+  projectId: integer('project_id').notNull().references(() => bcProjects.id, { onDelete: 'cascade' }),
+  variantType: varchar('variant_type', { length: 50 }).notNull(), // founder_vision | pain_point_1 | pain_point_2
+  variantLabel: varchar('variant_label', { length: 255 }).notNull(),
+  htmlContent: text('html_content').notNull(),
+  improvementSuggestions: jsonb('improvement_suggestions')
+    .$type<Record<string, string>>().default({}), // { hero: "...", problem: "...", ... }
+  primaryPainPointId: integer('primary_pain_point_id')
+    .references(() => bcExtractedPainPoints.id), // null for founder_vision
+  generationPromptUsed: text('generation_prompt_used'),
+  generationModel: varchar('generation_model', { length: 100 }),
+  isSelected: boolean('is_selected').notNull().default(false),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => ({
+  projectIdx: index('idx_bc_variants_project').on(table.projectId),
 }));

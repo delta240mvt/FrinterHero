@@ -1,0 +1,217 @@
+---
+import Base from '@/components/layouts/Base.astro';
+import { db } from '@/db/client';
+import { bcProjects } from '@/db/schema';
+import { eq } from 'drizzle-orm';
+
+const { id } = Astro.params;
+const projectId = parseInt(id || '0', 10);
+
+let project: any = null;
+try {
+  const [p] = await db.select().from(bcProjects).where(eq(bcProjects.id, projectId));
+  project = p;
+} catch (e) {
+  console.error('[BC-Docs]', e);
+}
+
+if (!project) return Astro.redirect('/admin/brand-clarity');
+
+const wordCount = project.projectDocumentation
+  ? project.projectDocumentation.trim().split(/\s+/).length
+  : 0;
+---
+
+<Base title={`Project Documentation — ${project.name}`} description="Brand Clarity Stage 1.1 — project documentation">
+<div class="admin-layout">
+  <header class="admin-header">
+    <a href="/admin" class="admin-logo">P·F</a>
+    <nav class="breadcrumb">
+      <a href="/admin/brand-clarity" class="bc-link">Brand Clarity</a>
+      <span class="bc-sep">›</span>
+      <a href={`/admin/brand-clarity/${projectId}/channels`} class="bc-link">{project.name}</a>
+      <span class="bc-sep">›</span>
+      <span class="bc-current">Documentation</span>
+    </nav>
+    <div class="header-actions">
+      <span class="project-status">{project.status}</span>
+      <a href="/api/logout" class="btn-logout">Logout</a>
+    </div>
+  </header>
+
+  <main class="admin-main">
+    <div class="stage-bar">
+      <span class="stage done">1. LP Parsed</span>
+      <span class="stage-arrow">→</span>
+      <span class="stage active">1.1 Docs</span>
+      <span class="stage-arrow">→</span>
+      <span class="stage">2. Channels</span>
+      <span class="stage-arrow">→</span>
+      <span class="stage">3. Videos</span>
+      <span class="stage-arrow">→</span>
+      <span class="stage">4. Scrape</span>
+      <span class="stage-arrow">→</span>
+      <span class="stage">5. Generate LPs</span>
+    </div>
+
+    <section class="form-section">
+      <div class="form-header">
+        <h2 class="form-title">Step 1.1 — Project Documentation</h2>
+        <p class="form-subtitle">
+          Paste everything that describes <em>what your product actually IS</em> — README, product spec, feature list, how-it-works guide.
+          This will be used to ground all AI-generated landing pages in factual accuracy.
+        </p>
+        {!project.projectDocumentation && (
+          <div class="skip-warning">
+            ⚠ No documentation saved yet. Skipping this step may reduce LP accuracy — LPs will be based only on your landing page and founder description.
+          </div>
+        )}
+        {project.projectDocumentation && (
+          <div class="docs-saved">
+            ✓ Documentation saved ({wordCount.toLocaleString()} words). You can update it below.
+          </div>
+        )}
+      </div>
+
+      <form id="docs-form" class="docs-form">
+        <div class="form-group">
+          <div class="label-row">
+            <label class="form-label" for="docs-textarea">Project Documentation</label>
+            <span id="word-count" class="word-count">{wordCount} words</span>
+          </div>
+          <textarea
+            id="docs-textarea"
+            name="projectDocumentation"
+            class="form-textarea"
+            rows={40}
+            placeholder="Paste README, product spec, feature list, or any documentation here...
+
+Examples of what to paste:
+• README.md content
+• Feature descriptions
+• Technical architecture notes
+• Onboarding guide
+• 'How it works' internal document
+• Any text describing your product's real mechanics"
+          >{project.projectDocumentation || ''}</textarea>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" id="save-btn" class="btn-save">Save & Continue to Channel Discovery →</button>
+          <button type="button" id="skip-btn" class="btn-skip">Skip this step →</button>
+          <a href={`/admin/brand-clarity/${projectId}/channels`} class="btn-ghost-sm">Back to Channels</a>
+        </div>
+      </form>
+
+      <div id="status-msg" class="status-msg" style="display:none"></div>
+    </section>
+  </main>
+</div>
+
+<script define:vars={{ projectId }}>
+  const PROJECT_ID = projectId;
+  const textarea = document.getElementById('docs-textarea');
+  const wordCountEl = document.getElementById('word-count');
+  const saveBtn = document.getElementById('save-btn');
+  const skipBtn = document.getElementById('skip-btn');
+  const statusMsg = document.getElementById('status-msg');
+
+  // Live word count
+  textarea?.addEventListener('input', () => {
+    const text = textarea.value.trim();
+    const count = text ? text.split(/\s+/).length : 0;
+    if (wordCountEl) wordCountEl.textContent = `${count.toLocaleString()} words`;
+  });
+
+  // Save
+  document.getElementById('docs-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const docs = textarea.value.trim();
+
+    if (!docs) {
+      if (!confirm('Documentation is empty. Save anyway? (LPs may be less accurate)')) return;
+    }
+
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Saving & re-parsing LP…';
+    statusMsg.style.display = 'none';
+
+    try {
+      const res = await fetch(`/api/brand-clarity/projects/${PROJECT_ID}/documentation`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectDocumentation: docs }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || `HTTP ${res.status}`);
+      }
+
+      statusMsg.style.display = 'block';
+      statusMsg.className = 'status-msg status-msg--success';
+      statusMsg.textContent = 'Saved! LP is being re-parsed with your documentation… redirecting to channels.';
+
+      setTimeout(() => {
+        window.location.href = `/admin/brand-clarity/${PROJECT_ID}/channels`;
+      }, 2000);
+
+    } catch (err) {
+      statusMsg.style.display = 'block';
+      statusMsg.className = 'status-msg status-msg--error';
+      statusMsg.textContent = `Error: ${err.message}`;
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'Save & Continue to Channel Discovery →';
+    }
+  });
+
+  // Skip
+  skipBtn?.addEventListener('click', async () => {
+    if (!confirm('Skip project documentation? LPs will be based on your landing page and founder description only.')) return;
+    window.location.href = `/admin/brand-clarity/${PROJECT_ID}/channels`;
+  });
+</script>
+
+<style>
+.admin-layout { min-height: 100vh; background: var(--bg-base); }
+.admin-header { display: flex; align-items: center; gap: 1.25rem; padding: 0.875rem 1.5rem; background: var(--bg-elevated); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 20; }
+.admin-logo { font-family: var(--font-mono); font-weight: 700; color: var(--teal); text-decoration: none; font-size: 1.1rem; }
+.breadcrumb { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-secondary); display: flex; gap: 0.4rem; align-items: center; }
+.bc-link { color: var(--text-muted); text-decoration: none; }
+.bc-link:hover { color: var(--teal); }
+.bc-sep { color: var(--text-muted); }
+.bc-current { color: var(--text-secondary); }
+.header-actions { margin-left: auto; display: flex; gap: 0.5rem; align-items: center; }
+.project-status { font-family: var(--font-mono); font-size: 0.65rem; color: var(--gold); padding: 0.2rem 0.5rem; background: rgba(214,183,121,0.1); border-radius: 0.2rem; }
+.btn-logout { padding: 0.35rem 0.75rem; color: var(--text-muted); border: 1px solid var(--border); border-radius: 0.25rem; font-family: var(--font-mono); font-size: var(--text-xs); text-decoration: none; }
+.admin-main { max-width: 860px; margin: 0 auto; padding: 1.75rem 1.5rem 4rem; display: flex; flex-direction: column; gap: 2rem; }
+.stage-bar { display: flex; align-items: center; gap: 0.5rem; font-family: var(--font-mono); font-size: 0.65rem; padding: 0.625rem 1rem; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 0.375rem; overflow-x: auto; }
+.stage { color: var(--text-muted); white-space: nowrap; }
+.stage.done { color: var(--teal); }
+.stage.active { color: var(--gold); font-weight: 700; }
+.stage-arrow { color: var(--border); }
+.form-section { display: flex; flex-direction: column; gap: 1.5rem; }
+.form-header { display: flex; flex-direction: column; gap: 0.5rem; }
+.form-title { font-family: var(--font-mono); font-size: 1.125rem; font-weight: 700; color: var(--text-primary); margin: 0; }
+.form-subtitle { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); margin: 0; line-height: 1.6; }
+.form-subtitle em { color: var(--teal); font-style: normal; font-weight: 600; }
+.skip-warning { padding: 0.625rem 0.875rem; background: rgba(239,68,68,0.06); border: 1px solid rgba(239,68,68,0.2); border-radius: 0.375rem; font-family: var(--font-mono); font-size: var(--text-xs); color: rgba(239,68,68,0.85); }
+.docs-saved { padding: 0.625rem 0.875rem; background: rgba(74,141,131,0.06); border: 1px solid rgba(74,141,131,0.2); border-radius: 0.375rem; font-family: var(--font-mono); font-size: var(--text-xs); color: var(--teal); }
+.docs-form { display: flex; flex-direction: column; gap: 1.25rem; }
+.form-group { display: flex; flex-direction: column; gap: 0.5rem; }
+.label-row { display: flex; align-items: center; justify-content: space-between; }
+.form-label { font-family: var(--font-mono); font-size: var(--text-xs); font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em; }
+.word-count { font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-muted); }
+.form-textarea { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 0.375rem; color: var(--text-primary); font-family: var(--font-mono); font-size: var(--text-xs); padding: 0.75rem 0.875rem; outline: none; width: 100%; resize: vertical; line-height: 1.6; }
+.form-textarea:focus { border-color: var(--teal); }
+.form-actions { display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap; }
+.btn-save { padding: 0.625rem 1.5rem; background: var(--teal); color: #fff; border: none; border-radius: 0.375rem; font-family: var(--font-mono); font-size: var(--text-sm); font-weight: 600; cursor: pointer; }
+.btn-save:disabled { opacity: 0.6; cursor: not-allowed; }
+.btn-skip { padding: 0.5rem 1rem; background: none; border: 1px solid var(--border); color: var(--text-muted); border-radius: 0.375rem; font-family: var(--font-mono); font-size: var(--text-xs); cursor: pointer; }
+.btn-skip:hover { border-color: var(--gold); color: var(--gold); }
+.btn-ghost-sm { padding: 0.35rem 0.75rem; background: none; color: var(--text-secondary); border: 1px solid var(--border); border-radius: 0.25rem; font-family: var(--font-mono); font-size: var(--text-xs); cursor: pointer; text-decoration: none; }
+.status-msg { padding: 0.75rem 1rem; border-radius: 0.375rem; font-family: var(--font-mono); font-size: var(--text-xs); }
+.status-msg--success { background: rgba(74,141,131,0.1); border: 1px solid rgba(74,141,131,0.3); color: var(--teal); }
+.status-msg--error   { background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.25); color: #ef4444; }
+</style>
+</Base>

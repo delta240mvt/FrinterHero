@@ -1,0 +1,39 @@
+import type { APIRoute } from 'astro';
+import { db } from '@/db/client';
+import { bcProjects, bcTargetVideos } from '@/db/schema';
+import { eq } from 'drizzle-orm';
+import { bcScrapeJob } from '@/lib/bc-scrape-job';
+
+function auth(cookies: any) {
+  return !!cookies.get('session')?.value;
+}
+
+const JSON_HEADERS = { 'Content-Type': 'application/json' };
+
+export const POST: APIRoute = async ({ params, cookies }) => {
+  if (!auth(cookies)) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: JSON_HEADERS });
+
+  const projectId = parseInt(params.projectId || '0', 10);
+  if (!projectId) return new Response(JSON.stringify({ error: 'Invalid projectId' }), { status: 400, headers: JSON_HEADERS });
+
+  if (bcScrapeJob.isRunning()) {
+    return new Response(JSON.stringify({ error: 'Scrape already running', status: 'running' }), { status: 409, headers: JSON_HEADERS });
+  }
+
+  const [project] = await db.select().from(bcProjects).where(eq(bcProjects.id, projectId));
+  if (!project) return new Response(JSON.stringify({ error: 'Project not found' }), { status: 404, headers: JSON_HEADERS });
+
+  const videos = await db.select({ id: bcTargetVideos.id })
+    .from(bcTargetVideos).where(eq(bcTargetVideos.projectId, projectId));
+
+  if (!videos.length) {
+    return new Response(JSON.stringify({ error: 'No target videos — run video discovery first' }), { status: 400, headers: JSON_HEADERS });
+  }
+
+  const result = bcScrapeJob.start(projectId);
+  if (!result.ok) {
+    return new Response(JSON.stringify({ error: result.reason }), { status: 409, headers: JSON_HEADERS });
+  }
+
+  return new Response(JSON.stringify({ started: true, projectId, videosCount: videos.length }), { headers: JSON_HEADERS });
+};
