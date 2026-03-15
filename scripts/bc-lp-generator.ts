@@ -203,7 +203,13 @@ Secondary: Address the #1 objection from their failed solutions
 No fake urgency. If beta: "Beta closes [specific timeframe]" or "Limited spots" if true.
 
 === OUTPUT FORMAT ===
-First output the meta JSON inside \`\`\`json:
+IMPORTANT: Output the HTML FIRST, then the JSON meta. This ensures the HTML is always complete.
+
+First output the full HTML inside \`\`\`html block.
+The HTML must use semantic tags: <section class="hero">, <section class="problem">, etc.
+No external CSS dependencies. Include minimal inline styles for readability.
+
+Then output the meta JSON inside \`\`\`json:
 {
   "heroApproach": "1 sentence explaining WHY this hero will work for this audience",
   "featurePainMap": [
@@ -218,11 +224,7 @@ First output the meta JSON inside \`\`\`json:
     "cta": "what was improved"
   }
 }
-\`\`\`
-
-Then output the full HTML inside \`\`\`html block.
-The HTML must use semantic tags: <section class="hero">, <section class="problem">, etc.
-No external CSS dependencies. Include minimal inline styles for readability.`;
+\`\`\``;
 
   let responseText = '';
   try {
@@ -236,26 +238,34 @@ No external CSS dependencies. Include minimal inline styles for readability.`;
       ],
     });
     responseText = response.choices[0]?.message?.content || '';
-    log(`Got response for ${variantType} (${responseText.length} chars)`);
+    const finishReason = response.choices[0]?.finish_reason;
+    log(`Got response for ${variantType} (${responseText.length} chars, finish_reason: ${finishReason})`);
+    if (finishReason === 'length') log(`[WARN] Output truncated at token limit for ${variantType}`);
   } catch (e: any) {
     throw new Error(`LLM call failed for ${variantType}: ${e.message}`);
   }
 
-  // Parse JSON meta block
+  // Parse HTML block (comes first in response)
+  const htmlMatch = responseText.match(/```html\s*([\s\S]*?)\s*```/i);
+  // If no closing ``` found (truncated), grab everything after ```html
+  const htmlTruncatedMatch = !htmlMatch ? responseText.match(/```html\s*([\s\S]+)/i) : null;
+  const html = htmlMatch
+    ? htmlMatch[1].trim()
+    : htmlTruncatedMatch
+      ? htmlTruncatedMatch[1].trim()
+      : responseText.replace(/```json[\s\S]*?```/i, '').trim();
+
+  if (!html) throw new Error(`No HTML generated for ${variantType}`);
+
+  // Parse JSON meta block (comes after HTML — may be truncated, that's OK)
   const jsonMatch = responseText.match(/```json\s*([\s\S]*?)\s*```/i);
   let metaJson: any = {};
   if (jsonMatch) {
-    try { metaJson = JSON.parse(jsonMatch[1]); } catch { log(`[WARN] Could not parse meta JSON for ${variantType}`); }
+    try { metaJson = JSON.parse(jsonMatch[1]); } catch { log(`[WARN] Could not parse meta JSON for ${variantType} (may be truncated)`); }
   }
 
   const improvements: Record<string, string> = metaJson.improvementSuggestions || {};
   const featurePainMap: any[] = Array.isArray(metaJson.featurePainMap) ? metaJson.featurePainMap : [];
-
-  // Parse HTML block
-  const htmlMatch = responseText.match(/```html\s*([\s\S]*?)\s*```/i);
-  const html = htmlMatch ? htmlMatch[1].trim() : responseText.replace(/```json[\s\S]*?```/i, '').trim();
-
-  if (!html) throw new Error(`No HTML generated for ${variantType}`);
 
   return { html, improvements, featurePainMap, promptUsed: prompt };
 }
