@@ -197,7 +197,7 @@ Return ONLY valid JSON. No markdown, no explanations.`;
     const response = await openai.chat.completions.create({
       model: MODEL,
       temperature: 0.3,
-      max_tokens: 2000,
+      max_tokens: 4096,
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userContent },
@@ -207,7 +207,18 @@ Return ONLY valid JSON. No markdown, no explanations.`;
     const raw = (response.choices[0]?.message?.content || '')
       .replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim();
 
-    const parsed = JSON.parse(raw);
+    let parsed: any;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      // Truncated JSON recovery — try closing open structures
+      let recovered = false;
+      for (const suffix of [']}', '"]}', '"}]}', '"]}']) {
+        try { parsed = JSON.parse(raw + suffix); recovered = true; break; } catch {}
+      }
+      if (!recovered) throw new Error('Unexpected end of JSON input');
+      log(`[WARN] JSON truncated — recovered with suffix`);
+    }
 
     return (parsed.painPoints || []).map((p: any) => ({
       painPointTitle: String(p.title || '').substring(0, 255),
