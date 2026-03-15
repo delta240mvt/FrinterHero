@@ -10,10 +10,11 @@ function auth(cookies: any) {
 
 const JSON_HEADERS = { 'Content-Type': 'application/json' };
 
-function runLpGenerator(projectId: number): Promise<{ variantsGenerated: number; error?: string }> {
+function runLpGenerator(projectId: number): Promise<{ variantsGenerated: number; error?: string; logs: string[] }> {
   return new Promise((resolve) => {
     let variantsGenerated = 0;
     let stderr = '';
+    const logs: string[] = [];
 
     const child = spawn('npx', ['tsx', 'scripts/bc-lp-generator.ts'], {
       cwd: process.cwd(),
@@ -23,6 +24,7 @@ function runLpGenerator(projectId: number): Promise<{ variantsGenerated: number;
 
     child.stdout.on('data', (chunk: Buffer) => {
       const text = chunk.toString();
+      for (const line of text.split('\n')) { if (line.trim()) logs.push(line.trim()); }
       const match = text.match(/VARIANTS_GENERATED:(\d+)/);
       if (match) variantsGenerated = parseInt(match[1], 10);
     });
@@ -30,11 +32,11 @@ function runLpGenerator(projectId: number): Promise<{ variantsGenerated: number;
     child.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString(); });
 
     child.on('close', (code) => {
-      if (code !== 0) resolve({ variantsGenerated, error: stderr.slice(-500) || `exit code ${code}` });
-      else resolve({ variantsGenerated });
+      if (code !== 0) resolve({ variantsGenerated, error: stderr.slice(-500) || `exit code ${code}`, logs });
+      else resolve({ variantsGenerated, logs });
     });
 
-    child.on('error', (err) => resolve({ variantsGenerated: 0, error: err.message }));
+    child.on('error', (err) => resolve({ variantsGenerated: 0, error: err.message, logs }));
   });
 }
 
@@ -70,8 +72,8 @@ export const POST: APIRoute = async ({ params, cookies }) => {
   if (result.error) {
     await db.update(bcProjects).set({ status: 'pain_points_pending', updatedAt: new Date() })
       .where(eq(bcProjects.id, projectId));
-    return new Response(JSON.stringify({ error: result.error }), { status: 500, headers: JSON_HEADERS });
+    return new Response(JSON.stringify({ error: result.error, logs: result.logs }), { status: 500, headers: JSON_HEADERS });
   }
 
-  return new Response(JSON.stringify({ variantsGenerated: result.variantsGenerated }), { headers: JSON_HEADERS });
+  return new Response(JSON.stringify({ variantsGenerated: result.variantsGenerated, logs: result.logs }), { headers: JSON_HEADERS });
 };

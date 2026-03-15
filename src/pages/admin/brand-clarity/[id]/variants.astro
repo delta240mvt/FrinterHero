@@ -88,6 +88,14 @@ const typeColors: Record<string, string> = {
 
       <div id="generate-status" class="generate-status" style="display:none"></div>
 
+      <details id="log-panel" class="log-panel" style="display:none">
+        <summary class="log-panel-summary">
+          <span class="log-label">Run Log</span>
+          <span id="log-count" class="logs-count">0 lines</span>
+        </summary>
+        <div id="log-container" class="log-container"></div>
+      </details>
+
       {variants.length === 0 ? (
         <div class="empty-state">
           No LP variants yet.
@@ -172,6 +180,24 @@ const typeColors: Record<string, string> = {
   const PROJECT_ID = projectId;
   const generateBtn = document.getElementById('generate-btn');
   const generateStatus = document.getElementById('generate-status');
+  const logPanel = document.getElementById('log-panel');
+  const logContainer = document.getElementById('log-container');
+  const logCount = document.getElementById('log-count');
+
+  function renderLogs(logs) {
+    if (!logs || !logs.length) return;
+    logPanel.style.display = 'block';
+    logPanel.open = true;
+    logCount.textContent = `${logs.length} lines`;
+    logContainer.innerHTML = logs.map(line => {
+      let cls = 'log-line';
+      if (line.includes('[WARN]') || line.includes('[FATAL]') || line.includes('[ERROR]')) cls += ' log-line--warn';
+      else if (line.includes('VARIANTS_GENERATED') || line.includes('Done') || line.includes('Inserted')) cls += ' log-line--done';
+      else if (line.includes('[LLM]') || line.includes('Sonnet') || line.includes('variant')) cls += ' log-line--llm';
+      return `<div class="${cls}">${line}</div>`;
+    }).join('');
+    logContainer.scrollTop = logContainer.scrollHeight;
+  }
 
   generateBtn?.addEventListener('click', async () => {
     if (!confirm('Generate 3 LP variants (Curiosity Hook, Pain Mirror, Outcome Promise)? This calls Claude Sonnet 3 times (~30-60s). Existing variants will be replaced.')) return;
@@ -180,10 +206,12 @@ const typeColors: Record<string, string> = {
     generateStatus.style.display = 'block';
     generateStatus.className = 'generate-status generate-status--running';
     generateStatus.textContent = 'Generating landing page variants with Claude Sonnet… (this may take 30-60s)';
+    logPanel.style.display = 'none';
 
     try {
       const res = await fetch(`/api/brand-clarity/${PROJECT_ID}/generate-variants`, { method: 'POST' });
       const data = await res.json();
+      renderLogs(data.logs);
       if (!res.ok) throw new Error(data.error || 'Failed');
       generateStatus.className = 'generate-status generate-status--success';
       generateStatus.textContent = `Generated ${data.variantsGenerated} variants. Reloading…`;
@@ -268,6 +296,16 @@ const typeColors: Record<string, string> = {
 .generate-status--running { background: rgba(138,78,100,0.08); border: 1px solid rgba(138,78,100,0.2); color: var(--violet); }
 .generate-status--success { background: rgba(74,141,131,0.08); border: 1px solid rgba(74,141,131,0.2); color: var(--teal); }
 .generate-status--error   { background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.2); color: #ef4444; }
+.log-panel { border: 1px solid var(--border); border-radius: 0.375rem; overflow: hidden; }
+.log-panel-summary { display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem 1rem; cursor: pointer; background: rgba(255,255,255,0.02); font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-secondary); list-style: none; }
+.log-panel-summary::-webkit-details-marker { display: none; }
+.log-label { flex: 1; }
+.logs-count { padding: 0.1rem 0.4rem; background: rgba(255,255,255,0.06); border-radius: 0.25rem; font-size: 0.65rem; color: var(--text-muted); }
+.log-container { background: #0a0a0f; border-top: 1px solid var(--border); padding: 0.75rem 1rem; max-height: 320px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.1rem; }
+.log-line { font-family: var(--font-mono); font-size: 0.68rem; color: #71717a; white-space: pre-wrap; word-break: break-all; line-height: 1.5; }
+.log-line--warn { color: #f97316; }
+.log-line--done { color: var(--teal); }
+.log-line--llm  { color: var(--gold); }
 .empty-state { padding: 2.5rem; text-align: center; font-family: var(--font-mono); color: var(--text-muted); }
 .empty-state a { color: var(--teal); }
 .variants-list { display: flex; flex-direction: column; gap: 1rem; }
