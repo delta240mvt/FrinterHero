@@ -2,7 +2,7 @@
 
 ## Overview
 
-Brand Clarity is a 6-stage pipeline that turns a raw landing page URL into
+Brand Clarity is a 5-stage pipeline that turns a raw landing page into
 3 conversion-optimised LP variants grounded in real customer language.
 
 The core insight driving v2: **existing LPs don't fail because of bad design —
@@ -19,18 +19,22 @@ already say to themselves.
   BRAND CLARITY PIPELINE v2
   ┌──────────────────────────────────────────────────────────────────────────┐
   │                                                                          │
-  │  INPUT: Landing Page URL + Project Name                                  │
+  │  INPUT: LP Content (YAML from AI agent) + Project Name                   │
   │                                                                          │
   │  ┌──────────────────────────────────────────────────────────────────┐   │
   │  │  STAGE 1 — LP INGESTION & KEYWORD EXTRACTION        [SONNET]     │   │
   │  │                                                                  │   │
-  │  │  · Playwright → fetch LP HTML                                    │   │
+  │  │  · Admin downloads AI agent prompt (.md)                         │   │
+  │  │  · Agent (Claude/ChatGPT) visits LP, returns structured YAML     │   │
+  │  │  · Admin uploads YAML file → bc-lp-parser.ts processes it       │   │
   │  │  · Sonnet parses: product name, niche, unique value prop         │   │
-  │  │  · Sonnet generates: nicheKeywords (search terms)                │   │
-  │  │  · Sonnet generates: audiencePainKeywords (complaint terms)      │   │
-  │  │    e.g. "why can't I focus at work" not "productivity tips"      │   │
+  │  │  · Sonnet generates: nicheKeywords (up to 6 search terms)        │   │
   │  │  · Sonnet extracts: featureMap from projectDocumentation         │   │
   │  │    { featureName, whatItDoes, userBenefit }[]                    │   │
+  │  │  · Admin can edit nicheKeywords in keyword chip editor           │   │
+  │  │                                                                  │   │
+  │  │  NOTE: audiencePainKeywords dropped from Stage 1 — not useful    │   │
+  │  │  for video discovery before VoC data is collected                │   │
   │  │                                                                  │   │
   │  │  Script: bc-lp-parser.ts          DB: bcProjects updated         │   │
   │  └──────────────────────────────────────────────────────────────────┘   │
@@ -39,13 +43,22 @@ already say to themselves.
   │  ┌──────────────────────────────────────────────────────────────────┐   │
   │  │  STAGE 2 — CHANNEL DISCOVERY                      [NO LLM]      │   │
   │  │                                                                  │   │
-  │  │  · YouTube Data API v3: search.list × nicheKeywords              │   │
-  │  │  · Filters: >10k subscribers, relevant niche, language match     │   │
-  │  │  · Deduplication by channelId                                    │   │
-  │  │  · Stores top 10 channel candidates                              │   │
-  │  │  · Admin manually confirms 3-5 channels before Stage 3           │   │
+  │  │  AUTO DISCOVERY:                                                  │   │
+  │  │  · YouTube Data API v3: search.list × nicheKeywords (up to 6)   │   │
+  │  │  · Filters: >10k subscribers, dedup by channelId                 │   │
+  │  │  · Stores top 15 channel candidates                              │   │
+  │  │                                                                  │   │
+  │  │  MANUAL ADD (any of these formats):                              │   │
+  │  │  · https://youtube.com/@handle                                   │   │
+  │  │  · @handle                                                       │   │
+  │  │  · UCxxxxxxx (channel ID)                                        │   │
+  │  │  → resolve-channel.ts calls channels.list, returns full data     │   │
+  │  │                                                                  │   │
+  │  │  · Admin confirms channels → confirmed = eligible for Stage 3    │   │
+  │  │  · Run log panel shows script output inline                      │   │
   │  │                                                                  │   │
   │  │  Script: bc-channel-discovery.ts  DB: bcTargetChannels inserted  │   │
+  │  │  API:    POST /resolve-channel    resolves YT URL → channel data  │   │
   │  └──────────────────────────────────────────────────────────────────┘   │
   │                                │                                         │
   │                         [admin confirms]                                 │
@@ -54,21 +67,23 @@ already say to themselves.
   │  ┌──────────────────────────────────────────────────────────────────┐   │
   │  │  STAGE 3 — VIDEO DISCOVERY                        [NO LLM]      │   │
   │  │                                                                  │   │
-  │  │  PASS 1 — niche search per channel                               │   │
-  │  │  · YouTube search.list: channelId + nicheKeywords                │   │
-  │  │  · Filters: medium duration (4-20 min), ordered by relevance     │   │
-  │  │  · Up to 10 candidates per channel                               │   │
+  │  │  PASS 1 — keyword search per channel                             │   │
+  │  │  · YouTube search.list: channelId + nicheKeywords (joined)       │   │
+  │  │  · No duration filter — any length accepted                      │   │
+  │  │  · Order: relevance, up to 10 candidates                         │   │
   │  │                                                                  │   │
-  │  │  PASS 2 — pain-keyword search per channel (NEW in v2)            │   │
-  │  │  · YouTube search.list: channelId + audiencePainKeywords         │   │
-  │  │  · Catches complaint-heavy videos with high comment counts       │   │
-  │  │  · Up to 10 additional candidates per channel                    │   │
+  │  │  FALLBACK (if keyword search returns 0 results):                 │   │
+  │  │  · search.list: channelId, order: viewCount, no query            │   │
+  │  │  · Gets channel's most popular videos regardless of topic        │   │
+  │  │                                                                  │   │
+  │  │  NOTE: Pass 2 (audiencePainKeywords) removed — pain keywords     │   │
+  │  │  don't exist yet at this stage; VoC not yet collected            │   │
   │  │                                                                  │   │
   │  │  SCORING (per video):                                            │   │
   │  │  · rankScore    = position in search results    (weight: 0.7)    │   │
   │  │  · engageScore  = comment count > 100 → +0.30                   │   │
-  │  │  · painBonus    = from pain-keyword pass  → +0.20               │   │
   │  │  · Top 3 per channel inserted                                    │   │
+  │  │  · Run log panel shows per-channel progress inline               │   │
   │  │                                                                  │   │
   │  │  Script: bc-video-discovery.ts    DB: bcTargetVideos inserted    │   │
   │  └──────────────────────────────────────────────────────────────────┘   │
@@ -164,6 +179,19 @@ already say to themselves.
 
 ---
 
+## UI Navigation
+
+All 5 pipeline steps are accessible via a clickable stage-bar present on every page:
+
+```
+  1. LP Parsed  →  2. Channels  →  3. Videos  →  4. Scrape & Review  →  5. LP Variants
+```
+
+Every step is a direct link — free navigation between steps at any time.
+Run logs from discovery scripts are shown inline in collapsible panels (like YT Intelligence).
+
+---
+
 ## Model Usage — Haiku vs Sonnet
 
 ```
@@ -202,15 +230,23 @@ already say to themselves.
   ┌──────────────────────────────────────────────────────────────────────┐
   │                                                                      │
   │  STAGE 1 — added                                                     │
-  │  +-- audiencePainKeywords: complaint-oriented YT search terms        │
-  │  |    Before: nicheKeywords only ("productivity", "focus")           │
-  │  |    After:  + pain terms ("why can't I focus", "can't stop phone") │
   │  +-- featureMap: structured feature-to-benefit extraction from docs  │
+  │  +-- AI agent prompt flow: admin downloads .md, agent returns YAML   │
+  │  +-- nicheKeywords editable in chip UI (add/remove/save)             │
   │                                                                      │
-  │  STAGE 3 — added                                                     │
-  │  +-- Pass 2 video discovery with audiencePainKeywords                │
-  │  |    Finds complaint-heavy videos vs just high-relevance ones       │
-  │  +-- painBonus +0.20 in relevance scoring for pain-keyword videos    │
+  │  STAGE 2 — added                                                     │
+  │  +-- URL-based manual channel add: paste any YT link or @handle      │
+  │       resolve-channel.ts calls YouTube API, previews data before add │
+  │  +-- nicheKeywords now use up to 6 (was 3) for better channel search │
+  │  +-- Run log panel shows discovery progress inline                   │
+  │                                                                      │
+  │  STAGE 3 — reworked                                                  │
+  │  +-- Removed videoDuration:medium filter (was main cause of 0 results│
+  │  +-- Removed Pass 2 (pain keywords) — VoC not yet collected at Stage 3│
+  │  +-- Added fallback: if keyword search = 0 → channel popular videos  │
+  │  +-- nicheKeywords query expanded to up to 6 keywords                │
+  │  +-- Run log panel shows per-channel progress inline                 │
+  │  -   painBonus removed from scoring (no pain pass)                   │
   │                                                                      │
   │  STAGE 4 — added                                                     │
   │  +-- vocData object per pain point (5 structured fields)             │
@@ -241,9 +277,8 @@ already say to themselves.
   ┌──────────────────────────────────────────────────────────────────────┐
   │                                                                      │
   │  bcProjects                                                          │
-  │  +-- nicheKeywords[]          (from Stage 1)                         │
-  │  +-- audiencePainKeywords[]   (from Stage 1, NEW)                    │
-  │  +-- featureMap[]             (from Stage 1, NEW)                    │
+  │  +-- nicheKeywords[]          (from Stage 1, editable in UI)         │
+  │  +-- featureMap[]             (from Stage 1)                         │
   │  +-- status: draft → discovered → scraping → pain_points_pending     │
   │              → clustered → generating → done                         │
   │                                                                      │
@@ -255,10 +290,10 @@ already say to themselves.
   │  +-- emotionalIntensity  (1-10, boosted by engagement weight)        │
   │  +-- vocabularyQuotes[]  (exact user phrases)                        │
   │  +-- vocData { problemLabel, dominantEmotion, failedSolutions[],     │
-  │  |             triggerMoment, successVision }  (NEW)                 │
+  │  |             triggerMoment, successVision }                         │
   │  +-- status: pending → approved | rejected  (admin curates)          │
   │                                                                      │
-  │  bcPainClusters  (NEW)                                               │
+  │  bcPainClusters                                                      │
   │  +-- clusterTheme                                                    │
   │  +-- aggregateIntensity                                              │
   │  +-- bestQuotes[]                                                    │
@@ -271,7 +306,7 @@ already say to themselves.
   │  +-- variantType: curiosity_hook | pain_mirror | outcome_promise     │
   │  +-- content (full LP text)                                          │
   │  +-- heroApproach                                                    │
-  │  +-- featurePainMap[]  (NEW)                                         │
+  │  +-- featurePainMap[]                                                │
   │  +-- improvementSuggestions{}                                        │
   │                                                                      │
   └──────────────────────────────────────────────────────────────────────┘
@@ -281,11 +316,12 @@ already say to themselves.
 
 ## Script Inventory
 
-| Script                  | Stage | LLM          | Trigger               |
-|-------------------------|-------|--------------|-----------------------|
-| bc-lp-parser.ts         | 1     | Sonnet x 1   | POST /api/bc/parse    |
-| bc-channel-discovery.ts | 2     | none         | POST /api/bc/discover |
-| bc-video-discovery.ts   | 3     | none         | POST /api/bc/videos   |
-| bc-scraper.ts           | 4     | Haiku x ~75  | POST /api/bc/scrape   |
-| bc-pain-clusterer.ts    | 4.5   | Sonnet x 1   | POST /api/bc/cluster  |
-| bc-lp-generator.ts      | 5     | Sonnet x 3   | POST /api/bc/generate |
+| Script                  | Stage | LLM          | Trigger                              |
+|-------------------------|-------|--------------|--------------------------------------|
+| bc-lp-parser.ts         | 1     | Sonnet x 1   | POST /api/bc/parse                   |
+| bc-channel-discovery.ts | 2     | none         | POST /[projectId]/discover-channels  |
+| resolve-channel.ts      | 2     | none         | POST /[projectId]/resolve-channel    |
+| bc-video-discovery.ts   | 3     | none         | POST /[projectId]/discover-videos    |
+| bc-scraper.ts           | 4     | Haiku x ~75  | POST /[projectId]/scrape/start       |
+| bc-pain-clusterer.ts    | 4.5   | Sonnet x 1   | POST /[projectId]/cluster-pain-points|
+| bc-lp-generator.ts      | 5     | Sonnet x 3   | POST /[projectId]/generate-variants  |
