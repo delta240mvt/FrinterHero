@@ -1,7 +1,7 @@
 /**
  * bc-scraper.ts — Scrapes YouTube comments from bcTargetVideos and extracts pain points.
  *
- * Model: claude-haiku-4-5-20251001 (cost-optimized for bulk extraction)
+ * Model: claude-haiku-4-5 (cost-optimized for bulk extraction)
  * Uses YouTube Data API v3 commentThreads endpoint (same as yt-scraper.ts).
  * Quota: ~1 unit/page of comments per video.
  *
@@ -31,7 +31,7 @@ const BC_PROJECT_ID  = parseInt(process.env.BC_PROJECT_ID || '0', 10);
 const YT_API_KEY     = process.env.YOUTUBE_API_KEY!;
 const MAX_COMMENTS   = parseInt(process.env.BC_MAX_COMMENTS_PER_VIDEO || '100', 10);
 const CHUNK_SIZE     = parseInt(process.env.BC_CHUNK_SIZE || '20', 10);
-const MODEL          = process.env.BC_SCRAPER_MODEL || 'anthropic/claude-haiku-4-5-20251001';
+const MODEL          = process.env.BC_SCRAPER_MODEL || 'anthropic/claude-haiku-4-5';
 const YT_BASE        = 'https://www.googleapis.com/youtube/v3';
 
 const sessionLogs: string[] = [];
