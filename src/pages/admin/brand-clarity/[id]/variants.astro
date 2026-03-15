@@ -77,11 +77,11 @@ const typeColors: Record<string, string> = {
       <div class="section-header-row">
         <div class="section-title-block">
           <h2 class="section-title">Landing Page Variants</h2>
-          <p class="section-subtitle">{variants.length}/3 generated · Review, compare, and select your winning LP</p>
+          <p class="section-subtitle">{variants.length} variant{variants.length !== 1 ? 's' : ''} · Review, compare, and select your winning LP</p>
         </div>
         <div class="header-btns">
           <button id="generate-btn" class="btn-generate">
-            {variants.length > 0 ? '↺ Regenerate All' : 'Generate LP Variants'}
+            {variants.length > 0 ? '+ Generate Again' : 'Generate LP Variants'}
           </button>
         </div>
       </div>
@@ -201,7 +201,7 @@ const typeColors: Record<string, string> = {
   }
 
   generateBtn?.addEventListener('click', async () => {
-    if (!confirm('Generate 3 LP variants (Curiosity Hook, Pain Mirror, Outcome Promise)? This calls Claude Sonnet 3 times (~30-60s). Existing variants will be replaced.')) return;
+    if (!confirm('Generate 3 new LP variants (Curiosity Hook, Pain Mirror, Outcome Promise)? This calls Claude Sonnet 3 times (~30-60s). Existing variants will be kept.')) return;
     generateBtn.disabled = true;
     generateBtn.textContent = 'Generating…';
     generateStatus.style.display = 'block';

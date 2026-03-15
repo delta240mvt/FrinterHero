@@ -347,9 +347,6 @@ async function run() {
 
   const founderVision = project.founderVision || project.founderDescription.substring(0, 500);
 
-  // Clear existing variants
-  await db.delete(bcLandingPageVariants).where(eq(bcLandingPageVariants.projectId, BC_PROJECT_ID));
-
   const variants: Array<{
     type: 'curiosity_hook' | 'pain_mirror' | 'outcome_promise';
     label: string;
