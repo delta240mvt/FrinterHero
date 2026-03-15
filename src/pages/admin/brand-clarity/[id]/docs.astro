@@ -62,8 +62,8 @@ const lpWordCount = lpRawInput.trim() ? lpRawInput.trim().split(/\s+/).length : 
       <div class="form-header">
         <h2 class="form-title">Landing Page Content</h2>
         <p class="form-subtitle">
-          Download the prompt, run it in <em>Claude or ChatGPT</em> — the AI will visit your page and return structured YAML.
-          Upload that response here. This gives Brand Clarity your <em>exact copy</em>, not a scraped guess.
+          Pobierz prompt, wgraj go razem z plikami LP do <em>Claude lub ChatGPT</em> — agent przeanalizuje pliki i zwróci ustrukturyzowany YAML.
+          Wgraj odpowiedź agenta tutaj. Brand Clarity dostaje <em>twoje dokładne słowa</em>, nie zgadywanie ze scrape'a.
         </p>
         {lpWordCount > 0 && (
           <div class="docs-saved">
@@ -78,7 +78,7 @@ const lpWordCount = lpRawInput.trim() ? lpRawInput.trim().split(/\s+/).length : 
           <button type="button" id="download-template-btn" class="btn-download">
             ↓ Download AI Agent Prompt (.md)
           </button>
-          <span class="lp-actions-hint">Run in Claude / ChatGPT → upload the response below →</span>
+          <span class="lp-actions-hint">Wgraj prompt + pliki LP do Claude/ChatGPT → odpowiedź wgraj poniżej →</span>
         </div>
 
         <!-- Upload zone -->
@@ -180,41 +180,43 @@ Examples of what to paste:
   const PROJECT_ID = projectId;
 
   // ── LP Content: AI agent prompt download ───────────────────────────────
-  const LP_URL = projectUrl?.startsWith('http') ? projectUrl : 'https://YOUR-LANDING-PAGE-URL';
+  const LP_URL = projectUrl?.startsWith('http') ? projectUrl : '';
   const TEMPLATE = `# AI Agent Prompt — Landing Page Analysis
 # Project: ${projectName}
 #
 # HOW TO USE:
-# 1. Open Claude.ai, ChatGPT, or any capable AI assistant
-# 2. Paste this entire file as your message (or upload it)
-# 3. The AI will open the URL and return structured YAML output
-# 4. Copy the AI's full response, save as a .txt or .md file
-# 5. Upload that file back to Brand Clarity
+# 1. Zbierz pliki swojego landing page (HTML, MD, Notion export, Google Docs export, screenshot — cokolwiek masz)
+# 2. Otwórz Claude.ai lub ChatGPT
+# 3. Wgraj pliki LP + ten plik jako kontekst
+# 4. Wyślij — agent przeanalizuje pliki i zwróci gotowy YAML
+# 5. Skopiuj odpowiedź agenta, zapisz jako plik (.txt lub .md)
+# 6. Wgraj ten plik z powrotem do Brand Clarity
 
 ---
 
 You are a senior conversion copywriter and UX analyst.
 
-Your task: visit the landing page below, read every word of it, and extract its content into a structured YAML format that will be used to generate better-converting variants.
+I am attaching files that contain my landing page content — this may include HTML files, exported documents, screenshots, or plain text copies of my landing page.
 
-**Landing page URL:** ${LP_URL}
+Your task: read every attached file carefully, find all landing page content, and extract it into a structured YAML format. This output will be used by an AI pipeline to generate better-converting landing page variants.
+
+${LP_URL ? `The landing page is for: ${LP_URL}` : `Project: ${projectName}`}
 
 ---
 
-## Instructions
+## Rules
 
-Read the page thoroughly — every section, every paragraph, every CTA. Do not summarize or paraphrase. Your job is to capture the EXACT language used on the page.
-
-When copying text:
-- Use exact words from the page, do not rewrite them
-- If a section doesn't exist, write null
-- Preserve capitalization, punctuation, and tone
+- Extract EXACT language from the files — do not rewrite, summarize, or improve the copy
+- If a section is not present in the files, write: null
+- Preserve original capitalization, punctuation, and sentence structure
+- If you find multiple versions of the same section, pick the most complete one
+- Do not add anything that is not in the source files
 
 ---
 
 ## Output format
 
-Return ONLY the YAML block below, filled with real content from the page. No explanations before or after.
+Return ONLY the YAML block below, filled with real content from the files. No explanations before or after.
 
 \`\`\`yaml
 url: "${LP_URL}"
