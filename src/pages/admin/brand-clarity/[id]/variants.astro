@@ -207,7 +207,12 @@ const typeColors: Record<string, string> = {
     generateStatus.style.display = 'block';
     generateStatus.className = 'generate-status generate-status--running';
     generateStatus.textContent = 'Generating landing page variants with Claude Sonnet… (this may take 30-60s)';
-    logPanel.style.display = 'none';
+
+    // Show log panel immediately with a working indicator
+    logPanel.style.display = 'block';
+    logPanel.open = true;
+    logCount.textContent = '…';
+    logContainer.innerHTML = '<div class="log-line log-line--llm">[BC-LP-GEN] Starting… Claude Sonnet is generating 3 LP variants</div>';
 
     try {
       const res = await fetch(`/api/brand-clarity/${PROJECT_ID}/generate-variants`, { method: 'POST' });
@@ -215,8 +220,8 @@ const typeColors: Record<string, string> = {
       renderLogs(data.logs);
       if (!res.ok) throw new Error(data.error || 'Failed');
       generateStatus.className = 'generate-status generate-status--success';
-      generateStatus.textContent = `Generated ${data.variantsGenerated} variants. Reloading…`;
-      setTimeout(() => window.location.reload(), 1500);
+      generateStatus.textContent = `Generated ${data.variantsGenerated} variants. Reloading in 4s…`;
+      setTimeout(() => window.location.reload(), 4000);
     } catch (e) {
       generateStatus.className = 'generate-status generate-status--error';
       generateStatus.textContent = `Error: ${e.message}`;

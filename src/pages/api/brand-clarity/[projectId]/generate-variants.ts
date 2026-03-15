@@ -13,8 +13,8 @@ const JSON_HEADERS = { 'Content-Type': 'application/json' };
 function runLpGenerator(projectId: number): Promise<{ variantsGenerated: number; error?: string; logs: string[] }> {
   return new Promise((resolve) => {
     let variantsGenerated = 0;
-    let stderr = '';
     const logs: string[] = [];
+    let buf = '';
 
     const child = spawn('npx', ['tsx', 'scripts/bc-lp-generator.ts'], {
       cwd: process.cwd(),
@@ -22,17 +22,25 @@ function runLpGenerator(projectId: number): Promise<{ variantsGenerated: number;
       shell: true,
     });
 
-    child.stdout.on('data', (chunk: Buffer) => {
-      const text = chunk.toString();
-      for (const line of text.split('\n')) { if (line.trim()) logs.push(line.trim()); }
-      const match = text.match(/VARIANTS_GENERATED:(\d+)/);
-      if (match) variantsGenerated = parseInt(match[1], 10);
-    });
+    const onChunk = (chunk: Buffer) => {
+      buf += chunk.toString();
+      const parts = buf.split('\n');
+      buf = parts.pop() ?? '';
+      for (const line of parts) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        const match = trimmed.match(/VARIANTS_GENERATED:(\d+)/);
+        if (match) variantsGenerated = parseInt(match[1], 10);
+        logs.push(trimmed);
+      }
+    };
 
-    child.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString(); });
+    child.stdout.on('data', onChunk);
+    child.stderr.on('data', onChunk);
 
     child.on('close', (code) => {
-      if (code !== 0) resolve({ variantsGenerated, error: stderr.slice(-500) || `exit code ${code}`, logs });
+      if (buf.trim()) logs.push(buf.trim());
+      if (code !== 0) resolve({ variantsGenerated, error: logs.slice(-3).join(' | ') || `exit code ${code}`, logs });
       else resolve({ variantsGenerated, logs });
     });
 
