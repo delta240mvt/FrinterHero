@@ -40,6 +40,7 @@ class BcScrapeJobManager extends EventEmitter {
   private _painPointsExtracted = 0;
   private _lines: BcLogEntry[] = [];
   private _result: any | null = null;
+  private _child: ReturnType<typeof spawn> | null = null;
 
   getSnapshot(): BcScrapeSnapshot {
     return {
@@ -59,6 +60,15 @@ class BcScrapeJobManager extends EventEmitter {
     return this._status === 'running';
   }
 
+  stop(): boolean {
+    if (this._status !== 'running' || !this._child) return false;
+    const entry: BcLogEntry = { line: '[BC] Aborted by user', ts: Date.now() };
+    if (this._lines.length < MAX_LINES) this._lines.push(entry);
+    this.emit('line', entry);
+    this._child.kill('SIGTERM');
+    return true;
+  }
+
   start(projectId: number): { ok: boolean; reason?: string } {
     if (this._status === 'running') {
       return { ok: false, reason: 'Brand Clarity scrape already running' };
@@ -76,7 +86,7 @@ class BcScrapeJobManager extends EventEmitter {
 
     this.emit('start');
 
-    const child = spawn('npx', ['tsx', 'scripts/bc-scraper.ts'], {
+    const child = this._child = spawn('npx', ['tsx', 'scripts/bc-scraper.ts'], {
       cwd: process.cwd(),
       env: {
         ...process.env,
@@ -126,6 +136,7 @@ class BcScrapeJobManager extends EventEmitter {
 
     child.on('close', (code) => {
       if (buf.trim()) pushLine(buf);
+      this._child = null;
       this._status = code === 0 ? 'done' : 'error';
       this._exitCode = code;
       this._finishedAt = Date.now();

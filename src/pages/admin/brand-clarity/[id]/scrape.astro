@@ -77,7 +77,10 @@ const rejected = painPoints.filter(p => p.status === 'rejected').length;
       <div id="scrape-panel" class="scrape-panel" style="display:none">
         <div class="scrape-panel-top">
           <span id="scrape-status" class="scrape-status">Initializing…</span>
-          <button id="scrape-close" class="scrape-close-btn" style="display:none">✕ Close</button>
+          <div class="scrape-panel-actions">
+            <button id="scrape-stop" class="btn-stop-scrape" style="display:none">■ Stop</button>
+            <button id="scrape-close" class="scrape-close-btn" style="display:none">✕ Close</button>
+          </div>
         </div>
         <div class="scrape-metrics">
           <span class="metric">Comments: <strong id="comments-count">0</strong></span>
@@ -160,10 +163,20 @@ const rejected = painPoints.filter(p => p.status === 'rejected').length;
   const scrapeLog   = document.getElementById('scrape-log');
   const scrapeStatus = document.getElementById('scrape-status');
   const scrapeClose  = document.getElementById('scrape-close');
+  const scrapeStop   = document.getElementById('scrape-stop');
   const commentsCount = document.getElementById('comments-count');
   const ppCount = document.getElementById('pp-count');
 
   scrapeClose?.addEventListener('click', () => { scrapePanel.style.display = 'none'; });
+
+  scrapeStop?.addEventListener('click', async () => {
+    if (!confirm('Abort the scrape? Already collected data will be kept.')) return;
+    scrapeStop.disabled = true;
+    scrapeStop.textContent = 'Stopping…';
+    try {
+      await fetch(`/api/brand-clarity/${PROJECT_ID}/scrape/stop`, { method: 'POST' });
+    } catch { /* stream handler will catch the close event */ }
+  });
 
   function appendLog(line) {
     const el = document.createElement('div');
@@ -203,7 +216,8 @@ const rejected = painPoints.filter(p => p.status === 'rejected').length;
           if (payload.done) {
             const ok = payload.code === 0;
             scrapeStatus.className = `scrape-status ${ok ? 'done' : 'error'}`;
-            scrapeStatus.textContent = ok ? 'Scrape complete!' : `Error (code ${payload.code})`;
+            scrapeStatus.textContent = ok ? 'Scrape complete!' : payload.code === null ? 'Aborted' : `Error (code ${payload.code})`;
+            scrapeStop.style.display = 'none';
             scrapeClose.style.display = 'inline-block';
             scrapeBtn.disabled = false;
             scrapeBtn.textContent = 'Start Scrape';
@@ -233,6 +247,9 @@ const rejected = painPoints.filter(p => p.status === 'rejected').length;
       if (data.status === 'running') {
         scrapeStatus.className = 'scrape-status running';
         scrapeStatus.textContent = 'Scraping…';
+        scrapeStop.style.display = 'inline-block';
+        scrapeStop.disabled = false;
+        scrapeStop.textContent = '■ Stop';
         scrapeBtn.disabled = true;
         scrapeBtn.textContent = 'Scraping…';
         connectScrapeStream(data.linesCount ?? 0);
@@ -263,6 +280,9 @@ const rejected = painPoints.filter(p => p.status === 'rejected').length;
     scrapeStatus.className = 'scrape-status running';
     scrapeStatus.textContent = 'Starting…';
     scrapeClose.style.display = 'none';
+    scrapeStop.style.display = 'inline-block';
+    scrapeStop.disabled = false;
+    scrapeStop.textContent = '■ Stop';
     scrapeBtn.disabled = true;
     scrapeBtn.textContent = 'Scraping…';
     connectScrapeStream(0);
@@ -368,6 +388,10 @@ const rejected = painPoints.filter(p => p.status === 'rejected').length;
 .scrape-status.running { color: var(--gold); }
 .scrape-status.done    { color: var(--teal); }
 .scrape-status.error   { color: #ef4444; }
+.scrape-panel-actions { display: flex; gap: 0.5rem; align-items: center; }
+.btn-stop-scrape { font-family: var(--font-mono); font-size: var(--text-xs); color: #ef4444; background: none; border: 1px solid rgba(239,68,68,0.4); border-radius: 0.2rem; padding: 0.2rem 0.625rem; cursor: pointer; }
+.btn-stop-scrape:hover { background: rgba(239,68,68,0.08); }
+.btn-stop-scrape:disabled { opacity: 0.5; cursor: not-allowed; }
 .scrape-close-btn { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); background: none; border: 1px solid var(--border); border-radius: 0.2rem; padding: 0.2rem 0.5rem; cursor: pointer; }
 .scrape-metrics { display: flex; gap: 1.5rem; padding: 0.5rem 1rem; border-bottom: 1px solid var(--border); font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); }
 .metric strong { color: var(--gold); }
