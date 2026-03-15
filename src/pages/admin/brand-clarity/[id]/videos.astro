@@ -100,15 +100,6 @@ const selectedCount = videos.filter(v => v.isSelected).length;
 
       <div id="discover-status" class="discover-status" style="display:none"></div>
 
-      <details id="log-panel" class="run-logs-section" style="display:none">
-        <summary class="run-logs-toggle">
-          <span class="logs-toggle-label">📋 Full Run Log</span>
-          <span id="log-count" class="logs-count">0 lines</span>
-          <button id="btn-download-logs" class="btn-download-logs" onclick="event.stopPropagation()">Download .txt</button>
-        </summary>
-        <div id="log-container" class="run-logs-container"></div>
-      </details>
-
       {videos.length === 0 ? (
         <div class="empty-state">No videos yet. Click "Discover Videos" to find the top 3 relevant videos per confirmed channel.</div>
       ) : (
@@ -147,6 +138,15 @@ const selectedCount = videos.filter(v => v.isSelected).length;
           ))}
         </div>
       )}
+
+      <details id="log-panel" class="run-logs-section" style="display:none">
+        <summary class="run-logs-toggle">
+          <span class="logs-toggle-label">📋 Full Run Log</span>
+          <span id="log-count" class="logs-count">0 lines</span>
+          <button id="btn-download-logs" class="btn-download-logs" onclick="event.stopPropagation()">Download .txt</button>
+        </summary>
+        <div id="log-container" class="run-logs-container"></div>
+      </details>
     </section>
   </main>
 </div>
@@ -202,8 +202,8 @@ const selectedCount = videos.filter(v => v.isSelected).length;
       renderLogs(data.logs);
       if (!res.ok) throw new Error(data.error || 'Failed');
       discoverStatus.className = 'discover-status discover-status--success';
-      discoverStatus.textContent = `Found ${data.videosFound} videos. Reloading…`;
-      setTimeout(() => window.location.reload(), 1500);
+      discoverStatus.textContent = `Found ${data.videosFound} videos. Reloading in 3s…`;
+      setTimeout(() => window.location.reload(), 3000);
     } catch (e) {
       discoverStatus.className = 'discover-status discover-status--error';
       discoverStatus.textContent = `Error: ${e.message}`;
