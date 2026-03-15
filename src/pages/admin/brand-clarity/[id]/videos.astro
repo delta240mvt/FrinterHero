@@ -55,7 +55,7 @@ if (!project) return Astro.redirect('/admin/brand-clarity');
 
   <main class="admin-main">
     <div class="stage-bar">
-      <a href="/admin/brand-clarity" class="stage done stage-link">1. LP Parsed</a>
+      <a href={`/admin/brand-clarity/${projectId}/docs`} class="stage done stage-link">1. LP Parsed</a>
       <span class="stage-arrow">→</span>
       <a href={`/admin/brand-clarity/${projectId}/channels`} class="stage done stage-link">2. Channels</a>
       <span class="stage-arrow">→</span>

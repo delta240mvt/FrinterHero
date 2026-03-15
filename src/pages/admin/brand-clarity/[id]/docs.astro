@@ -44,17 +44,15 @@ const lpWordCount = lpRawInput.trim() ? lpRawInput.trim().split(/\s+/).length : 
 
   <main class="admin-main">
     <div class="stage-bar">
-      <span class="stage done">1. LP Parsed</span>
+      <span class="stage active">1. LP Parsed</span>
       <span class="stage-arrow">→</span>
-      <span class="stage active">1.1 Docs</span>
+      <a href={`/admin/brand-clarity/${projectId}/channels`} class="stage stage-link">2. Channels</a>
       <span class="stage-arrow">→</span>
-      <span class="stage">2. Channels</span>
+      <a href={`/admin/brand-clarity/${projectId}/videos`} class="stage stage-link">3. Videos</a>
       <span class="stage-arrow">→</span>
-      <span class="stage">3. Videos</span>
+      <a href={`/admin/brand-clarity/${projectId}/scrape`} class="stage stage-link">4. Scrape & Review</a>
       <span class="stage-arrow">→</span>
-      <span class="stage">4. Scrape</span>
-      <span class="stage-arrow">→</span>
-      <span class="stage">5. Generate LPs</span>
+      <a href={`/admin/brand-clarity/${projectId}/variants`} class="stage stage-link">5. LP Variants</a>
     </div>
 
     <!-- ── LANDING PAGE CONTENT ───────────────────────────────────────────── -->
@@ -467,6 +465,8 @@ tone_of_voice: |
 .stage { color: var(--text-muted); white-space: nowrap; }
 .stage.done { color: var(--teal); }
 .stage.active { color: var(--gold); font-weight: 700; }
+.stage-link { text-decoration: none; padding: 0.1rem 0.3rem; border-radius: 0.2rem; }
+.stage-link:hover { background: rgba(255,255,255,0.06); color: var(--text-secondary); }
 .stage-arrow { color: var(--border); }
 .form-section { display: flex; flex-direction: column; gap: 1.5rem; }
 .form-header { display: flex; flex-direction: column; gap: 0.5rem; }
