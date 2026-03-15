@@ -1,799 +1,672 @@
-# Brand Clarity Flow Improvements — Voice of Customer & LP Quality
+# Brand Clarity v2 — Complete Flow Documentation
 
-## Status: Enhancement Proposal
-## Date: 2026-03-15
-## Branch: base150326-brandclarity
-
----
-
-## Executive Summary
-
-The current Brand Clarity flow works mechanically (data moves through 6 stages), but the **final landing page output is weak** because:
-
-1. **Keywords come from a broken LP** — the existing landing page "doesn't work," yet we extract `nicheKeywords` from it to find YouTube channels. Garbage in, garbage out.
-2. **Voice of Customer is decorative, not structural** — `customerLanguage` and `vocabularyQuotes` are extracted but only mentioned in the LP generator prompt as context. They don't drive the headline, hero, or CTA.
-3. **The LP generator prompt is generic** — no instruction for curiosity-driven heroes, no "give me X, get Y" structure, no requirement for simple language.
-4. **Pain points are used in isolation** — only top 2 pain points feed into 2 variants. No synthesis, no clustering, no frequency-weighted prioritization.
-5. **Product features are an afterthought** — `projectDocumentation` is optional and truncated to 8000 chars. The LP should be built on **real features mapped to real pains**.
+**Branch:** `base150326-brandclarityv2`
+**Status:** Implemented & Deployed
+**Last updated:** 2026-03-15
 
 ---
 
-## Context: What the User Actually Needs
+## 1. Overview
 
-The person running Brand Clarity has:
-- A product with real features (described in project documentation)
-- A landing page that **doesn't convert**
-- Access to YouTube audiences who discuss problems the product solves
-- A need for a new LP that speaks **in the customer's own words**
+Brand Clarity turns a founder's broken landing page into three emotionally optimized LP variants — grounded in **real customer pain language** extracted from YouTube comments and anchored to **real product features** from documentation.
 
-The output LP must:
-- **Hero:** Be surprising or trigger curiosity — not generic marketing speak
-- **Language:** Simple, direct, clarity over cleverness
-- **Structure:** "Give me [action], and you'll get [outcome]"
-- **VoC:** Use actual customer vocabulary, their tone, their mental models
-- **Features:** Beta tester must know exactly what they're getting — real features, real outcomes
-- **Pain:** Directly answer customer needs extracted from real comment scraping
+### What changed in v2
 
----
-
-## Problem Analysis by Stage
-
-### Stage 1: LP Parser — Wrong Source of Truth for Keywords
-
-**Current:** `bc-lp-parser.ts` extracts `nicheKeywords` from the existing LP HTML + founder description.
-
-**Problem:** The existing LP doesn't work. Its language, framing, and keywords reflect what the **founder thinks** the market wants — not what the market actually says. Using these keywords to find YouTube channels means we search for what the founder assumes, not what customers actually discuss.
-
-**Fix:** After the LP is parsed, Sonnet should generate keywords from **three sources** weighted differently:
-
-| Source | Weight | Rationale |
-|--------|--------|-----------|
-| Product documentation (features, mechanics) | 40% | What the product actually does |
-| Founder description (vision, positioning) | 30% | How the founder frames the problem space |
-| Existing LP (current messaging) | 30% | What language is currently being used (even if weak) |
-
-Sonnet should output **two keyword sets**:
-1. `nicheKeywords` (5-7) — broad niche terms for channel discovery
-2. `audiencePainKeywords` (5-7) — pain/problem terms for video search (e.g., "can't focus at work", "burnout after deep work", "energy crash afternoon")
-
-The `audiencePainKeywords` are specifically designed to find videos where people **complain about problems** the product solves — not just niche-related content.
+| Dimension | v1 | v2 |
+|-----------|----|----|
+| Keyword source | Extracted from existing (broken) LP | Sonnet generates from LP + docs + founder description |
+| Keyword types | 1 set: `nicheKeywords` | 2 sets: `nicheKeywords` + `audiencePainKeywords` |
+| Video search | 1 pass per channel (topic keywords) | 2 passes (topic + pain keywords), dedup + score boost |
+| VoC extraction | `customerLanguage` (1 sentence) | Structured `vocData`: 5 fields per pain point |
+| Pain point dedup | None | Cross-batch dedup by title similarity |
+| Engagement weighting | None | High-`voteCount` comments boost `emotionalIntensity` |
+| Pre-generation synthesis | None | **Pain clustering** — Sonnet synthesizes approved pain points into 2-3 clusters |
+| LP variant strategies | `founder_vision`, `pain_point_1`, `pain_point_2` | `curiosity_hook`, `pain_mirror`, `outcome_promise` |
+| Feature grounding | Optional, truncated to 8000 chars | Required `featureMap` extracted from docs — only listed features allowed |
+| CTA structure | Generic | "Give me [action]. Get [outcome]." mandatory |
+| Language rules | None | Grade 6, max 15 words/sentence, banned buzzword list |
+| Feature visibility | Implicit | Mandatory "What You Get" section in every variant |
 
 ---
 
-### Stage 1.1: Documentation — Currently Optional, Should Be Required
+## 2. High-Level Flow
 
-**Current:** Project documentation is optional. If skipped, LP generation has no factual anchor.
+```mermaid
+flowchart TD
+    A([Founder]) -->|LP HTML + description| S1
 
-**Problem:** Without product docs, the LP generator invents features or uses vague language. A beta tester reads the LP and has no idea what they actually get.
+    subgraph S1["Stage 1 — LP Ingestion (Sonnet)"]
+        direction TB
+        P1[bc-lp-parser.ts]
+        P1 --> D1[(bcProjects\nlpStructureJson\nnicheKeywords\naudiencePainKeywords\nfeatureMap)]
+    end
 
-**Fix:** Make documentation a **soft-required** stage:
-- If skipped, the LP generator adds a prominent warning: "LP variants generated without product documentation — feature accuracy not guaranteed"
-- In the generator prompt, if docs exist, explicitly instruct: "Every feature claim must be traceable to the product documentation. Do not invent features."
-- Extract a structured `featureMap` from documentation: `{ featureName: string, whatItDoes: string, userBenefit: string }[]` — this becomes the factual backbone of every LP variant
+    S1 -->|optional| S1b
+
+    subgraph S1b["Stage 1.1 — Project Documentation"]
+        direction TB
+        PD[docs.astro textarea]
+        PD --> D1b[(bcProjects\nprojectDocumentation\nfeatureMap enriched)]
+    end
+
+    S1b --> S2
+
+    subgraph S2["Stage 2 — Channel Discovery (YouTube API)"]
+        direction TB
+        CH[bc-channel-discovery.ts]
+        CH -->|nicheKeywords × 3 search.list| D2[(bcTargetChannels)]
+    end
+
+    S2 -->|manual review| S2r[channels.astro]
+    S2r -->|confirm ≥1| S3
+
+    subgraph S3["Stage 3 — Video Discovery (YouTube API)"]
+        direction TB
+        VD[bc-video-discovery.ts]
+        VD -->|Pass 1: nicheKeywords\nPass 2: audiencePainKeywords| D3[(bcTargetVideos)]
+    end
+
+    S3 --> S4
+
+    subgraph S4["Stage 4 — Comment Scraping (YouTube API + Haiku)"]
+        direction TB
+        SC[bc-scraper.ts]
+        SC -->|commentThreads.list| D4a[(bcComments)]
+        SC -->|LLM extraction chunks| D4b[(bcExtractedPainPoints\n+ vocData)]
+    end
+
+    S4 -->|manual review| S4r[scrape.astro]
+    S4r -->|approve ≥3| S45
+
+    subgraph S45["Stage 4.5 — Pain Clustering (Sonnet)"]
+        direction TB
+        CL[bc-pain-clusterer.ts]
+        CL --> D45[(bcPainClusters\ncluster 1…3)]
+    end
+
+    S45 --> S5
+
+    subgraph S5["Stage 5 — LP Generation (Sonnet × 3)"]
+        direction TB
+        GEN[bc-lp-generator.ts]
+        GEN -->|curiosity_hook| V1[(Variant A)]
+        GEN -->|pain_mirror| V2[(Variant B)]
+        GEN -->|outcome_promise| V3[(Variant C)]
+    end
+
+    S5 --> OUT[variants.astro\nPreview · Copy · Select]
+```
 
 ---
 
-### Stage 2-3: Channel & Video Discovery — Pain-Oriented Search
+## 3. Stage-by-Stage Detail
 
-**Current:** Channel discovery uses `nicheKeywords` (e.g., "focus", "productivity", "deep work"). Video discovery searches within channels using the same keywords.
+### Stage 1 — LP Ingestion
 
-**Problem:** These keywords find **topic channels**, not **pain discussions**. A video titled "10 Productivity Tips" has different comments than "Why I Can't Focus Anymore (burnout story)". The second video has comments full of customer pain language.
+**Script:** `scripts/bc-lp-parser.ts`
+**Model:** Sonnet (`BC_LP_MODEL`)
+**Trigger:** Project creation form → spawned as child process
 
-**Fix — Video Discovery Enhancement:**
+#### Input
+```
+bcProjects.lpRawInput        — existing LP HTML or text
+bcProjects.founderDescription — 2-5 sentences in founder's words
+bcProjects.projectDocumentation — optional README/spec (if already saved)
+```
 
-Add a second search pass per channel using `audiencePainKeywords`:
-1. Pass 1 (current): `search.list` with `nicheKeywords` — finds topically relevant videos
-2. Pass 2 (new): `search.list` with `audiencePainKeywords` — finds pain-discussion videos
+#### LLM Tasks (single call)
 
-Score adjustment: videos found by pain keywords get +0.2 relevance bonus because their comments are more likely to contain extractable VoC data.
+```
+TASK 1  — Extract lpStructureJson (headline, features, sectionWeaknesses, etc.)
+TASK 1B — Generate audiencePainKeywords (pain-oriented search terms)
+TASK 1C — Extract featureMap from documentation (if docs present)
+TASK 2  — Generate clean lpTemplateHtml with <!-- PAIN POINT HOOK --> comments
+```
 
-**Quota impact:** +10 `search.list` calls (1000 units). Total per run goes from ~1,362 to ~2,362 units. Still allows ~4 runs/day.
+#### Output stored in `bcProjects`
+
+```mermaid
+flowchart LR
+    IN["lpRawInput\nfounderDescription\nprojectDocumentation"] --> LLM["Sonnet call\ntemp 0.3\nmax 6000 tok"]
+    LLM --> O1["lpStructureJson\n{headline, features,\nsectionWeaknesses,\ntoneKeywords...}"]
+    LLM --> O2["nicheKeywords[]\n['deep work', 'focus'...]"]
+    LLM --> O3["audiencePainKeywords[]\n['why cant i focus at work',\n'brain fog after lunch'...]"]
+    LLM --> O4["featureMap[]\n[{featureName, whatItDoes,\nuserBenefit}...]"]
+    LLM --> O5["lpTemplateHtml\nwith CRO comments"]
+```
+
+**Key rule:** `audiencePainKeywords` must be complaint-oriented search terms — what a frustrated user would type into YouTube, not topic labels.
 
 ---
 
-### Stage 4: Pain Point Extraction — Deeper VoC Mining
+### Stage 1.1 — Project Documentation (optional but recommended)
 
-**Current prompt weakness:** The scraper asks Haiku to extract `customerLanguage` as "1 sentence on HOW they talk about this problem." This is too compressed — real VoC needs multiple dimensions.
+**Page:** `/admin/brand-clarity/[id]/docs`
 
-**Fix — Enhanced Extraction Schema:**
+User pastes full product docs (README, spec, feature list). If present, `bc-lp-parser.ts` is re-run and extracts an enriched `featureMap`. Without docs, `featureMap` is empty and the LP generator falls back to `lpStructureJson.features`.
 
-Replace single `customerLanguage` field with structured VoC object:
+**Status flow:** `draft` → `docs_pending` → `channels_pending`
 
-```typescript
-{
-  // Current fields (keep)
-  painPointTitle: string;
-  painPointDescription: string;
-  emotionalIntensity: number;
-  frequency: number;
-  vocabularyQuotes: string[];  // exact phrases, verbatim
-  category: string;
-  desiredOutcome: string;
+---
 
-  // NEW: Structured Voice of Customer
-  vocData: {
-    // How they NAME the problem (their label, not clinical/marketing)
-    problemLabel: string;       // e.g., "brain fog after lunch"
-    // The EMOTION they associate with it (frustration, shame, fear, longing)
-    dominantEmotion: string;    // e.g., "frustration"
-    // What they've TRIED that failed (previous solutions)
-    failedSolutions: string[];  // e.g., ["pomodoro", "coffee", "naps"]
-    // The MOMENT they feel the pain most (trigger situation)
-    triggerMoment: string;      // e.g., "right after a meeting when I need to code"
-    // How they'd describe SUCCESS in their own words
-    successVision: string;      // e.g., "just sit down and the code flows for 3 hours"
-  }
+### Stage 2 — Channel Discovery
+
+**Script:** `scripts/bc-channel-discovery.ts`
+**Model:** None (YouTube Data API only)
+**Quota:** ~301 units per run
+
+```mermaid
+flowchart TD
+    KW["nicheKeywords[0..2]"] --> S1["search.list ×3\nmaxResults:20\ntype:channel"]
+    S1 --> DEDUP["Deduplicate by channelId"]
+    DEDUP --> BATCH["channels.list ×1 (batch all)"]
+    BATCH --> FILTER["Filter: subscriberCount > 10k"]
+    FILTER --> TOP15["Top 15 → bcTargetChannels\nisConfirmed: false"]
+    TOP15 --> REVIEW["Manual review\nchannels.astro"]
+    REVIEW -->|confirm/remove/add manual| CONFIRMED["Confirmed channels\n≥1 required"]
+```
+
+---
+
+### Stage 3 — Video Discovery
+
+**Script:** `scripts/bc-video-discovery.ts`
+**Model:** None (YouTube Data API only)
+**Quota:** ~200 units per channel (2 search.list + 1 videos.list batch)
+
+#### v2 Enhancement: Dual Search Pass
+
+```mermaid
+flowchart TD
+    CH["confirmed channels"] --> LOOP["For each channel"]
+
+    LOOP --> P1["Pass 1: search.list\nq = nicheKeywords.join\nmaxResults:10"]
+    LOOP --> P2["Pass 2: search.list\nq = audiencePainKeywords.join\nmaxResults:10"]
+
+    P1 --> MERGE["Merge + deduplicate\nby videoId"]
+    P2 --> MERGE
+
+    MERGE --> STATS["videos.list batch\n(all videoIds, 1 call)"]
+
+    STATS --> SCORE["Score each video:\nrankScore = (1 - index/N) × 0.7\nengagementScore = comments>100 ? 0.3 : 0.15 : 0\npainBonus = isPainKeyword ? 0.2 : 0\nfinal = min(1.0, sum)"]
+
+    SCORE --> TOP3["Top 3 per channel → bcTargetVideos"]
+```
+
+**Pain-keyword videos get +0.2 relevance bonus** because their comment sections are more likely to contain extractable VoC data — complaint-heavy discussions vs. passive topic videos.
+
+---
+
+### Stage 4 — Comment Scraping & Pain Point Extraction
+
+**Script:** `scripts/bc-scraper.ts`
+**Model:** Haiku (`BC_SCRAPER_MODEL`, ~300 calls per run)
+**Quota:** ~2 YouTube API units per video (commentThreads pagination)
+
+#### Comment Pipeline
+
+```mermaid
+flowchart TD
+    VID["bcTargetVideos"] --> API["commentThreads.list\norder:relevance\nmaxResults:100\npaginate until MAX_COMMENTS"]
+    API --> FILTER1["Filter:\n- length > 15 chars\n- not in existingCids\n(project-scope dedup)"]
+    FILTER1 --> DB["INSERT bcComments"]
+    DB --> CHUNK["chunkArray(20)"]
+    CHUNK --> HAIKU["Haiku LLM call\nper chunk"]
+```
+
+#### Haiku Extraction → `vocData`
+
+Each chunk of 20 comments produces pain points. In v2, each pain point includes a structured `vocData` object:
+
+```mermaid
+flowchart LR
+    subgraph PP["ExtractedPainPoint"]
+        direction TB
+        F1["painPointTitle\npainPointDescription\nemotionalIntensity 1-10\nfrequency\ncategory\nvocabularyQuotes[]\ncustomerLanguage\ndesiredOutcome"]
+        F2["vocData {\n  problemLabel\n  dominantEmotion\n  failedSolutions[]\n  triggerMoment\n  successVision\n}"]
+    end
+```
+
+| `vocData` field | Example | LP usage |
+|-----------------|---------|----------|
+| `problemLabel` | `"brain fog after lunch"` | Hero headline — their words |
+| `dominantEmotion` | `"frustration"` | Subheadline emotional tone |
+| `failedSolutions` | `["pomodoro", "coffee", "naps"]` | Problem section: "You've tried X, Y, Z" |
+| `triggerMoment` | `"right after a meeting when I need to code"` | Problem opener: "You know that moment when…" |
+| `successVision` | `"just sit down and the code flows for 3 hours"` | CTA: "Give me X. Get [successVision]." |
+
+#### v2 Post-Extraction Processing
+
+```mermaid
+flowchart TD
+    RAW["Haiku raw output"] --> PARSE["Parse painPoints[]"]
+    PARSE --> ENGAGE["Engagement weighting:\navgVoteCount > 50 → intensity × 1.3\navgVoteCount > 200 → intensity × 1.5\ncap at 10"]
+    ENGAGE --> BRAND["Brand filter:\n- intensity < 8 → skip\n- OFF_BRAND_KEYWORDS → skip\n- title < 15 chars → skip"]
+    BRAND --> DEDUP["Cross-batch dedup:\ntitleKey = title.toLowerCase().slice(0,30)\nalready seen? → skip"]
+    DEDUP --> INSERT["INSERT bcExtractedPainPoints\nstatus: 'pending'\nvocData: {...}"]
+```
+
+---
+
+### Stage 4 Review — Pain Point Approval
+
+**Page:** `/admin/brand-clarity/[id]/scrape`
+
+Admin reviews extracted pain points via `BcPainPointCard`. Actions:
+- **Approve** — marks `status: 'approved'`
+- **Reject** — marks `status: 'rejected'`
+- **Auto-filter** — bulk-rejects pending entries with `emotionalIntensity < 8`
+
+**Requirement:** ≥3 approved pain points before clustering is available.
+
+---
+
+### Stage 4.5 — Pain Point Clustering (NEW in v2)
+
+**Script:** `scripts/bc-pain-clusterer.ts`
+**Model:** Sonnet (1 call)
+**API:** `POST /api/brand-clarity/[projectId]/cluster-pain-points`
+
+This is the synthesis step that was missing in v1. Instead of using individual pain points in the LP generator, Sonnet reads ALL approved pain points and groups them into 2-3 meaningful clusters.
+
+```mermaid
+flowchart TD
+    APPROVED["bcExtractedPainPoints\nstatus='approved'\nORDER BY emotionalIntensity DESC"] --> SONNET
+
+    subgraph SONNET["1× Sonnet call"]
+        direction TB
+        PROMPT["Input: all pain points\nwith vocData, quotes,\nfrequency, intensity"]
+        OUT["Output: 2-3 clusters"]
+    end
+
+    OUT --> C1["Cluster 1\n(highest aggregateIntensity)"]
+    OUT --> C2["Cluster 2\n(different dimension)"]
+    OUT --> C3["Cluster 3 (optional)"]
+
+    C1 --> DB["bcPainClusters\n{clusterTheme\ndominantEmotion\naggregatIntensity\nbestQuotes[]\nsynthesizedProblemLabel\nsynthesizedSuccessVision\nfailedSolutions[]\ntriggerMoments[]\npainPointIds[]}"]
+    C2 --> DB
+    C3 --> DB
+```
+
+**Why clustering matters:**
+- Individual pain points may repeat the same theme. Taking "top 2 by intensity" can give you 2 variants about the same problem.
+- Clustering ensures Variant B and Variant C address **genuinely different customer dimensions**.
+- Aggregate intensity (avg × frequency) is more robust than a single high-intensity comment.
+- `synthesizedProblemLabel` and `synthesizedSuccessVision` are the most powerful VoC data for copy — synthesized from many voices, not one.
+
+#### Cluster data structure
+
+```
+bcPainClusters {
+  clusterTheme          — "Can't focus after meetings drain energy"
+  dominantEmotion       — "frustration"
+  aggregateIntensity    — 8.4
+  synthesizedProblemLabel — "brain fog that kills my afternoons"
+  synthesizedSuccessVision — "3 hours of flow after lunch, no coffee needed"
+  bestQuotes            — ["I sit down to work and nothing comes out",
+                           "meetings leave me useless for the rest of the day",
+                           "I know what I need to do but I just can't start"]
+  failedSolutions       — ["pomodoro", "coffee", "power naps", "phone away"]
+  triggerMoments        — ["right after a 2-hour meeting",
+                           "3pm energy crash", "after lunch"]
+  painPointIds          — [3, 7, 12, 15]
 }
 ```
 
-**Why each VoC field matters for the LP:**
+---
 
-| VoC Field | LP Section | How It's Used |
-|-----------|-----------|---------------|
-| `problemLabel` | Hero headline | Use their exact name for the problem, not marketing jargon |
-| `dominantEmotion` | Hero subheadline | Mirror the emotion to create instant recognition |
-| `failedSolutions` | Problem section | "You've tried X, Y, Z — and none of them stuck" |
-| `triggerMoment` | Problem section | Paint the specific moment they feel the pain |
-| `successVision` | Solution/CTA | "Give me 10 minutes of setup, and you'll [successVision]" |
-| `vocabularyQuotes` | Throughout | Sprinkle exact phrases as social proof + relatability |
+### Stage 5 — LP Generation
+
+**Script:** `scripts/bc-lp-generator.ts`
+**Model:** Sonnet × 3 calls (`BC_LP_MODEL`)
+**Trigger:** `POST /api/brand-clarity/[projectId]/generate-variants`
+
+#### Input loading
+
+```mermaid
+flowchart TD
+    subgraph LOAD["Load from DB"]
+        L1["bcProjects\n- lpStructureJson\n- lpTemplateHtml\n- featureMap[]\n- projectDocumentation\n- founderVision"]
+        L2["bcPainClusters\nORDER BY aggregateIntensity DESC"]
+        L3["bcExtractedPainPoints\nstatus='approved'\n(fallback if no clusters)"]
+    end
+
+    LOAD --> ASSIGN
+
+    subgraph ASSIGN["Assign clusters to variants"]
+        A1["cluster1 (highest intensity)\n→ Variant A (curiosity_hook)\n→ Variant B (pain_mirror)"]
+        A2["cluster2 (different dimension)\n→ Variant C (outcome_promise)"]
+    end
+```
+
+#### Three Variant Strategies
+
+```mermaid
+flowchart LR
+    subgraph VA["Variant A — curiosity_hook"]
+        direction TB
+        H1["Hero: Surprising/counterintuitive\n'The reason you can't focus\nisn't what you think'"]
+        P1["Problem: Data-driven insight\nfrom pain patterns"]
+        C1["CTA: Discover the real cause"]
+    end
+
+    subgraph VB["Variant B — pain_mirror"]
+        direction TB
+        H2["Hero: synthesizedProblemLabel\nin customer's exact words\n'brain fog that kills my afternoons'"]
+        P2["Problem: triggerMoment opener\n'You know that moment when...'\n+ vocabularyQuotes verbatim\n+ failedSolutions named"]
+        C2["CTA: Escape the pattern"]
+    end
+
+    subgraph VC["Variant C — outcome_promise"]
+        direction TB
+        H3["Hero: Give me X. Get Y.\n'Give me 10 min setup.\nGet 3 hours of flow.'"]
+        P3["Problem: successVision anchored\nin customer's words"]
+        C3["CTA: specific action → specific outcome"]
+    end
+```
+
+#### Shared requirements across all 3 variants
+
+```mermaid
+flowchart TD
+    RULES["VoC-First Rules\n(all variants)"] --> R1["Feature claims:\nONLY from featureMap\n(no invented features)"]
+    RULES --> R2["'What You Get' section:\nEVERY feature listed\n'✓ Feature — what it does'"]
+    RULES --> R3["Language:\nGrade 6 reading level\nMax 15 words/sentence\nNo buzzwords (banned list)"]
+    RULES --> R4["VoC integration:\n≥2 vocabularyQuotes verbatim\ntriggerMoment in problem opener\nfailedSolutions named explicitly"]
+    RULES --> R5["CTA structure:\n'Give me [action].\nGet [outcome].'"]
+```
+
+#### LP Generator prompt structure (per variant)
+
+```
+[system]
+  VoC-first principle
+  Language laws (Grade 6, banned words, 15-word sentences)
+
+[user]
+  PROJECT + VARIANT TYPE
+  PRODUCT DOCUMENTATION (source of truth, 6000 chars)
+  FEATURE MAP (only these features allowed)
+  VOICE OF CUSTOMER DATA
+    - clusterTheme
+    - synthesizedProblemLabel
+    - dominantEmotion
+    - synthesizedSuccessVision
+    - failedSolutions[]
+    - triggerMoments[]
+    - bestQuotes[] (verbatim — use these in copy)
+  LP STRUCTURE (sectionOrder, brandVoice, primaryCTA)
+  VARIANT-SPECIFIC HERO STRATEGY
+  SECTION-BY-SECTION REQUIREMENTS
+  OUTPUT FORMAT (meta JSON + HTML)
+```
+
+#### LLM Output parsing
+
+```mermaid
+flowchart TD
+    RES["Sonnet response"] --> J["```json block"]
+    RES --> H["```html block"]
+    J --> M1["heroApproach"]
+    J --> M2["featurePainMap[]\n{feature, painItSolves,\nvocQuote, section}"]
+    J --> M3["improvementSuggestions\n{hero, problem, solution,\nfeatures, social_proof, cta}"]
+    H --> HTML["Full LP HTML\n<section class='hero'>\n<section class='problem'>..."]
+    M2 --> DB["bcLandingPageVariants\n.featurePainMap"]
+    M3 --> DB2["bcLandingPageVariants\n.improvementSuggestions"]
+    HTML --> DB3["bcLandingPageVariants\n.htmlContent"]
+```
 
 ---
 
-### Stage 4.5 (NEW): Pain Point Clustering & Synthesis
+## 4. Data Flow: Voice of Customer Through the System
 
-**Current:** LP generator takes top 2 pain points by `emotionalIntensity` independently. No clustering.
+This diagram shows how a single customer quote travels from a YouTube comment to the final landing page headline.
 
-**Problem:** 15 extracted pain points might cluster into 3-4 themes. Taking the "top 2" might pick two pain points from the same cluster, missing a major theme entirely. Also, frequency across clusters matters more than individual intensity.
+```mermaid
+flowchart TD
+    YT["YouTube comment\n'I sit at my desk for 3 hours\nand produce nothing'\nvoteCount: 847"]
 
-**Fix — Add a clustering step before LP generation:**
+    YT --> HAIKU["Haiku extraction\nchunk of 20 comments"]
 
-After admin approves pain points, before generating variants, run one Sonnet call:
+    HAIKU --> VOC["vocData.problemLabel:\n'sitting at desk producing nothing'\nvocabularyQuotes:\n['I sit at my desk for 3 hours and produce nothing']\nemotionalIntensity: 9 → ×1.3 (engagement boost) → 10"]
 
-**Input:** All approved pain points with full VoC data
-**Output:** 2-3 pain clusters, each with:
-- `clusterTheme`: 1-sentence summary
-- `dominantEmotion`: the shared emotion
-- `aggregateIntensity`: weighted average intensity × frequency
-- `bestQuotes`: top 3 vocabularyQuotes across all pain points in cluster
-- `synthesizedProblemLabel`: the most common way customers name this cluster
-- `synthesizedSuccessVision`: what success looks like for this cluster
-- `painPointIds`: which pain points belong to this cluster
+    VOC --> REVIEW["Admin approves\npain point"]
 
-This clustering ensures:
-1. Variant B addresses the **biggest customer concern** (by aggregate weight, not just one person's intensity-10 comment)
-2. Variant C addresses a **different dimension** of pain (not just second-highest individual score)
-3. The LP generator receives **synthesized VoC** — multiple voices merged into one powerful message
+    REVIEW --> CLUSTER["Sonnet clustering\nbest quote selected:\n'I sit at my desk for 3 hours\nand produce nothing'"]
+
+    CLUSTER --> GEN["LP Generator receives:\nsynthesizedProblemLabel: 'sitting at desk producing nothing'\nbestQuotes[0]: 'I sit at my desk for 3 hours and produce nothing'"]
+
+    GEN --> LP["Variant B — Pain Mirror\nHero headline:\n'Sitting at your desk for hours\nand producing nothing isn't laziness.'\nProblem section:\n'You know that moment when... You sit down,\nopen the editor, and... nothing comes.\nPeople like you say: I sit at my desk\nfor 3 hours and produce nothing.'"]
+```
 
 ---
 
-### Stage 5: LP Generation — The Core Rewrite
+## 5. Admin UI Flow
 
-**Current prompt problems:**
-1. Generic copywriting instructions — "write a full landing page HTML"
-2. No structure for curiosity/surprise heroes
-3. No "give me X, get Y" framework
-4. VoC quotes are listed as context but not mandated in output
-5. No simple-language constraint
-6. `projectDocumentation` passed but not used to ground feature claims
-7. Improvement suggestions are afterthought HTML comments
+```mermaid
+sequenceDiagram
+    actor U as Founder
+    participant NEW as /brand-clarity/new
+    participant DOCS as /[id]/docs
+    participant CHAN as /[id]/channels
+    participant VID as /[id]/videos
+    participant SCRAPE as /[id]/scrape
+    participant VAR as /[id]/variants
 
-**Fix — Complete LP Generator Prompt Rewrite:**
-
-The new prompt should enforce these LP principles:
-
-#### Principle 1: Hero Must Trigger Curiosity or Surprise
-
-```
-HERO SECTION RULES:
-- The headline must do ONE of these:
-  a) STATE A SURPRISING FACT: "87% of focus apps make you LESS focused"
-  b) NAME THEIR PAIN IN THEIR WORDS: "{problemLabel} isn't a discipline problem"
-  c) PROMISE A SPECIFIC OUTCOME: "Go from {triggerMoment} to {successVision}"
-- The subheadline must explain HOW in one sentence
-- NO generic headlines like "The Ultimate X" or "Transform Your Y"
-- Test: Would someone screenshot this headline and send it to a friend? If no, rewrite.
-```
-
-#### Principle 2: Voice of Customer Drives Every Section
-
-```
-VoC INTEGRATION RULES:
-- Hero: Use {problemLabel} or {successVision} verbatim
-- Problem section: Start with {triggerMoment}. Use at least 2 {vocabularyQuotes}.
-  Write as if you're describing THEIR morning, THEIR frustration, THEIR failed attempts.
-  Name {failedSolutions} they've tried: "You've tried [X], [Y], and [Z]."
-- Solution section: Transition with "What if {successVision}?"
-  Map each product FEATURE (from documentation) to a SPECIFIC pain it solves.
-- Social proof: Use {vocabularyQuotes} as pseudo-testimonials:
-  "People like you say: '{quote}' — that's exactly why we built [feature]."
-- CTA: Use the "give me X, get Y" structure:
-  "Give me [specific action]. Get [specific outcome from successVision]."
+    U->>NEW: paste LP + description
+    NEW->>NEW: POST /api/projects → spawn bc-lp-parser
+    NEW-->>U: polling until status != 'draft'
+    U->>DOCS: paste product documentation
+    DOCS->>DOCS: PUT /documentation → re-runs parser
+    DOCS-->>U: redirect to channels
+    U->>CHAN: click Discover Channels
+    CHAN->>CHAN: POST /discover-channels → bc-channel-discovery
+    U->>CHAN: confirm/remove/add channels
+    U->>CHAN: click Confirm & Discover Videos
+    CHAN->>CHAN: POST /channels/confirm-all → bc-video-discovery
+    CHAN-->>U: redirect to videos
+    U->>VID: review 30 target videos
+    U->>SCRAPE: click Start Scrape
+    SCRAPE->>SCRAPE: POST /scrape/start → bc-scraper (SSE stream)
+    SCRAPE-->>U: live log: commentsCollected:N / painPointsExtracted:N
+    U->>SCRAPE: approve ≥3 pain points
+    U->>SCRAPE: click Cluster Pain Points (NEW)
+    SCRAPE->>SCRAPE: POST /cluster-pain-points → bc-pain-clusterer
+    SCRAPE-->>U: show 2-3 cluster cards with VoC synthesis
+    U->>SCRAPE: click Generate LPs →
+    U->>VAR: click Generate Landing Pages
+    VAR->>VAR: POST /generate-variants → bc-lp-generator ×3
+    VAR-->>U: 3 variant cards with Preview/Copy/Select
 ```
 
-#### Principle 3: Clarity Over Cleverness
+---
 
-```
-LANGUAGE RULES:
-- Reading level: Grade 6 (Hemingway-simple)
-- Max sentence length: 15 words
-- No jargon unless the CUSTOMER uses it (check vocabularyQuotes)
-- No buzzwords: "leverage", "optimize", "unlock", "empower", "transform"
-- Every paragraph must pass: "Would a tired person at 11 PM understand this in 3 seconds?"
-- Feature descriptions: "[Feature name] — [what it does in 8 words]. [Why you care in 8 words]."
-```
+## 6. Database Schema (v2)
 
-#### Principle 4: Beta Tester Knows Exactly What They Get
-
-```
-SPECIFICITY RULES:
-- List EVERY core feature from {projectDocumentation.featureMap}
-- For each feature, write: "You get [feature]. It does [specific thing]. So you can [specific outcome]."
-- Include a "What's Inside" or "What You Get" section — even if original LP didn't have one
-- NO vague promises: Replace "better focus" with "90-minute uninterrupted deep work sessions tracked in real-time"
-- If the product has limitations, acknowledge them: "This isn't for [wrong audience]. This is for [right audience]."
-```
-
-#### Principle 5: Feature-to-Pain Mapping (NEW)
-
-Before generating HTML, the prompt should require the LLM to first output a **Feature-Pain Map**:
-
-```json
-{
-  "featurePainMap": [
-    {
-      "feature": "Focus Sprint Timer",
-      "whatItDoes": "Measures depth, length, and frequency of focus sessions",
-      "painItSolves": "brain fog after lunch — you never know if you're actually focusing",
-      "vocQuote": "I sit at my desk for hours and produce nothing",
-      "lpPlacement": "solution section, first feature block"
+```mermaid
+erDiagram
+    bcProjects {
+        serial id PK
+        text lpRawInput
+        jsonb lpStructureJson
+        text lpTemplateHtml
+        text founderDescription
+        text founderVision
+        text projectDocumentation
+        jsonb nicheKeywords
+        jsonb audiencePainKeywords "NEW v2"
+        jsonb featureMap "NEW v2"
+        varchar status
     }
-  ]
-}
-```
 
-This map ensures every feature mention is **grounded in a real customer pain** and uses **their language** to describe why the feature matters.
+    bcTargetChannels {
+        serial id PK
+        integer projectId FK
+        varchar channelId
+        varchar channelName
+        boolean isConfirmed
+    }
 
----
+    bcTargetVideos {
+        serial id PK
+        integer projectId FK
+        integer channelId FK
+        varchar videoId
+        real relevanceScore
+    }
 
-### Stage 5 Enhancement: Three Variant Strategy (Revised)
+    bcComments {
+        serial id PK
+        integer projectId FK
+        integer videoId FK
+        varchar commentId
+        text commentText
+        integer voteCount
+    }
 
-**Current:**
-- Variant A: Founder Vision
-- Variant B: Top pain point #1
-- Variant C: Top pain point #2
+    bcExtractedPainPoints {
+        serial id PK
+        integer projectId FK
+        varchar painPointTitle
+        integer emotionalIntensity
+        jsonb vocabularyQuotes
+        varchar category
+        text customerLanguage
+        text desiredOutcome
+        jsonb vocData "NEW v2"
+        varchar status
+    }
 
-**Problem:** Variant A (Founder Vision) is disconnected from customer reality. It's the founder talking TO customers, not speaking AS someone who understands them.
+    bcPainClusters {
+        serial id PK
+        integer projectId FK
+        varchar clusterTheme
+        varchar dominantEmotion
+        real aggregateIntensity
+        jsonb bestQuotes
+        text synthesizedProblemLabel
+        text synthesizedSuccessVision
+        jsonb failedSolutions
+        jsonb triggerMoments
+        jsonb painPointIds
+    }
 
-**Revised Strategy:**
+    bcLandingPageVariants {
+        serial id PK
+        integer projectId FK
+        integer primaryPainPointId FK
+        varchar variantType
+        text htmlContent
+        jsonb improvementSuggestions
+        jsonb featurePainMap "NEW v2"
+        boolean isSelected
+    }
 
-| Variant | Strategy | Hero Approach | VoC Integration |
-|---------|----------|---------------|-----------------|
-| **A — Curiosity Hook** | Lead with surprising insight from pain point data | "Did you know [surprising stat or pattern from comments]?" | Uses aggregate VoC patterns, not individual quotes |
-| **B — Pain Mirror** | Lead with the #1 pain cluster in customer's exact words | "{problemLabel} — {dominantEmotion} headline" | Heavy VoC: trigger moment, failed solutions, vocabulary quotes |
-| **C — Outcome Promise** | Lead with the desired outcome, work backward to product | "Give me [action]. Get [successVision]." | Leads with successVision, uses VoC to prove understanding |
-
-All three variants share:
-- Same feature map (grounded in product documentation)
-- Same "What You Get" section (beta tester clarity)
-- Same VoC vocabulary (customer language throughout)
-
-They differ in:
-- Hero framing (curiosity vs. pain mirror vs. outcome promise)
-- Problem section emphasis (data-driven vs. emotional vs. aspiration)
-- CTA tone (discover vs. escape-pain vs. achieve-goal)
-
----
-
-## Database Schema Changes Required
-
-### Modified: `bcProjects`
-
-```sql
--- New columns
-ALTER TABLE bc_projects ADD COLUMN audience_pain_keywords jsonb DEFAULT '[]';
--- Pain-oriented keywords for video search (separate from niche keywords)
-
-ALTER TABLE bc_projects ADD COLUMN feature_map jsonb DEFAULT '[]';
--- Structured feature extraction from product docs
--- Shape: [{ featureName, whatItDoes, userBenefit }]
-```
-
-### Modified: `bcExtractedPainPoints`
-
-```sql
--- New column for structured VoC
-ALTER TABLE bc_extracted_pain_points ADD COLUMN voc_data jsonb DEFAULT '{}';
--- Shape: { problemLabel, dominantEmotion, failedSolutions[], triggerMoment, successVision }
-```
-
-### New: `bcPainClusters`
-
-```sql
-CREATE TABLE bc_pain_clusters (
-  id serial PRIMARY KEY,
-  project_id integer NOT NULL REFERENCES bc_projects(id) ON DELETE CASCADE,
-  cluster_theme varchar(255) NOT NULL,
-  dominant_emotion varchar(100),
-  aggregate_intensity real,  -- weighted: avg(intensity) × sum(frequency)
-  best_quotes jsonb DEFAULT '[]',
-  synthesized_problem_label text,
-  synthesized_success_vision text,
-  pain_point_ids jsonb DEFAULT '[]',  -- array of bcExtractedPainPoints.id
-  created_at timestamp DEFAULT now() NOT NULL
-);
+    bcProjects ||--o{ bcTargetChannels : "has"
+    bcTargetChannels ||--o{ bcTargetVideos : "has"
+    bcTargetVideos ||--o{ bcComments : "has"
+    bcProjects ||--o{ bcExtractedPainPoints : "has"
+    bcProjects ||--o{ bcPainClusters : "has"
+    bcProjects ||--o{ bcLandingPageVariants : "has"
+    bcExtractedPainPoints ||--o{ bcLandingPageVariants : "primary source"
 ```
 
 ---
 
-## Implementation Tasks
-
-### Phase A — Keyword Intelligence (Stage 1 Fix)
-
-#### BC-A1: Enhance `bc-lp-parser.ts` — Dual Keyword Extraction
-
-**File:** `scripts/bc-lp-parser.ts`
-**Deps:** None (modifies existing)
-
-**Changes:**
-1. Update LLM prompt to extract TWO keyword sets:
-   - `nicheKeywords` — broad niche terms (current behavior, but now weighted across all 3 sources)
-   - `audiencePainKeywords` — problem/pain language terms for finding complaint-heavy videos
-2. New prompt section:
-```
-TASK 1B — Generate audience pain keywords:
-Based on the product documentation, founder description, and LP content, generate 5-7 keywords
-that real customers would TYPE INTO YOUTUBE when they are FRUSTRATED about the problem this product solves.
-These should be complaint-oriented, emotional, and specific.
-Example: Instead of "productivity" → "why can't I focus after meetings"
-Instead of "time management" → "wasting entire afternoons on nothing"
-```
-3. Store `audiencePainKeywords` in `bcProjects` (new column)
-
-**Acceptance:**
-- [ ] Both keyword sets extracted and stored
-- [ ] `audiencePainKeywords` are pain-oriented, not topic-oriented
-- [ ] Works with and without `projectDocumentation`
-
----
-
-#### BC-A2: Extract Feature Map from Documentation
-
-**File:** `scripts/bc-lp-parser.ts` (extend)
-**Deps:** BC-A1
-
-**Changes:**
-1. If `projectDocumentation` exists, add a prompt section:
-```
-TASK 1C — Extract Feature Map from documentation:
-Read the product documentation and extract every distinct feature as:
-[
-  {
-    "featureName": "short name",
-    "whatItDoes": "1 sentence, plain English, what this feature actually does",
-    "userBenefit": "1 sentence, why a user would care about this"
-  }
-]
-Only include features that are BUILT or IN PROGRESS. Do not include roadmap items.
-```
-2. Store as `featureMap` jsonb in `bcProjects`
-
-**Acceptance:**
-- [ ] Feature map extracted from docs
-- [ ] Each feature has name, mechanism, and benefit
-- [ ] Null/empty if no documentation provided
-
----
-
-### Phase B — Pain-Oriented Video Discovery (Stage 2-3 Fix)
-
-#### BC-B1: Add Pain Keyword Search Pass to Video Discovery
-
-**File:** `scripts/bc-video-discovery.ts`
-**Deps:** BC-A1
-
-**Changes:**
-1. After standard keyword search, run second pass with `audiencePainKeywords`
-2. Deduplicate videos across both passes
-3. Videos found by pain keywords get `relevanceScore += 0.2` bonus
-4. Still select top 3 per channel (from merged results)
-
-**Acceptance:**
-- [ ] Two search passes per channel
-- [ ] Deduplication by `videoId`
-- [ ] Pain-keyword videos scored higher
-- [ ] Quota increase documented (~+1000 units)
-
----
-
-### Phase C — Enhanced VoC Extraction (Stage 4 Fix)
-
-#### BC-C1: Update Pain Point Extraction Prompt for Structured VoC
-
-**File:** `scripts/bc-scraper.ts`
-**Deps:** None (modifies existing)
-
-**Changes:**
-1. Update Haiku system prompt to extract `vocData` object alongside existing fields
-2. New extraction fields per pain point:
-```
-"vocData": {
-  "problemLabel": "how they NAME this problem in plain words",
-  "dominantEmotion": "the primary emotion (frustration/shame/fear/longing/anger/exhaustion)",
-  "failedSolutions": ["things they tried that didn't work"],
-  "triggerMoment": "the specific situation when they feel this pain most",
-  "successVision": "what they describe as the ideal outcome, in their words"
-}
-```
-3. Store in new `voc_data` jsonb column on `bcExtractedPainPoints`
-
-**Acceptance:**
-- [ ] `vocData` populated for each pain point
-- [ ] `problemLabel` is plain language, not clinical/marketing
-- [ ] `triggerMoment` is a specific situation, not abstract
-- [ ] `successVision` is concrete and measurable
-
----
-
-#### BC-C2: Weight Pain Points by Comment Engagement
-
-**File:** `scripts/bc-scraper.ts`
-**Deps:** None
-
-**Changes:**
-1. Pass `voteCount` to LLM as context (already formatted as `(likes:N)`)
-2. Post-extraction: multiply `emotionalIntensity` by engagement factor:
-   - Comments with `voteCount > 50`: intensity × 1.3
-   - Comments with `voteCount > 200`: intensity × 1.5
-3. Cap at 10
-
-**Acceptance:**
-- [ ] High-engagement comments boost pain point intensity
-- [ ] Score capped at 10
-
----
-
-#### BC-C3: Cross-Batch Pain Point Deduplication
-
-**File:** `scripts/bc-scraper.ts`
-**Deps:** None
-
-**Changes:**
-1. After all chunks processed, run a deduplication pass:
-   - Group pain points by `vocData.problemLabel` similarity (Levenshtein < 0.3 or exact substring match)
-   - Merge duplicates: combine `vocabularyQuotes`, sum `frequency`, max `emotionalIntensity`, union `sourceVideoIds`
-2. Store merged pain points only
-
-**Acceptance:**
-- [ ] No near-duplicate pain points in final set
-- [ ] Merged entries have combined quotes and frequency
-
----
-
-### Phase D — Pain Point Clustering (NEW Stage 4.5)
-
-#### BC-D1: Create `bcPainClusters` Table
-
-**File:** `src/db/schema.ts`
-**Deps:** None
-
-**Changes:**
-Add `bcPainClusters` table as defined in schema changes section above.
-
-**Acceptance:**
-- [ ] Table created with all fields
-- [ ] FK cascade to bcProjects
-
----
-
-#### BC-D2: Create `scripts/bc-pain-clusterer.ts`
-
-**File:** `scripts/bc-pain-clusterer.ts` (new)
-**Deps:** BC-D1, BC-C1
-
-**Model:** Sonnet (1 call — precision matters for clustering)
-
-**Logic:**
-1. Load all approved pain points with `vocData`
-2. Send to Sonnet with clustering prompt:
-```
-You are a customer research analyst. You have {N} validated customer pain points
-extracted from YouTube comments about {niche}.
-
-Group these pain points into 2-3 DISTINCT clusters. Each cluster represents
-a DIFFERENT dimension of customer frustration.
-
-Rules:
-- Clusters must be MEANINGFULLY DIFFERENT (not just subcategories of the same issue)
-- Weight by frequency × intensity (a pain mentioned 8 times at intensity 7 > mentioned once at intensity 10)
-- For each cluster, SYNTHESIZE:
-  - The most common way customers NAME this problem (use THEIR words, not yours)
-  - The dominant EMOTION across all pain points in this cluster
-  - The clearest VISION OF SUCCESS customers describe
-  - The 3 most powerful VERBATIM QUOTES
-```
-3. Store clusters in `bcPainClusters`
-4. Link to pain point IDs
-
-**Acceptance:**
-- [ ] 2-3 clusters produced
-- [ ] Each cluster has synthesized VoC fields
-- [ ] Clusters are meaningfully distinct
-- [ ] Aggregate intensity calculated
-
----
-
-#### BC-D3: Create Clustering API Route + UI Trigger
-
-**File:** `src/pages/api/brand-clarity/[projectId]/cluster-pain-points.ts` (new)
-**Deps:** BC-D2
-
-**Logic:**
-1. Auth check
-2. Verify ≥ 3 approved pain points
-3. Spawn `bc-pain-clusterer.ts`
-4. Return clusters
-
-**UI Integration:** Add "Cluster Pain Points" button on scrape.astro page, shown after ≥ 3 approved. Display clusters as cards with synthesized VoC before proceeding to LP generation.
-
-**Acceptance:**
-- [ ] Clusters displayed before LP generation
-- [ ] User can review synthesized VoC per cluster
-
----
-
-### Phase E — LP Generator Rewrite (Stage 5 Fix)
-
-#### BC-E1: Rewrite LP Generator Prompt — VoC-First Approach
-
-**File:** `scripts/bc-lp-generator.ts`
-**Deps:** BC-A2, BC-D2
-
-**This is the highest-impact change.** Replace the generic copywriting prompt with:
-
-**New System Prompt:**
-```
-You are a conversion copywriter who writes landing pages using
-the Voice of Customer methodology.
-
-CORE PRINCIPLE: Every sentence on this landing page must sound like
-it was written BY the customer, FOR the customer. The founder's job
-is to LISTEN and REFLECT, not to lecture.
-
-LANGUAGE RULES:
-- Reading level: Grade 6. Short sentences. No jargon.
-- Max 15 words per sentence.
-- Banned words: leverage, optimize, unlock, empower, transform,
-  revolutionary, cutting-edge, game-changing, seamless, robust
-- Test every line: "Would a tired person at 11 PM get this in 3 seconds?"
-```
-
-**New User Prompt (per variant):**
+## 7. API Routes
 
 ```
-PROJECT: {projectName}
-VARIANT: {variantType} — {variantStrategy}
+POST   /api/brand-clarity/projects                          Create project + spawn parser
+GET    /api/brand-clarity/projects                          List all projects
+GET    /api/brand-clarity/projects/[id]                     Get project detail
+PUT    /api/brand-clarity/projects/[id]                     Update fields
+DELETE /api/brand-clarity/projects/[id]                     Delete + cascade
+PUT    /api/brand-clarity/projects/[id]/documentation       Save docs → re-parse
 
-=== PRODUCT TRUTH (source of truth for ALL feature claims) ===
-{projectDocumentation}
+POST   /api/brand-clarity/[id]/discover-channels            Spawn bc-channel-discovery
+GET    /api/brand-clarity/[id]/channels                     List channels
+POST   /api/brand-clarity/[id]/channels                     Add manually
+PUT    /api/brand-clarity/[id]/channels/[cid]               Update isConfirmed/sortOrder
+DELETE /api/brand-clarity/[id]/channels/[cid]               Remove
+POST   /api/brand-clarity/[id]/channels/confirm-all         Confirm + spawn video discovery
 
-=== FEATURE MAP (every feature you may reference) ===
-{featureMap as JSON}
-Rule: You may ONLY mention features from this list. Do not invent features.
+POST   /api/brand-clarity/[id]/discover-videos              (Re-)trigger video discovery
+GET    /api/brand-clarity/[id]/videos                       List target videos
 
-=== VOICE OF CUSTOMER DATA ===
-Pain Cluster: {cluster.clusterTheme}
-How they NAME the problem: {cluster.synthesizedProblemLabel}
-Dominant emotion: {cluster.dominantEmotion}
-Their vision of success: {cluster.synthesizedSuccessVision}
-What they've tried that failed: {aggregated failedSolutions}
-When they feel this pain most: {aggregated triggerMoments}
-Their exact words:
-{cluster.bestQuotes — numbered list}
+POST   /api/brand-clarity/[id]/scrape/start                 Spawn bc-scraper
+GET    /api/brand-clarity/[id]/scrape/status                Poll job state
+GET    /api/brand-clarity/[id]/scrape/stream                SSE live log
 
-=== LP STRUCTURE TO FOLLOW ===
-Section order: {sectionOrder}
-Brand voice: {brandVoiceNotes}
-Tone: {toneKeywords}
-Primary CTA: {primaryCTA}
+GET    /api/brand-clarity/[id]/pain-points                  List (filter: status, category)
+PUT    /api/brand-clarity/[id]/pain-points/[pid]            Approve / reject
+DELETE /api/brand-clarity/[id]/pain-points/[pid]            Delete
+POST   /api/brand-clarity/[id]/pain-points/auto-filter      Bulk reject intensity < 8
 
-=== VARIANT-SPECIFIC HERO STRATEGY ===
+POST   /api/brand-clarity/[id]/cluster-pain-points          NEW — spawn bc-pain-clusterer
+GET    /api/brand-clarity/[id]/cluster-pain-points          NEW — list existing clusters
 
-[For Variant A — Curiosity Hook:]
-Hero headline must state a SURPRISING or COUNTERINTUITIVE insight.
-Something the reader doesn't expect. Make them think "wait, what?"
-Use data from pain point analysis if possible.
-
-[For Variant B — Pain Mirror:]
-Hero headline must use {synthesizedProblemLabel} — their EXACT name
-for the problem. Subheadline mirrors {dominantEmotion}.
-The reader must think: "This person gets me."
-
-[For Variant C — Outcome Promise:]
-Hero headline must promise {synthesizedSuccessVision} in concrete terms.
-Structure: "Give me [specific action]. Get [specific outcome]."
-The reader must think: "That's exactly what I want."
-
-=== SECTION-BY-SECTION REQUIREMENTS ===
-
-HERO:
-- Headline: Follow variant strategy above
-- Subheadline: 1 sentence, explains the "how" simply
-- Visual: Suggest a single image concept in <!-- IMAGE: description -->
-
-PROBLEM:
-- Open with: "You know that moment when {triggerMoment}..."
-- Use at least 2 vocabulary quotes inline
-- Name 2-3 failed solutions: "You've tried {X}, {Y}, {Z}."
-- End with: "It's not your fault. {Reframe the problem}."
-
-SOLUTION:
-- Transition: "What if {synthesizedSuccessVision}?"
-- For each feature in featureMap that maps to this pain cluster:
-  "[Feature name] — [whatItDoes]. So you can [userBenefit]."
-- Max 4 features. Pick the most relevant to THIS cluster.
-
-WHAT YOU GET (add this section even if original LP didn't have it):
-- Bullet list of EVERY feature from featureMap
-- Format: "You get [feature]. It [does specific thing]."
-- This section must make a beta tester think: "I know exactly what I'm signing up for."
-
-SOCIAL PROOF:
-- Use vocabulary quotes as customer voices
-- Format: "People like you are saying: '{quote}'"
-- If no social proof exists, use: "Join [N] people who felt exactly like you do right now."
-
-CTA:
-- Primary: "Give me [action]. Get [outcome]." structure
-- Secondary: Address the #1 objection from failedSolutions
-- Urgency: Specific, not fake ("Beta closes [date]" not "Limited time!")
-
-=== OUTPUT FORMAT ===
-First: Output the feature-pain map as ```json:
-{
-  "featurePainMap": [
-    { "feature": "...", "painItSolves": "...", "vocQuote": "...", "section": "..." }
-  ],
-  "heroApproach": "1 sentence explaining WHY this hero will work",
-  "improvementSuggestions": {
-    "hero": "what was improved and why",
-    "problem": "...",
-    "solution": "...",
-    "features": "...",
-    "social_proof": "...",
-    "cta": "..."
-  }
-}
-```
-Then: Output the full HTML inside ```html block.
+POST   /api/brand-clarity/[id]/generate-variants            Spawn bc-lp-generator × 3
+GET    /api/brand-clarity/[id]/variants                     List variants (no htmlContent)
+GET    /api/brand-clarity/[id]/variants/[vid]               Get variant + htmlContent
+PUT    /api/brand-clarity/[id]/variants/[vid]               Update isSelected / htmlContent
+DELETE /api/brand-clarity/[id]/variants/[vid]               Delete
 ```
 
-**Acceptance:**
-- [ ] Prompt uses VoC data structurally, not decoratively
-- [ ] Feature claims grounded in `featureMap`
-- [ ] "What You Get" section always present
-- [ ] Hero follows variant-specific strategy
-- [ ] Language rules enforced (Grade 6, no buzzwords)
-- [ ] Feature-pain map generated before HTML (forces LLM to reason about mapping)
-
 ---
 
-#### BC-E2: Update Variant Type Definitions
+## 8. Project Status State Machine
 
-**File:** `scripts/bc-lp-generator.ts`
-**Deps:** BC-E1
-
-**Changes:**
-1. Replace `founder_vision` with `curiosity_hook`
-2. Keep `pain_point_1` → rename to `pain_mirror`
-3. Keep `pain_point_2` → rename to `outcome_promise`
-4. Update `bcLandingPageVariants.variantType` values
-5. Update all references in API routes and UI
-
-**Acceptance:**
-- [ ] Three variant types: `curiosity_hook`, `pain_mirror`, `outcome_promise`
-- [ ] UI labels updated
-- [ ] Database migration for existing records (if any)
-
----
-
-#### BC-E3: Store Feature-Pain Map in Variant Record
-
-**File:** `scripts/bc-lp-generator.ts`, `src/db/schema.ts`
-**Deps:** BC-E1
-
-**Changes:**
-1. Parse the `featurePainMap` JSON from LLM response
-2. Store in new `featurePainMap` jsonb column on `bcLandingPageVariants`
-3. Display in variants.astro as a table: Feature | Pain It Solves | Customer Quote
-
-**Acceptance:**
-- [ ] Feature-pain map stored per variant
-- [ ] Displayed in UI for review
-
----
-
-### Phase F — UI Enhancements
-
-#### BC-F1: Show Pain Clusters Before LP Generation
-
-**File:** `src/pages/admin/brand-clarity/[id]/scrape.astro`
-**Deps:** BC-D3
-
-**Changes:**
-1. After pain points approved and clustered, show cluster summary cards:
-   - Cluster theme
-   - Synthesized problem label (in customer words)
-   - Dominant emotion badge
-   - Best 3 quotes
-   - Aggregate intensity bar
-2. "Generate Landing Pages" button moves here (after cluster review)
-
----
-
-#### BC-F2: Feature-Pain Map Display in Variants Page
-
-**File:** `src/pages/admin/brand-clarity/[id]/variants.astro`
-**Deps:** BC-E3
-
-**Changes:**
-1. New tab per variant: "Feature Mapping"
-2. Table: Feature | Pain Solved | Customer Quote | LP Section
-3. Allows user to verify every feature claim is grounded
-
----
-
-#### BC-F3: VoC Highlight Panel in Variants Page
-
-**File:** `src/pages/admin/brand-clarity/[id]/variants.astro`
-**Deps:** BC-E1
-
-**Changes:**
-1. Side panel showing which VoC quotes were used in each variant
-2. Highlights in the HTML preview where customer language appears
-3. VoC coverage metric: "X of Y vocabulary quotes used in this variant"
-
----
-
-## Task Priority & Dependencies
-
-```
-Phase A (Keyword Intelligence) — HIGHEST PRIORITY
-  BC-A1 → BC-A2 (sequential)
-  ↓
-Phase B (Pain-Oriented Video Discovery)
-  BC-B1 (depends on BC-A1)
-  ↓
-Phase C (Enhanced VoC Extraction)
-  BC-C1, BC-C2, BC-C3 (parallel, all modify bc-scraper.ts — merge carefully)
-  ↓
-Phase D (Pain Point Clustering)
-  BC-D1 → BC-D2 → BC-D3 (sequential)
-  ↓
-Phase E (LP Generator Rewrite) — HIGHEST IMPACT
-  BC-E1 → BC-E2, BC-E3 (E2 and E3 parallel after E1)
-  ↓
-Phase F (UI Enhancements)
-  BC-F1, BC-F2, BC-F3 (parallel, after Phase E)
+```mermaid
+stateDiagram-v2
+    [*] --> draft : POST /projects\n(parser spawned)
+    draft --> docs_pending : parser completes
+    docs_pending --> channels_pending : PUT /documentation\n(save or skip)
+    channels_pending --> videos_pending : POST /channels/confirm-all
+    videos_pending --> scraping : video discovery completes
+    scraping --> pain_points_pending : bc-scraper completes
+    pain_points_pending --> pain_points_pending : cluster-pain-points\n(status stays, clusters created)
+    pain_points_pending --> generating : POST /generate-variants
+    generating --> done : bc-lp-generator completes
+    generating --> pain_points_pending : generator fails (rollback)
 ```
 
-**Critical path:** BC-A1 → BC-C1 → BC-D2 → BC-E1
+---
 
-**Estimated LLM cost change:**
-- +1 Sonnet call for clustering (BC-D2)
-- Same 3 Sonnet calls for LP generation (but with better prompts)
-- Same ~300 Haiku calls for extraction (but extracting more structured data)
-- **Net: +1 Sonnet call per full run (~$0.02 additional)**
+## 9. LLM Cost Per Full Run
+
+| Operation | Script | Model | Calls | Estimated cost |
+|-----------|--------|-------|-------|----------------|
+| LP parsing + keyword extraction | bc-lp-parser | Sonnet | 1 | ~$0.02 |
+| Pain point extraction | bc-scraper | Haiku | ~300 | ~$0.10 |
+| Pain point clustering | bc-pain-clusterer | Sonnet | 1 | ~$0.02 |
+| LP variant generation | bc-lp-generator | Sonnet | 3 | ~$0.08 |
+| **Total** | | | **~305** | **~$0.22** |
+
+YouTube API quota per run: ~2,362 units (with dual video search pass). Max ~4 full runs/day before 10k quota limit.
 
 ---
 
-## Success Criteria
+## 10. Scripts Reference
 
-After implementing all phases, a generated LP variant should:
+| Script | Model | Input env | Output |
+|--------|-------|-----------|--------|
+| `bc-lp-parser.ts` | Sonnet | `BC_PROJECT_ID` | `lpStructureJson`, `nicheKeywords`, `audiencePainKeywords`, `featureMap` → `LP_PARSE_RESULT:{...}` |
+| `bc-channel-discovery.ts` | None | `BC_PROJECT_ID`, `YOUTUBE_API_KEY` | `bcTargetChannels` → `CHANNELS_FOUND:N` |
+| `bc-video-discovery.ts` | None | `BC_PROJECT_ID`, `YOUTUBE_API_KEY` | `bcTargetVideos` → `VIDEOS_FOUND:N` |
+| `bc-scraper.ts` | Haiku | `BC_PROJECT_ID`, `YOUTUBE_API_KEY`, `BC_SCRAPER_MODEL`, `BC_MAX_COMMENTS_PER_VIDEO`, `BC_CHUNK_SIZE` | `bcComments`, `bcExtractedPainPoints` → `commentsCollected:N`, `painPointsExtracted:N`, `RESULT_JSON:{...}` |
+| `bc-pain-clusterer.ts` | Sonnet | `BC_PROJECT_ID` | `bcPainClusters` → `CLUSTERS_CREATED:N` |
+| `bc-lp-generator.ts` | Sonnet | `BC_PROJECT_ID`, `BC_LP_MODEL` | `bcLandingPageVariants` ×3 → `VARIANTS_GENERATED:N` |
 
-1. **Hero test:** Someone reads the headline and either says "wait, what?" (curiosity) or "that's exactly my problem" (pain mirror) or "I want that" (outcome promise)
-2. **VoC test:** At least 5 vocabulary quotes from real customers appear in the LP
-3. **Specificity test:** A beta tester can list exactly what features they get after reading the LP
-4. **Simplicity test:** Every sentence is under 15 words, Grade 6 reading level
-5. **Grounding test:** Every feature mentioned exists in the product documentation
-6. **CTA test:** The CTA follows "Give me X, get Y" — specific action, specific outcome
-7. **No-bullshit test:** Zero buzzwords from the banned list appear in the output
+---
+
+## 11. Success Criteria for Generated LPs
+
+After full run, each LP variant should pass:
+
+1. **Hero test** — reads headline and either: "wait, what?" (curiosity) / "that's my problem" (pain mirror) / "I want that" (outcome promise)
+2. **VoC test** — at least 5 vocabulary quotes from real comments appear verbatim
+3. **Specificity test** — beta tester can list exactly what features they get
+4. **Simplicity test** — every sentence ≤15 words, Grade 6 reading level
+5. **Grounding test** — every feature mentioned exists in `featureMap` (from docs)
+6. **CTA test** — primary CTA follows "Give me X. Get Y." structure
+7. **No-bullshit test** — zero banned buzzwords appear in output
