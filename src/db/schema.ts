@@ -352,6 +352,7 @@ export const bcTargetVideos = pgTable('bc_target_videos', {
   commentCount: integer('comment_count'),
   publishedAt: timestamp('published_at'),
   relevanceScore: real('relevance_score'),
+  isSelected: boolean('is_selected').notNull().default(true),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 }, (table) => ({
   projectIdx: index('idx_bc_videos_project').on(table.projectId),

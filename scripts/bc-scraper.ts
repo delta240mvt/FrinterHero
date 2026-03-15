@@ -17,7 +17,7 @@ import * as dotenv from 'dotenv';
 import * as path from 'path';
 import { db } from '../src/db/client';
 import { bcProjects, bcTargetVideos, bcComments, bcExtractedPainPoints } from '../src/db/schema';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { findOffBrandMatch } from '../src/utils/brandFilter';
 
 dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
@@ -249,14 +249,15 @@ async function run() {
     ? (project.nicheKeywords as string[]).join(', ')
     : String(project.nicheKeywords || 'high performance, focus, productivity');
 
-  const videos = await db.select().from(bcTargetVideos).where(eq(bcTargetVideos.projectId, BC_PROJECT_ID));
+  const videos = await db.select().from(bcTargetVideos)
+    .where(and(eq(bcTargetVideos.projectId, BC_PROJECT_ID), eq(bcTargetVideos.isSelected, true)));
 
   if (!videos.length) {
-    console.error('[ERROR] No target videos found — run video discovery first');
+    console.error('[ERROR] No selected videos — select at least one video in the Videos step');
     process.exit(1);
   }
 
-  log(`Starting scrape for project "${project.name}" — ${videos.length} videos`);
+  log(`Starting scrape for project "${project.name}" — ${videos.length} selected videos`);
   log(`Model: ${MODEL}, max comments/video: ${MAX_COMMENTS}`);
 
   // Preload existing commentIds for dedup

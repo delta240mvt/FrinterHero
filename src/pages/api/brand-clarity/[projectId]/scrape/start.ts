@@ -1,7 +1,7 @@
 import type { APIRoute } from 'astro';
 import { db } from '@/db/client';
 import { bcProjects, bcTargetVideos } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { bcScrapeJob } from '@/lib/bc-scrape-job';
 
 function auth(cookies: any) {
@@ -24,10 +24,11 @@ export const POST: APIRoute = async ({ params, cookies }) => {
   if (!project) return new Response(JSON.stringify({ error: 'Project not found' }), { status: 404, headers: JSON_HEADERS });
 
   const videos = await db.select({ id: bcTargetVideos.id })
-    .from(bcTargetVideos).where(eq(bcTargetVideos.projectId, projectId));
+    .from(bcTargetVideos)
+    .where(and(eq(bcTargetVideos.projectId, projectId), eq(bcTargetVideos.isSelected, true)));
 
   if (!videos.length) {
-    return new Response(JSON.stringify({ error: 'No target videos — run video discovery first' }), { status: 400, headers: JSON_HEADERS });
+    return new Response(JSON.stringify({ error: 'No selected videos — select at least one video to scrape' }), { status: 400, headers: JSON_HEADERS });
   }
 
   const result = bcScrapeJob.start(projectId);

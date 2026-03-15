@@ -8,6 +8,13 @@
       "when": 1773135685491,
       "tag": "0000_concerned_venus",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1742032800000,
+      "tag": "0001_bc_video_is_selected",
+      "breakpoints": true
     }
   ]
 }

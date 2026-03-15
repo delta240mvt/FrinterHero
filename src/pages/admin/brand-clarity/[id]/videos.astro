@@ -23,7 +23,10 @@ try {
         viewCount: bcTargetVideos.viewCount,
         commentCount: bcTargetVideos.commentCount,
         relevanceScore: bcTargetVideos.relevanceScore,
+        isSelected: bcTargetVideos.isSelected,
+        channelId: bcTargetVideos.channelId,
         channelName: bcTargetChannels.channelName,
+        channelUrl: bcTargetChannels.channelUrl,
       })
       .from(bcTargetVideos)
       .innerJoin(bcTargetChannels, eq(bcTargetVideos.channelId, bcTargetChannels.id))
@@ -34,6 +37,17 @@ try {
 }
 
 if (!project) return Astro.redirect('/admin/brand-clarity');
+
+// Group by channel
+const channelMap = new Map<number, { name: string; url: string; videos: any[] }>();
+for (const v of videos) {
+  if (!channelMap.has(v.channelId)) {
+    channelMap.set(v.channelId, { name: v.channelName, url: v.channelUrl, videos: [] });
+  }
+  channelMap.get(v.channelId)!.videos.push(v);
+}
+const channels = [...channelMap.values()];
+const selectedCount = videos.filter(v => v.isSelected).length;
 ---
 
 <Base title={`Videos — ${project.name}`} description="Brand Clarity target videos">
@@ -70,11 +84,15 @@ if (!project) return Astro.redirect('/admin/brand-clarity');
       <div class="section-header-row">
         <div class="section-title-block">
           <h2 class="section-title">Target Videos</h2>
-          <p class="section-subtitle">{videos.length} videos discovered · Top 3 per confirmed channel</p>
+          <p class="section-subtitle">
+            {videos.length > 0
+              ? `${selectedCount} of ${videos.length} selected for scraping · uncheck videos you want to skip`
+              : 'Top 3 per confirmed channel · discover first'}
+          </p>
         </div>
         <div class="header-btns">
           <button id="discover-btn" class="btn-discover">Discover Videos</button>
-          {videos.length > 0 && (
+          {selectedCount > 0 && (
             <a href={`/admin/brand-clarity/${projectId}/scrape`} class="btn-primary">Next: Scrape →</a>
           )}
         </div>
@@ -82,43 +100,51 @@ if (!project) return Astro.redirect('/admin/brand-clarity');
 
       <div id="discover-status" class="discover-status" style="display:none"></div>
 
-      <!-- Log panel -->
-      <details id="log-panel" class="log-panel" style="display:none">
-        <summary class="log-panel-summary">
-          <span class="log-label">Run Log</span>
+      <details id="log-panel" class="run-logs-section" style="display:none">
+        <summary class="run-logs-toggle">
+          <span class="logs-toggle-label">📋 Full Run Log</span>
           <span id="log-count" class="logs-count">0 lines</span>
+          <button id="btn-download-logs" class="btn-download-logs" onclick="event.stopPropagation()">Download .txt</button>
         </summary>
-        <div id="log-container" class="log-container"></div>
+        <div id="log-container" class="run-logs-container"></div>
       </details>
 
       {videos.length === 0 ? (
         <div class="empty-state">No videos yet. Click "Discover Videos" to find the top 3 relevant videos per confirmed channel.</div>
       ) : (
-        <div class="table-wrapper">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>Channel</th>
-                <th>Title</th>
-                <th>Views</th>
-                <th>Comments</th>
-                <th>Score</th>
-                <th>Link</th>
-              </tr>
-            </thead>
-            <tbody>
-              {videos.map(v => (
-                <tr>
-                  <td class="td-channel">{v.channelName}</td>
-                  <td class="td-title">{v.title.substring(0, 70)}{v.title.length > 70 ? '…' : ''}</td>
-                  <td class="td-num">{v.viewCount?.toLocaleString() || '–'}</td>
-                  <td class="td-num">{v.commentCount?.toLocaleString() || '–'}</td>
-                  <td class="td-score">{v.relevanceScore?.toFixed(2) || '–'}</td>
-                  <td><a href={v.videoUrl} target="_blank" rel="noopener" class="btn-link">▶ Watch</a></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div class="channels-list">
+          {channels.map(ch => (
+            <div class="channel-group">
+              <div class="channel-header">
+                <a href={ch.url} target="_blank" rel="noopener" class="channel-name">{ch.name} ↗</a>
+                <span class="channel-count">{ch.videos.filter((v: any) => v.isSelected).length}/{ch.videos.length} selected</span>
+              </div>
+              <div class="videos-list">
+                {ch.videos.map((v: any) => (
+                  <label class={`video-row ${v.isSelected ? 'selected' : 'deselected'}`} data-id={v.id}>
+                    <input
+                      type="checkbox"
+                      class="video-check"
+                      checked={v.isSelected}
+                      data-video-id={v.id}
+                    />
+                    <div class="video-info">
+                      <span class="video-title">{v.title}</span>
+                      <div class="video-meta">
+                        <span class="meta-item">{v.viewCount?.toLocaleString() ?? '–'} views</span>
+                        <span class="meta-sep">·</span>
+                        <span class="meta-item">{v.commentCount?.toLocaleString() ?? '–'} comments</span>
+                        <span class="meta-sep">·</span>
+                        <span class="meta-score">{v.relevanceScore?.toFixed(2) ?? '–'}</span>
+                        <span class="meta-sep">·</span>
+                        <a href={v.videoUrl} target="_blank" rel="noopener" class="meta-watch" onclick="event.stopPropagation()">▶ Watch</a>
+                      </div>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </section>
@@ -129,7 +155,6 @@ if (!project) return Astro.redirect('/admin/brand-clarity');
   const PROJECT_ID = projectId;
   const discoverBtn = document.getElementById('discover-btn');
   const discoverStatus = document.getElementById('discover-status');
-
   const logPanel = document.getElementById('log-panel');
   const logContainer = document.getElementById('log-container');
   const logCount = document.getElementById('log-count');
@@ -137,16 +162,30 @@ if (!project) return Astro.redirect('/admin/brand-clarity');
   function renderLogs(logs) {
     if (!logs || !logs.length) return;
     logPanel.style.display = 'block';
+    logPanel.open = true;
     logCount.textContent = `${logs.length} lines`;
     logContainer.innerHTML = logs.map(line => {
       let cls = 'log-line';
       if (line.includes('[WARN]') || line.includes('[FATAL]')) cls += ' log-line--warn';
       else if (line.includes('Done') || line.includes('VIDEOS_FOUND') || line.includes('Inserted')) cls += ' log-line--done';
-      else if (line.includes('Fallback')) cls += ' log-line--fallback';
+      else if (line.includes('Fallback') || line.includes('[LLM]') || line.includes('Sonnet')) cls += ' log-line--llm';
       return `<div class="${cls}">${line}</div>`;
     }).join('');
     logContainer.scrollTop = logContainer.scrollHeight;
   }
+
+  document.getElementById('btn-download-logs')?.addEventListener('click', () => {
+    const text = Array.from(logContainer.querySelectorAll('.log-line')).map(el => el.textContent).join('\n');
+    const blob = new Blob([text], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `bc-videos-${PROJECT_ID}-logs.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
 
   discoverBtn?.addEventListener('click', async () => {
     if (!confirm('Discover top videos for all confirmed channels? (~101 units per channel)')) return;
@@ -172,6 +211,32 @@ if (!project) return Astro.redirect('/admin/brand-clarity');
       discoverBtn.textContent = 'Discover Videos';
     }
   });
+
+  // Toggle video selection
+  document.querySelectorAll('.video-check').forEach(checkbox => {
+    checkbox.addEventListener('change', async (e) => {
+      const cb = e.target;
+      const videoId = cb.dataset.videoId;
+      const isSelected = cb.checked;
+      const row = cb.closest('.video-row');
+
+      cb.disabled = true;
+      try {
+        const res = await fetch(`/api/brand-clarity/${PROJECT_ID}/videos/${videoId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ isSelected }),
+        });
+        if (!res.ok) throw new Error('Failed');
+        row.classList.toggle('selected', isSelected);
+        row.classList.toggle('deselected', !isSelected);
+      } catch {
+        cb.checked = !isSelected; // revert
+      } finally {
+        cb.disabled = false;
+      }
+    });
+  });
 </script>
 
 <style>
@@ -187,7 +252,9 @@ if (!project) return Astro.redirect('/admin/brand-clarity');
 .project-status { font-family: var(--font-mono); font-size: 0.65rem; color: var(--gold); padding: 0.2rem 0.5rem; background: rgba(214,183,121,0.1); border-radius: 0.2rem; }
 .btn-logout { padding: 0.35rem 0.75rem; color: var(--text-muted); border: 1px solid var(--border); border-radius: 0.25rem; font-family: var(--font-mono); font-size: var(--text-xs); text-decoration: none; }
 .btn-primary { padding: 0.4rem 1rem; background: var(--teal); color: #fff; border: none; border-radius: 0.3rem; font-family: var(--font-mono); font-size: var(--text-xs); text-decoration: none; }
-.admin-main { max-width: 1100px; margin: 0 auto; padding: 1.75rem 1.5rem 3rem; display: flex; flex-direction: column; gap: 2rem; }
+.admin-main { max-width: 900px; margin: 0 auto; padding: 1.75rem 1.5rem 3rem; display: flex; flex-direction: column; gap: 2rem; }
+
+/* Stage bar */
 .stage-bar { display: flex; align-items: center; gap: 0.5rem; font-family: var(--font-mono); font-size: 0.65rem; padding: 0.625rem 1rem; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 0.375rem; overflow-x: auto; }
 .stage { color: var(--text-muted); white-space: nowrap; }
 .stage.done { color: var(--teal); }
@@ -198,16 +265,26 @@ if (!project) return Astro.redirect('/admin/brand-clarity');
 .stage-link:not(.done):not(.active) { color: var(--text-muted); }
 .stage-link:not(.done):hover { color: var(--text-secondary); }
 .stage-arrow { color: var(--border); }
-.log-panel { border: 1px solid var(--border); border-radius: 0.375rem; overflow: hidden; }
-.log-panel-summary { display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem 1rem; cursor: pointer; background: rgba(255,255,255,0.02); font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-secondary); list-style: none; }
-.log-panel-summary::-webkit-details-marker { display: none; }
-.log-label { flex: 1; }
+
+/* Log panel */
+.run-logs-section { border: 1px solid var(--border); border-radius: 0.375rem; overflow: hidden; }
+.run-logs-toggle { display: flex; align-items: center; gap: 0.75rem; padding: 0.625rem 1rem; cursor: pointer; background: rgba(255,255,255,0.03); font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-secondary); list-style: none; user-select: none; }
+.run-logs-toggle::-webkit-details-marker { display: none; }
+.run-logs-toggle::before { content: '▶'; font-size: 0.6rem; color: var(--text-muted); transition: transform 0.15s; }
+details[open] .run-logs-toggle::before { transform: rotate(90deg); }
+.run-logs-toggle:hover { color: var(--teal); }
+.logs-toggle-label { flex: 1; }
 .logs-count { padding: 0.1rem 0.4rem; background: rgba(255,255,255,0.06); border-radius: 0.25rem; font-size: 0.65rem; color: var(--text-muted); }
-.log-container { background: #0a0a0f; border-top: 1px solid var(--border); padding: 0.75rem 1rem; max-height: 320px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.1rem; }
+.run-logs-container { background: #0a0a0f; border-top: 1px solid var(--border); padding: 0.875rem 1rem; max-height: 480px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.15rem; }
 .log-line { font-family: var(--font-mono); font-size: 0.68rem; color: #71717a; white-space: pre-wrap; word-break: break-all; line-height: 1.5; }
-.log-line--warn { color: #f97316; }
-.log-line--done { color: var(--teal); }
-.log-line--fallback { color: var(--gold); }
+.log-line--warn  { color: #f97316; }
+.log-line--done  { color: var(--teal); }
+.log-line--apify { color: #a78bfa; }
+.log-line--llm   { color: var(--gold); }
+.btn-download-logs { padding: 0.25rem 0.75rem; background: none; border: 1px solid var(--border); color: var(--text-muted); border-radius: 0.25rem; font-family: var(--font-mono); font-size: 0.65rem; cursor: pointer; }
+.btn-download-logs:hover { border-color: var(--teal); color: var(--teal); }
+
+/* Section */
 .admin-section { display: flex; flex-direction: column; gap: 1rem; }
 .section-header-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; padding-bottom: 0.875rem; border-bottom: 1px solid var(--border); }
 .section-title-block { display: flex; flex-direction: column; gap: 0.2rem; }
@@ -222,16 +299,28 @@ if (!project) return Astro.redirect('/admin/brand-clarity');
 .discover-status--success { background: rgba(74,141,131,0.08); border: 1px solid rgba(74,141,131,0.2); color: var(--teal); }
 .discover-status--error   { background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.2); color: #ef4444; }
 .empty-state { padding: 2.5rem; text-align: center; font-family: var(--font-mono); color: var(--text-muted); }
-.table-wrapper { border: 1px solid var(--border); border-radius: 0.5rem; overflow: hidden; overflow-x: auto; }
-.data-table { width: 100%; border-collapse: collapse; }
-.data-table thead th { padding: 0.625rem 0.875rem; text-align: left; font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; background: var(--bg-elevated); border-bottom: 1px solid var(--border); }
-.data-table td { padding: 0.65rem 0.875rem; border-bottom: 1px solid rgba(255,255,255,0.035); }
-.data-table tr:last-child td { border-bottom: none; }
-.td-channel { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--teal); white-space: nowrap; }
-.td-title   { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-secondary); }
-.td-num     { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); white-space: nowrap; }
-.td-score   { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--gold); }
-.btn-link   { font-family: var(--font-mono); font-size: var(--text-xs); color: #ff6b6b; text-decoration: none; }
-.btn-link:hover { color: #ff4444; }
+
+/* Channels & videos */
+.channels-list { display: flex; flex-direction: column; gap: 1.25rem; }
+.channel-group { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 0.5rem; overflow: hidden; }
+.channel-header { display: flex; align-items: center; justify-content: space-between; padding: 0.625rem 1rem; border-bottom: 1px solid var(--border); background: rgba(74,141,131,0.06); }
+.channel-name { font-family: var(--font-mono); font-size: var(--text-sm); font-weight: 600; color: var(--teal); text-decoration: none; }
+.channel-name:hover { text-decoration: underline; }
+.channel-count { font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-muted); }
+.videos-list { display: flex; flex-direction: column; }
+.video-row { display: flex; gap: 0.875rem; align-items: flex-start; padding: 0.875rem 1rem; border-bottom: 1px solid rgba(255,255,255,0.035); cursor: pointer; transition: background 0.1s; }
+.video-row:last-child { border-bottom: none; }
+.video-row:hover { background: rgba(255,255,255,0.025); }
+.video-row.deselected { opacity: 0.45; }
+.video-row.deselected .video-title { text-decoration: line-through; }
+.video-check { margin-top: 0.2rem; width: 14px; height: 14px; flex-shrink: 0; accent-color: var(--teal); cursor: pointer; }
+.video-info { display: flex; flex-direction: column; gap: 0.4rem; flex: 1; min-width: 0; }
+.video-title { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-primary); line-height: 1.5; word-break: break-word; }
+.video-meta { display: flex; align-items: center; gap: 0.375rem; flex-wrap: wrap; }
+.meta-item { font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-muted); }
+.meta-sep { color: var(--border); font-size: 0.65rem; }
+.meta-score { font-family: var(--font-mono); font-size: 0.65rem; color: var(--gold); }
+.meta-watch { font-family: var(--font-mono); font-size: 0.65rem; color: #ff6b6b; text-decoration: none; }
+.meta-watch:hover { color: #ff4444; }
 </style>
 </Base>
