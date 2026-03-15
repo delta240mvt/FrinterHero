@@ -37,6 +37,9 @@ export const PUT: APIRoute = async ({ params, request, cookies }) => {
   if (body.founderDescription !== undefined) updates.founderDescription = body.founderDescription;
   if (body.lpRawInput !== undefined) updates.lpRawInput = body.lpRawInput;
   if (body.status !== undefined) updates.status = body.status;
+  if (body.nicheKeywords !== undefined) updates.nicheKeywords = Array.isArray(body.nicheKeywords)
+    ? body.nicheKeywords.map((k: string) => k.trim()).filter(Boolean)
+    : [];
 
   const [updated] = await db.update(bcProjects).set(updates).where(eq(bcProjects.id, id)).returning();
   if (!updated) return new Response(JSON.stringify({ error: 'Not found' }), { status: 404, headers: JSON_HEADERS });
