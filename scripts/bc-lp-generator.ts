@@ -203,69 +203,66 @@ Secondary: Address the #1 objection from their failed solutions
 No fake urgency. If beta: "Beta closes [specific timeframe]" or "Limited spots" if true.
 
 === OUTPUT FORMAT ===
-IMPORTANT: Output the HTML FIRST, then the JSON meta. This ensures the HTML is always complete.
+Output ONLY the full HTML. No JSON, no preamble, no explanation.
+Start directly with \`\`\`html and end with \`\`\`.
+Use semantic tags: <section class="hero">, <section class="problem">, etc.
+No external CSS dependencies. Include minimal inline styles for readability.`;
 
-First output the full HTML inside \`\`\`html block.
-The HTML must use semantic tags: <section class="hero">, <section class="problem">, etc.
-No external CSS dependencies. Include minimal inline styles for readability.
-
-Then output the meta JSON inside \`\`\`json:
-{
-  "heroApproach": "1 sentence explaining WHY this hero will work for this audience",
-  "featurePainMap": [
-    { "feature": "feature name", "painItSolves": "which pain/cluster this addresses", "vocQuote": "customer quote used", "section": "which LP section" }
-  ],
-  "improvementSuggestions": {
-    "hero": "what was improved and why it will convert better",
-    "problem": "what was improved",
-    "solution": "what was improved",
-    "features": "what was improved",
-    "social_proof": "what was improved",
-    "cta": "what was improved"
-  }
-}
-\`\`\``;
-
-  let responseText = '';
+  // ── Call 1: HTML only (full 8192 token budget) ──────────────────────────
+  let htmlRaw = '';
   try {
     const response = await openai.chat.completions.create({
       model: MODEL,
       temperature: 0.5,
-      max_tokens: 8000,
+      max_tokens: 8192,
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: prompt },
       ],
     });
-    responseText = response.choices[0]?.message?.content || '';
+    htmlRaw = response.choices[0]?.message?.content || '';
     const finishReason = response.choices[0]?.finish_reason;
-    log(`Got response for ${variantType} (${responseText.length} chars, finish_reason: ${finishReason})`);
-    if (finishReason === 'length') log(`[WARN] Output truncated at token limit for ${variantType}`);
+    log(`HTML call for ${variantType}: ${htmlRaw.length} chars, finish_reason: ${finishReason}`);
+    if (finishReason === 'length') log(`[WARN] HTML still truncated at 8192 tokens for ${variantType}`);
   } catch (e: any) {
-    throw new Error(`LLM call failed for ${variantType}: ${e.message}`);
+    throw new Error(`LLM HTML call failed for ${variantType}: ${e.message}`);
   }
 
-  // Parse HTML block (comes first in response)
-  const htmlMatch = responseText.match(/```html\s*([\s\S]*?)\s*```/i);
-  // If no closing ``` found (truncated), grab everything after ```html
-  const htmlTruncatedMatch = !htmlMatch ? responseText.match(/```html\s*([\s\S]+)/i) : null;
+  const htmlMatch = htmlRaw.match(/```html\s*([\s\S]*?)\s*```/i);
+  const htmlTruncatedMatch = !htmlMatch ? htmlRaw.match(/```html\s*([\s\S]+)/i) : null;
   const html = htmlMatch
     ? htmlMatch[1].trim()
     : htmlTruncatedMatch
       ? htmlTruncatedMatch[1].trim()
-      : responseText.replace(/```json[\s\S]*?```/i, '').trim();
+      : htmlRaw.trim();
 
   if (!html) throw new Error(`No HTML generated for ${variantType}`);
 
-  // Parse JSON meta block (comes after HTML — may be truncated, that's OK)
-  const jsonMatch = responseText.match(/```json\s*([\s\S]*?)\s*```/i);
-  let metaJson: any = {};
-  if (jsonMatch) {
-    try { metaJson = JSON.parse(jsonMatch[1]); } catch { log(`[WARN] Could not parse meta JSON for ${variantType} (may be truncated)`); }
+  // ── Call 2: Meta JSON only (small, fast, separate budget) ───────────────
+  let improvements: Record<string, string> = {};
+  let featurePainMap: any[] = [];
+  try {
+    const metaPrompt = `Based on this landing page variant (${variantType}) for "${projectName}", return ONLY this JSON (no markdown):
+{
+  "featurePainMap": [{ "feature": "name", "painItSolves": "pain", "vocQuote": "quote", "section": "section" }],
+  "improvementSuggestions": { "hero": "...", "problem": "...", "solution": "...", "features": "...", "social_proof": "...", "cta": "..." }
+}
+Variant strategy: ${variantInstructions[variantType].split('\n')[0]}
+Pain cluster: ${cluster?.synthesizedProblemLabel || 'n/a'}`;
+    const metaRes = await openai.chat.completions.create({
+      model: MODEL,
+      temperature: 0.2,
+      max_tokens: 1000,
+      messages: [{ role: 'user', content: metaPrompt }],
+    });
+    const metaRaw = (metaRes.choices[0]?.message?.content || '').replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim();
+    const metaJson = JSON.parse(metaRaw);
+    improvements = metaJson.improvementSuggestions || {};
+    featurePainMap = Array.isArray(metaJson.featurePainMap) ? metaJson.featurePainMap : [];
+    log(`Meta JSON call for ${variantType}: OK`);
+  } catch {
+    log(`[WARN] Meta JSON call failed for ${variantType} — continuing without it`);
   }
-
-  const improvements: Record<string, string> = metaJson.improvementSuggestions || {};
-  const featurePainMap: any[] = Array.isArray(metaJson.featurePainMap) ? metaJson.featurePainMap : [];
 
   return { html, improvements, featurePainMap, promptUsed: prompt };
 }
