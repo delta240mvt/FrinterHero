@@ -354,13 +354,12 @@ details[open] .run-logs-toggle::before { transform: rotate(90deg); }
 .btn-copy:hover { border-color: var(--gold); color: var(--gold); }
 .btn-select { padding: 0.35rem 0.875rem; background: rgba(74,141,131,0.12); border: 1px solid rgba(74,141,131,0.3); color: var(--teal); border-radius: 0.25rem; font-family: var(--font-mono); font-size: var(--text-xs); cursor: pointer; }
 .btn-deselect { padding: 0.35rem 0.75rem; background: none; border: 1px solid var(--border); color: var(--text-muted); border-radius: 0.25rem; font-family: var(--font-mono); font-size: var(--text-xs); cursor: pointer; }
-.modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 200; display: flex; align-items: center; justify-content: center; padding: 1rem; }
-.modal-box { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 0.625rem; display: flex; flex-direction: column; width: 100%; max-width: 900px; max-height: 90vh; overflow: hidden; }
-.modal-box--wide { max-width: 1100px; }
-.modal-header { display: flex; align-items: center; justify-content: space-between; padding: 0.875rem 1.25rem; border-bottom: 1px solid var(--border); }
+.modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 200; display: flex; align-items: center; justify-content: center; padding: 0.75rem; }
+.modal-box { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 0.5rem; display: flex; flex-direction: column; width: 100%; max-width: 1400px; height: calc(100vh - 1.5rem); overflow: hidden; }
+.modal-header { display: flex; align-items: center; justify-content: space-between; padding: 0.625rem 1rem; border-bottom: 1px solid var(--border); flex-shrink: 0; }
 .modal-title { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--text-primary); margin: 0; }
 .modal-close { background: none; border: 1px solid var(--border); color: var(--text-muted); border-radius: 0.2rem; padding: 0.2rem 0.5rem; cursor: pointer; font-family: var(--font-mono); font-size: var(--text-xs); }
-.preview-iframe { flex: 1; border: none; background: #fff; }
+.preview-iframe { flex: 1; border: none; background: #fff; min-height: 0; }
 .feature-map { padding: 0.75rem 1.25rem; border-top: 1px solid var(--border); background: rgba(74,141,131,0.03); }
 .feature-map-label { font-family: var(--font-mono); font-size: 0.65rem; color: var(--teal); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.5rem; }
 .feature-map-grid { display: flex; flex-direction: column; gap: 0.5rem; }
