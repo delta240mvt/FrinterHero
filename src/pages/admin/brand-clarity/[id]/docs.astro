@@ -62,8 +62,8 @@ const lpWordCount = lpRawInput.trim() ? lpRawInput.trim().split(/\s+/).length : 
       <div class="form-header">
         <h2 class="form-title">Landing Page Content</h2>
         <p class="form-subtitle">
-          Download the template, fill it in with your exact LP copy, then upload it here.
-          This gives the AI <em>your actual words</em> — not a scraped guess.
+          Download the prompt, run it in <em>Claude or ChatGPT</em> — the AI will visit your page and return structured YAML.
+          Upload that response here. This gives Brand Clarity your <em>exact copy</em>, not a scraped guess.
         </p>
         {lpWordCount > 0 && (
           <div class="docs-saved">
@@ -76,16 +76,16 @@ const lpWordCount = lpRawInput.trim() ? lpRawInput.trim().split(/\s+/).length : 
         <!-- Download template -->
         <div class="lp-actions-row">
           <button type="button" id="download-template-btn" class="btn-download">
-            ↓ Download LP Template (.yaml)
+            ↓ Download AI Agent Prompt (.md)
           </button>
-          <span class="lp-actions-hint">Fill it in, then upload below →</span>
+          <span class="lp-actions-hint">Run in Claude / ChatGPT → upload the response below →</span>
         </div>
 
         <!-- Upload zone -->
         <div id="upload-zone" class="upload-zone">
           <div class="upload-zone-inner">
             <div class="upload-icon">↑</div>
-            <p class="upload-label">Drop your filled <code>.yaml</code> or <code>.md</code> file here</p>
+            <p class="upload-label">Drop the AI agent's response here <code>.md</code> / <code>.txt</code></p>
             <p class="upload-sub">or <label for="lp-file-input" class="upload-browse">browse files</label></p>
             <input type="file" id="lp-file-input" accept=".yaml,.yml,.md,.txt" style="display:none" />
           </div>
@@ -179,77 +179,125 @@ Examples of what to paste:
 <script define:vars={{ projectId, projectName: project.name, projectUrl: project.lpRawInput }}>
   const PROJECT_ID = projectId;
 
-  // ── LP Content: template download ──────────────────────────────────────
-  const TEMPLATE = `# Landing Page Content — ${projectName}
-# Fill in every section with the EXACT text from your landing page.
-# Upload this file back when done. Supported: .yaml .yml .md .txt
+  // ── LP Content: AI agent prompt download ───────────────────────────────
+  const LP_URL = projectUrl?.startsWith('http') ? projectUrl : 'https://YOUR-LANDING-PAGE-URL';
+  const TEMPLATE = `# AI Agent Prompt — Landing Page Analysis
+# Project: ${projectName}
+#
+# HOW TO USE:
+# 1. Open Claude.ai, ChatGPT, or any capable AI assistant
+# 2. Paste this entire file as your message (or upload it)
+# 3. The AI will open the URL and return structured YAML output
+# 4. Copy the AI's full response, save as a .txt or .md file
+# 5. Upload that file back to Brand Clarity
 
-url: "${projectUrl?.startsWith('http') ? projectUrl : 'https://your-landing-page.com'}"
+---
+
+You are a senior conversion copywriter and UX analyst.
+
+Your task: visit the landing page below, read every word of it, and extract its content into a structured YAML format that will be used to generate better-converting variants.
+
+**Landing page URL:** ${LP_URL}
+
+---
+
+## Instructions
+
+Read the page thoroughly — every section, every paragraph, every CTA. Do not summarize or paraphrase. Your job is to capture the EXACT language used on the page.
+
+When copying text:
+- Use exact words from the page, do not rewrite them
+- If a section doesn't exist, write null
+- Preserve capitalization, punctuation, and tone
+
+---
+
+## Output format
+
+Return ONLY the YAML block below, filled with real content from the page. No explanations before or after.
+
+\`\`\`yaml
+url: "${LP_URL}"
 
 hero:
-  headline: |
-    # paste your exact hero headline here
-  subheadline: |
-    # paste your subheadline / descriptor here
-  cta_button: "Start Free / Try Now / Join Waitlist — your exact CTA text"
+  headline: "EXACT headline text from the page"
+  subheadline: "EXACT subheadline or descriptor text"
+  cta_primary: "EXACT primary CTA button text"
+  cta_secondary: "EXACT secondary link or button text, or null"
+  hero_body: |
+    Any additional text in the hero section, word for word.
 
 problem:
-  main: |
-    # What problem does your product solve? One paragraph max.
-  who: "Who has this problem? e.g. solopreneurs, developers, coaches"
+  headline: "Section headline if present, or null"
+  body: |
+    EXACT text describing the problem being solved.
+    Every sentence, word for word.
+  who_it_affects: "EXACT text about who the target customer is, or null"
 
 solution:
+  headline: "EXACT section headline, or null"
   what_it_is: |
-    # What is your product in plain words?
+    EXACT text explaining what the product is.
   how_it_works: |
-    # 2-4 steps describing how it works
+    EXACT text from the how-it-works section (steps, process, etc.)
 
 features:
-  - name: "Feature 1 name"
-    description: "What it does in 1-2 sentences"
-    benefit: "What the user gains"
-  - name: "Feature 2 name"
-    description: ""
-    benefit: ""
-  - name: "Feature 3 name"
-    description: ""
-    benefit: ""
+  - name: "EXACT feature name"
+    description: "EXACT feature description, word for word"
+    benefit: "EXACT benefit statement if present, or null"
+  - name: "..."
+    description: "..."
+    benefit: "..."
 
 social_proof:
   testimonials:
-    - quote: "Paste exact testimonial text"
-      author: "Name, Role / Company"
-    - quote: ""
-      author: ""
-  stats: "e.g. 2,400 users · 4.9★ · 3 min avg setup"
+    - quote: "EXACT testimonial text"
+      author: "EXACT author name and role"
+    - quote: "..."
+      author: "..."
+  stats: "EXACT stats or trust signals, e.g. '2,400 users · 4.9★'"
+  logos: "List of brand/client logos shown, or null"
 
 pricing:
-  model: "free | paid | freemium | waitlist"
+  model: "free | paid | freemium | waitlist — pick one"
   tiers:
-    - name: "Free / Starter"
-      price: "$0/mo"
-      what_you_get: "List what's included"
-    - name: "Pro"
-      price: "$X/mo"
-      what_you_get: ""
+    - name: "EXACT tier name"
+      price: "EXACT price shown"
+      what_you_get: "EXACT list of what's included"
+    - name: "..."
+      price: "..."
+      what_you_get: "..."
+  pricing_notes: "Any additional pricing copy, guarantees, or null"
 
-target_audience: |
-  # Describe your ideal customer in 2-3 sentences.
-  # Who are they, what's their situation, what do they want?
+faq:
+  - question: "EXACT question"
+    answer: "EXACT answer"
+  - question: "..."
+    answer: "..."
 
-unique_selling_point: |
-  # What makes you different from alternatives in ONE sentence?
+footer_cta:
+  headline: "EXACT bottom-of-page CTA headline, or null"
+  body: "EXACT body copy, or null"
+  cta_button: "EXACT CTA button text, or null"
+
+target_audience:
+  description: "EXACT text describing who this product is for"
+  pain_described: "EXACT language used to describe the customer's pain or desire"
+
+unique_selling_point: "EXACT text that explains why this is different from alternatives"
 
 tone_of_voice: |
-  # How does your brand sound? e.g. "direct, no-bs, like a senior dev talking to peers"
+  Describe the brand voice in 2-3 sentences based on how the page reads.
+  e.g. "Direct and confident. Uses second person throughout. Short sentences. No jargon."
+\`\`\`
 `;
 
   document.getElementById('download-template-btn')?.addEventListener('click', () => {
-    const blob = new Blob([TEMPLATE], { type: 'text/yaml' });
+    const blob = new Blob([TEMPLATE], { type: 'text/markdown' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `lp-content-${PROJECT_ID}.yaml`;
+    a.download = `lp-agent-prompt-${PROJECT_ID}.md`;
     a.click();
     URL.revokeObjectURL(url);
   });
