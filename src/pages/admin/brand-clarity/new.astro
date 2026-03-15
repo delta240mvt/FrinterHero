@@ -31,7 +31,21 @@ import Base from '@/components/layouts/Base.astro';
 
         <div class="form-group">
           <label class="form-label" for="lpRawInput">Landing Page Content</label>
-          <p class="form-hint">Paste your full landing page HTML or text. Used to extract LP structure.</p>
+          <p class="form-hint">Pobierz prompt, wgraj go razem z plikami LP do Claude lub ChatGPT, a następnie wgraj odpowiedź agenta poniżej.</p>
+
+          <div class="lp-toolbar">
+            <button type="button" id="download-prompt-btn" class="btn-download-prompt">
+              ↓ Pobierz prompt dla agenta AI (.md)
+            </button>
+            <span class="lp-toolbar-sep">lub wgraj odpowiedź:</span>
+            <label for="lp-file-input" class="btn-upload-label">↑ Wgraj plik</label>
+            <input type="file" id="lp-file-input" accept=".yaml,.yml,.md,.txt,.html" style="display:none" />
+          </div>
+
+          <div id="upload-zone" class="upload-zone">
+            <span class="upload-zone-text">Upuść plik odpowiedzi agenta tutaj <span class="upload-zone-dim">(.md / .txt / .html)</span></span>
+          </div>
+
           <textarea id="lpRawInput" name="lpRawInput" class="form-textarea" rows={12} placeholder="Paste your landing page HTML or plain text here..." required></textarea>
         </div>
 
@@ -59,6 +73,129 @@ import Base from '@/components/layouts/Base.astro';
 </div>
 
 <script>
+  // ── AI Agent Prompt download ────────────────────────────────────────────
+  const AGENT_PROMPT = `# AI Agent Prompt — Landing Page Analysis
+#
+# JAK UŻYĆ:
+# 1. Wgraj ten plik + pliki swojego landing page (HTML, MD, Notion export, screenshot) do Claude lub ChatGPT
+# 2. Wyślij — agent przeanalizuje pliki i zwróci gotowy YAML
+# 3. Skopiuj całą odpowiedź agenta, zapisz jako plik (.txt lub .md)
+# 4. Wgraj ten plik z powrotem do pola "Landing Page Content" w Brand Clarity
+
+---
+
+You are a senior conversion copywriter and UX analyst.
+
+I am attaching files that contain my landing page content — HTML, exported documents, screenshots, or plain text copies of my landing page.
+
+Your task: read every attached file carefully, find all landing page content, and extract it into a structured YAML format. This output will be used by an AI pipeline to generate better-converting landing page variants.
+
+## Rules
+
+- Extract EXACT language from the files — do not rewrite, summarize, or improve the copy
+- If a section is not present in the files, write: null
+- Preserve original capitalization, punctuation, and sentence structure
+- If you find multiple versions of the same section, pick the most complete one
+- Do not add anything that is not in the source files
+
+## Output format
+
+Return ONLY the YAML block below, filled with real content from the files. No explanations before or after.
+
+\`\`\`yaml
+hero:
+  headline: "EXACT headline text from the page"
+  subheadline: "EXACT subheadline or descriptor text"
+  cta_primary: "EXACT primary CTA button text"
+  cta_secondary: "EXACT secondary CTA or link text, or null"
+  hero_body: |
+    Any additional body text in the hero section, word for word.
+
+problem:
+  headline: "Section headline if present, or null"
+  body: |
+    EXACT text describing the problem being solved, every sentence.
+  who_it_affects: "EXACT text about who the target customer is, or null"
+
+solution:
+  headline: "EXACT section headline, or null"
+  what_it_is: |
+    EXACT text explaining what the product is.
+  how_it_works: |
+    EXACT text from the how-it-works section (steps, process, etc.)
+
+features:
+  - name: "EXACT feature name"
+    description: "EXACT feature description, word for word"
+    benefit: "EXACT benefit statement if present, or null"
+  - name: "..."
+    description: "..."
+    benefit: "..."
+
+social_proof:
+  testimonials:
+    - quote: "EXACT testimonial text"
+      author: "EXACT author name and role"
+  stats: "EXACT stats or trust signals shown on page, or null"
+
+pricing:
+  model: "free | paid | freemium | waitlist"
+  tiers:
+    - name: "EXACT tier name"
+      price: "EXACT price shown"
+      what_you_get: "EXACT list of what's included"
+
+footer_cta:
+  headline: "EXACT bottom-of-page CTA headline, or null"
+  cta_button: "EXACT CTA button text, or null"
+
+target_audience: "EXACT text describing who this product is for"
+unique_selling_point: "EXACT text explaining why this is different from alternatives"
+
+tone_of_voice: |
+  Describe the brand voice in 2-3 sentences based on how the page reads.
+  e.g. "Direct and confident. Short sentences. No jargon."
+\`\`\`
+`;
+
+  document.getElementById('download-prompt-btn')?.addEventListener('click', () => {
+    const blob = new Blob([AGENT_PROMPT], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'lp-agent-prompt.md';
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  // ── File upload → populate textarea ────────────────────────────────────
+  const lpTextarea = document.getElementById('lpRawInput') as HTMLTextAreaElement;
+  const fileInput = document.getElementById('lp-file-input') as HTMLInputElement;
+  const uploadZone = document.getElementById('upload-zone') as HTMLElement;
+
+  function loadFile(file: File) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      lpTextarea.value = e.target?.result as string;
+      uploadZone.classList.add('upload-zone--done');
+      uploadZone.querySelector('.upload-zone-text')!.textContent = `✓ ${file.name} wgrany`;
+    };
+    reader.readAsText(file, 'UTF-8');
+  }
+
+  fileInput?.addEventListener('change', () => { if (fileInput.files?.[0]) loadFile(fileInput.files[0]); });
+
+  uploadZone?.addEventListener('dragover', (e) => { e.preventDefault(); uploadZone.classList.add('upload-zone--over'); });
+  uploadZone?.addEventListener('dragleave', () => uploadZone.classList.remove('upload-zone--over'));
+  uploadZone?.addEventListener('drop', (e: DragEvent) => {
+    e.preventDefault();
+    uploadZone.classList.remove('upload-zone--over');
+    const file = e.dataTransfer?.files?.[0];
+    if (file) loadFile(file);
+  });
+  uploadZone?.addEventListener('click', () => fileInput?.click());
+
+  // ── Form submit ─────────────────────────────────────────────────────────
   const form = document.getElementById('new-project-form') as HTMLFormElement;
   const submitBtn = document.getElementById('submit-btn') as HTMLButtonElement;
   const statusMsg = document.getElementById('status-msg') as HTMLElement;
@@ -151,5 +288,19 @@ import Base from '@/components/layouts/Base.astro';
 .status-msg { padding: 0.75rem 1rem; border-radius: 0.375rem; font-family: var(--font-mono); font-size: var(--text-xs); }
 .status-msg--success { background: rgba(74,141,131,0.1); border: 1px solid rgba(74,141,131,0.3); color: var(--teal); }
 .status-msg--error   { background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.25); color: #ef4444; }
+
+/* ── LP toolbar ──────────────────────────────────────────────────────────── */
+.lp-toolbar { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+.btn-download-prompt { padding: 0.4rem 0.9rem; background: var(--bg-elevated); border: 1px solid var(--teal); color: var(--teal); border-radius: 0.35rem; font-family: var(--font-mono); font-size: 0.7rem; font-weight: 600; cursor: pointer; }
+.btn-download-prompt:hover { background: rgba(74,141,131,0.1); }
+.lp-toolbar-sep { font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-muted); }
+.btn-upload-label { padding: 0.4rem 0.9rem; background: var(--bg-elevated); border: 1px solid var(--border); color: var(--text-secondary); border-radius: 0.35rem; font-family: var(--font-mono); font-size: 0.7rem; cursor: pointer; }
+.btn-upload-label:hover { border-color: var(--gold); color: var(--gold); }
+
+.upload-zone { border: 1px dashed var(--border); border-radius: 0.375rem; padding: 0.75rem 1rem; cursor: pointer; text-align: center; transition: border-color 0.15s, background 0.15s; }
+.upload-zone:hover, .upload-zone--over { border-color: var(--teal); background: rgba(74,141,131,0.04); }
+.upload-zone--done { border-color: var(--teal); border-style: solid; }
+.upload-zone-text { font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-muted); }
+.upload-zone-dim { color: var(--text-muted); opacity: 0.6; }
 </style>
 </Base>
