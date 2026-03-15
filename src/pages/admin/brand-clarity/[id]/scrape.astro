@@ -141,6 +141,15 @@ const rejected = painPoints.filter(p => p.status === 'rejected').length;
         </div>
       )}
 
+      <details id="cluster-log-panel" class="run-logs-section" style="display:none">
+        <summary class="run-logs-toggle">
+          <span class="logs-toggle-label">📋 Cluster Run Log</span>
+          <span id="cluster-log-count" class="logs-count">0 lines</span>
+          <button id="btn-download-cluster-logs" class="btn-download-logs" onclick="event.stopPropagation()">Download .txt</button>
+        </summary>
+        <div id="cluster-log-container" class="run-logs-container"></div>
+      </details>
+
       {painPoints.length === 0 ? (
         <div class="empty-state">No pain points yet. Run the scrape above to extract them from YouTube comments.</div>
       ) : (
@@ -328,20 +337,58 @@ const rejected = painPoints.filter(p => p.status === 'rejected').length;
   });
 
   // ── Cluster pain points ─────────────────────────────────────
+  const clusterLogPanel     = document.getElementById('cluster-log-panel');
+  const clusterLogContainer = document.getElementById('cluster-log-container');
+  const clusterLogCount     = document.getElementById('cluster-log-count');
+
+  function renderClusterLogs(logs) {
+    if (!logs || !logs.length) return;
+    clusterLogPanel.style.display = 'block';
+    clusterLogPanel.open = true;
+    clusterLogCount.textContent = `${logs.length} lines`;
+    clusterLogContainer.innerHTML = logs.map(line => {
+      let cls = 'log-line';
+      if (line.includes('[WARN]') || line.includes('[FATAL]') || line.includes('[ERROR]')) cls += ' log-line--warn';
+      else if (line.includes('CLUSTERS_CREATED') || line.includes('Done') || line.includes('Inserted')) cls += ' log-line--done';
+      else if (line.includes('[LLM]') || line.includes('Sonnet') || line.includes('cluster')) cls += ' log-line--llm';
+      return `<div class="${cls}">${line}</div>`;
+    }).join('');
+    clusterLogContainer.scrollTop = clusterLogContainer.scrollHeight;
+  }
+
+  document.getElementById('btn-download-cluster-logs')?.addEventListener('click', () => {
+    const text = Array.from(clusterLogContainer.querySelectorAll('.log-line')).map(el => el.textContent).join('\n');
+    const blob = new Blob([text], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `bc-cluster-${PROJECT_ID}-logs.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+
   document.getElementById('cluster-btn')?.addEventListener('click', async () => {
     const btn = document.getElementById('cluster-btn');
     if (!btn) return;
     if (!confirm('Cluster approved pain points using Claude Sonnet? (~1 API call, ~10s)')) return;
     btn.disabled = true;
     btn.textContent = 'Clustering…';
+    clusterLogPanel.style.display = 'none';
     try {
       const res = await fetch(`/api/brand-clarity/${PROJECT_ID}/cluster-pain-points`, { method: 'POST' });
       const data = await res.json();
+      renderClusterLogs(data.logs);
       if (!res.ok) throw new Error(data.error || 'Failed');
-      alert(`Created ${data.clustersCreated} pain clusters! Reloading…`);
-      window.location.reload();
+      setTimeout(() => window.location.reload(), 2500);
     } catch (e) {
-      alert(`Clustering failed: ${e.message}`);
+      clusterLogPanel.style.display = 'block';
+      clusterLogPanel.open = true;
+      const errEl = document.createElement('div');
+      errEl.className = 'log-line log-line--warn';
+      errEl.textContent = `[ERROR] ${e.message}`;
+      clusterLogContainer.appendChild(errEl);
       btn.disabled = false;
       btn.textContent = 'Cluster Pain Points';
     }
@@ -416,5 +463,20 @@ const rejected = painPoints.filter(p => p.status === 'rejected').length;
 .cluster-vision em { color: var(--gold); font-style: normal; }
 .cluster-quotes { display: flex; flex-direction: column; gap: 0.25rem; border-top: 1px solid var(--border); padding-top: 0.5rem; }
 .cluster-quote { font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-secondary); font-style: italic; }
+.run-logs-section { border: 1px solid var(--border); border-radius: 0.375rem; overflow: hidden; }
+.run-logs-toggle { display: flex; align-items: center; gap: 0.75rem; padding: 0.625rem 1rem; cursor: pointer; background: rgba(255,255,255,0.03); font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-secondary); list-style: none; user-select: none; }
+.run-logs-toggle::-webkit-details-marker { display: none; }
+.run-logs-toggle::before { content: '▶'; font-size: 0.6rem; color: var(--text-muted); transition: transform 0.15s; }
+details[open] .run-logs-toggle::before { transform: rotate(90deg); }
+.run-logs-toggle:hover { color: var(--teal); }
+.logs-toggle-label { flex: 1; }
+.logs-count { padding: 0.1rem 0.4rem; background: rgba(255,255,255,0.06); border-radius: 0.25rem; font-size: 0.65rem; color: var(--text-muted); }
+.run-logs-container { background: #0a0a0f; border-top: 1px solid var(--border); padding: 0.875rem 1rem; max-height: 480px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.15rem; }
+.log-line { font-family: var(--font-mono); font-size: 0.68rem; color: #71717a; white-space: pre-wrap; word-break: break-all; line-height: 1.5; }
+.log-line--warn  { color: #f97316; }
+.log-line--done  { color: var(--teal); }
+.log-line--llm   { color: var(--gold); }
+.btn-download-logs { padding: 0.25rem 0.75rem; background: none; border: 1px solid var(--border); color: var(--text-muted); border-radius: 0.25rem; font-family: var(--font-mono); font-size: 0.65rem; cursor: pointer; }
+.btn-download-logs:hover { border-color: var(--teal); color: var(--teal); }
 </style>
 </Base>

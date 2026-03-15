@@ -10,10 +10,11 @@ function auth(cookies: any) {
 
 const JSON_HEADERS = { 'Content-Type': 'application/json' };
 
-function runClusterer(projectId: number): Promise<{ clustersCreated: number; error?: string }> {
+function runClusterer(projectId: number): Promise<{ clustersCreated: number; logs: string[]; error?: string }> {
   return new Promise((resolve) => {
     let clustersCreated = 0;
-    let stderr = '';
+    const logs: string[] = [];
+    let buf = '';
 
     const child = spawn('npx', ['tsx', 'scripts/bc-pain-clusterer.ts'], {
       cwd: process.cwd(),
@@ -21,20 +22,29 @@ function runClusterer(projectId: number): Promise<{ clustersCreated: number; err
       shell: true,
     });
 
-    child.stdout.on('data', (chunk: Buffer) => {
-      const text = chunk.toString();
-      const match = text.match(/CLUSTERS_CREATED:(\d+)/);
-      if (match) clustersCreated = parseInt(match[1], 10);
-    });
+    const onChunk = (chunk: Buffer) => {
+      buf += chunk.toString();
+      const parts = buf.split('\n');
+      buf = parts.pop() ?? '';
+      for (const line of parts) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        const match = trimmed.match(/CLUSTERS_CREATED:(\d+)/);
+        if (match) clustersCreated = parseInt(match[1], 10);
+        logs.push(trimmed);
+      }
+    };
 
-    child.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString(); });
+    child.stdout.on('data', onChunk);
+    child.stderr.on('data', onChunk);
 
     child.on('close', (code) => {
-      if (code !== 0) resolve({ clustersCreated, error: stderr.slice(-500) || `exit code ${code}` });
-      else resolve({ clustersCreated });
+      if (buf.trim()) logs.push(buf.trim());
+      if (code !== 0) resolve({ clustersCreated, logs, error: logs.slice(-3).join(' | ') || `exit code ${code}` });
+      else resolve({ clustersCreated, logs });
     });
 
-    child.on('error', (err) => resolve({ clustersCreated: 0, error: err.message }));
+    child.on('error', (err) => resolve({ clustersCreated: 0, logs, error: err.message }));
   });
 }
 
@@ -60,13 +70,13 @@ export const POST: APIRoute = async ({ params, cookies }) => {
 
   const result = await runClusterer(projectId);
   if (result.error) {
-    return new Response(JSON.stringify({ error: result.error }), { status: 500, headers: JSON_HEADERS });
+    return new Response(JSON.stringify({ error: result.error, logs: result.logs }), { status: 500, headers: JSON_HEADERS });
   }
 
   // Fetch created clusters to return
   const clusters = await db.select().from(bcPainClusters).where(eq(bcPainClusters.projectId, projectId));
 
-  return new Response(JSON.stringify({ clustersCreated: result.clustersCreated, clusters }), { headers: JSON_HEADERS });
+  return new Response(JSON.stringify({ clustersCreated: result.clustersCreated, logs: result.logs, clusters }), { headers: JSON_HEADERS });
 };
 
 export const GET: APIRoute = async ({ params, cookies }) => {
