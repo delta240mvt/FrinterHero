@@ -5,6 +5,22 @@ import { db } from '@/db/client';
 import { articles, articleGenerations, knowledgeEntries } from '@/db/schema';
 import { eq, and, ne, sql, inArray } from 'drizzle-orm';
 
+export const prerender = true;
+
+export async function getStaticPaths() {
+  try {
+    const published = await db
+      .select({ slug: articles.slug })
+      .from(articles)
+      .where(eq(articles.status, 'published'));
+
+    return published.map(({ slug }) => ({ params: { slug } }));
+  } catch {
+    // DB unavailable during build — return empty array (no static pages)
+    return [];
+  }
+}
+
 const { slug } = Astro.params;
 
 if (!slug) {
