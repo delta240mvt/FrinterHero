@@ -5,6 +5,29 @@ import { db } from '@/db/client';
 import { articles, articleGenerations, knowledgeEntries } from '@/db/schema';
 import { eq, and, ne, sql, inArray } from 'drizzle-orm';
 
+export const prerender = true;
+
+export async function getStaticPaths() {
+  const dbUrl = process.env.DATABASE_URL;
+  console.log('[getStaticPaths] DATABASE_URL present:', !!dbUrl);
+  if (dbUrl) {
+    console.log('[getStaticPaths] DATABASE_URL prefix:', dbUrl.slice(0, 30) + '...');
+  }
+
+  try {
+    const published = await db
+      .select({ slug: articles.slug })
+      .from(articles)
+      .where(eq(articles.status, 'published'));
+
+    console.log(`[getStaticPaths] OK — found ${published.length} published articles`);
+    return published.map(({ slug }) => ({ params: { slug } }));
+  } catch (e) {
+    console.error('[getStaticPaths] DB ERROR:', e);
+    return [];
+  }
+}
+
 const { slug } = Astro.params;
 
 if (!slug) {
