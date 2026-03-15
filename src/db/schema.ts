@@ -313,6 +313,8 @@ export const bcProjects = pgTable('bc_projects', {
   lpStructureJson: jsonb('lp_structure_json'),           // Extracted LP structure incl. sectionWeaknesses
   lpTemplateHtml: text('lp_template_html'),
   nicheKeywords: jsonb('niche_keywords').$type<string[]>().default([]),
+  audiencePainKeywords: jsonb('audience_pain_keywords').$type<string[]>().default([]),
+  featureMap: jsonb('feature_map').$type<{featureName:string;whatItDoes:string;userBenefit:string}[]>().default([]),
   status: varchar('status', { length: 50 }).notNull().default('draft'),
   // draft → docs_pending → channels_pending → videos_pending → scraping → pain_points_pending → generating → done
   createdAt: timestamp('created_at').notNull().defaultNow(),
@@ -385,6 +387,7 @@ export const bcExtractedPainPoints = pgTable('bc_extracted_pain_points', {
   category: varchar('category', { length: 50 }).notNull().default('focus'),
   customerLanguage: text('customer_language'),
   desiredOutcome: text('desired_outcome'),
+  vocData: jsonb('voc_data').$type<{problemLabel:string;dominantEmotion:string;failedSolutions:string[];triggerMoment:string;successVision:string}>(),
   status: varchar('status', { length: 20 }).notNull().default('pending'), // pending | approved | rejected
   sourceVideoIds: integer('source_video_ids').array().notNull().default([]),
   createdAt: timestamp('created_at').notNull().defaultNow(),
@@ -403,6 +406,7 @@ export const bcLandingPageVariants = pgTable('bc_landing_page_variants', {
   htmlContent: text('html_content').notNull(),
   improvementSuggestions: jsonb('improvement_suggestions')
     .$type<Record<string, string>>().default({}), // { hero: "...", problem: "...", ... }
+  featurePainMap: jsonb('feature_pain_map').$type<{feature:string;painItSolves:string;vocQuote:string;section:string}[]>().default([]),
   primaryPainPointId: integer('primary_pain_point_id')
     .references(() => bcExtractedPainPoints.id), // null for founder_vision
   generationPromptUsed: text('generation_prompt_used'),
@@ -411,4 +415,22 @@ export const bcLandingPageVariants = pgTable('bc_landing_page_variants', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
 }, (table) => ({
   projectIdx: index('idx_bc_variants_project').on(table.projectId),
+}));
+
+// Pain point clusters synthesized by Sonnet before LP generation
+export const bcPainClusters = pgTable('bc_pain_clusters', {
+  id: serial('id').primaryKey(),
+  projectId: integer('project_id').notNull().references(() => bcProjects.id, { onDelete: 'cascade' }),
+  clusterTheme: varchar('cluster_theme', { length: 255 }).notNull(),
+  dominantEmotion: varchar('dominant_emotion', { length: 100 }),
+  aggregateIntensity: real('aggregate_intensity'),
+  bestQuotes: jsonb('best_quotes').$type<string[]>().default([]),
+  synthesizedProblemLabel: text('synthesized_problem_label'),
+  synthesizedSuccessVision: text('synthesized_success_vision'),
+  painPointIds: jsonb('pain_point_ids').$type<number[]>().default([]),
+  failedSolutions: jsonb('failed_solutions').$type<string[]>().default([]),
+  triggerMoments: jsonb('trigger_moments').$type<string[]>().default([]),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => ({
+  projectIdx: index('idx_bc_clusters_project').on(table.projectId),
 }));

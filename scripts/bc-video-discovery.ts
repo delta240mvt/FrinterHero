@@ -64,8 +64,14 @@ async function run() {
     : [];
   const query = keywords.join(' ');
 
+  const audiencePainKeywords: string[] = Array.isArray((project as any).audiencePainKeywords)
+    ? ((project as any).audiencePainKeywords as string[]).slice(0, 3)
+    : [];
+  const painQuery = audiencePainKeywords.join(' ');
+
   log(`Finding top 3 videos per channel for ${confirmedChannels.length} channels`);
   log(`Query: "${query}"`);
+  if (painQuery) log(`Pain query: "${painQuery}"`);
 
   // Clear existing videos for this project
   await db.delete(bcTargetVideos).where(eq(bcTargetVideos.projectId, BC_PROJECT_ID));
@@ -88,12 +94,45 @@ async function run() {
       });
 
       const candidates = (searchData?.items ?? []).filter((item: any) => item?.id?.videoId);
-      if (!candidates.length) {
+
+      // Pass 2 — pain-keyword search (finds complaint-heavy videos)
+      let painCandidates: any[] = [];
+      if (painQuery) {
+        try {
+          const painSearchData = await ytGet('search', {
+            part: 'id,snippet',
+            channelId: channel.channelId,
+            q: painQuery,
+            type: 'video',
+            videoDuration: 'medium',
+            order: 'relevance',
+            maxResults: '10',
+          });
+          painCandidates = (painSearchData?.items ?? []).filter((item: any) => item?.id?.videoId);
+          log(`  Pain-keyword search: ${painCandidates.length} candidates`);
+        } catch (e: any) {
+          log(`  [WARN] Pain keyword search failed: ${e.message}`);
+        }
+      }
+
+      // Merge and deduplicate
+      const seenVideoIds = new Set<string>();
+      const allCandidates: Array<{ item: any; isPainKeyword: boolean }> = [];
+      for (const item of candidates) {
+        const vid = item?.id?.videoId;
+        if (vid && !seenVideoIds.has(vid)) { seenVideoIds.add(vid); allCandidates.push({ item, isPainKeyword: false }); }
+      }
+      for (const item of painCandidates) {
+        const vid = item?.id?.videoId;
+        if (vid && !seenVideoIds.has(vid)) { seenVideoIds.add(vid); allCandidates.push({ item, isPainKeyword: true }); }
+      }
+
+      if (!allCandidates.length) {
         log(`  No videos found for ${channel.channelName}`);
         continue;
       }
 
-      const videoIds = candidates.map((item: any) => item.id.videoId);
+      const videoIds = allCandidates.map(({ item }) => item.id.videoId);
 
       // ONE batched videos.list for stats (1 unit)
       const statsData = await ytGet('videos', {
@@ -107,13 +146,14 @@ async function run() {
       }
 
       // Score and rank
-      const scored = candidates.map((item: any, index: number) => {
+      const scored = allCandidates.map(({ item, isPainKeyword }, index: number) => {
         const videoId = item.id.videoId;
         const stats = statsMap[videoId];
         const commentCount = parseInt(stats?.statistics?.commentCount || '0', 10);
         const viewCount = parseInt(stats?.statistics?.viewCount || '0', 10);
-        const rankScore = (1 - index / 10) * 0.7;
+        const rankScore = (1 - index / Math.max(allCandidates.length, 10)) * 0.7;
         const engagementScore = commentCount > 100 ? 0.3 : commentCount > 10 ? 0.15 : 0;
+        const painBonus = isPainKeyword ? 0.2 : 0;
         return {
           videoId,
           title: (item.snippet?.title || videoId).substring(0, 500),
@@ -121,7 +161,7 @@ async function run() {
           viewCount,
           commentCount,
           publishedAt: item.snippet?.publishedAt ? new Date(item.snippet.publishedAt) : null,
-          relevanceScore: rankScore + engagementScore,
+          relevanceScore: Math.min(1.0, rankScore + engagementScore + painBonus),
         };
       });
 

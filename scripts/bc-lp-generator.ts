@@ -1,18 +1,19 @@
 /**
- * bc-lp-generator.ts — Generates 3 landing page variants for a Brand Clarity project.
+ * bc-lp-generator.ts — Generates 3 landing page variants using Voice of Customer methodology.
  *
- * Variant types:
- *   1. founder_vision — based on the founder's distilled vision
- *   2. pain_point_1   — anchored to the top approved pain point
- *   3. pain_point_2   — anchored to the second approved pain point
+ * Variant strategies:
+ *   1. curiosity_hook  — Surprising insight or counterintuitive claim
+ *   2. pain_mirror     — Hero uses customer's exact problem language
+ *   3. outcome_promise — "Give me X. Get Y." structure
  *
- * Each variant:
- *   - Follows the LP section structure extracted in Stage 1
- *   - Contains improvement suggestions per section (improvementSuggestions JSON)
- *   - Preserves brand voice and tone from lpStructureJson
+ * VoC-first principles:
+ *   - Customer language drives every section
+ *   - Features grounded in projectDocumentation (featureMap)
+ *   - Pain clusters drive messaging (uses bcPainClusters if available)
+ *   - Grade 6 reading level, no buzzwords
+ *   - "What You Get" section always present
  *
- * Model: claude-sonnet-4-6 (precision required for copywriting)
- *
+ * Model: claude-sonnet-4-6
  * Input env: BC_PROJECT_ID
  * Output: inserts bcLandingPageVariants, stdout VARIANTS_GENERATED:N
  */
@@ -21,7 +22,7 @@ import OpenAI from 'openai';
 import * as dotenv from 'dotenv';
 import * as path from 'path';
 import { db } from '../src/db/client';
-import { bcProjects, bcExtractedPainPoints, bcLandingPageVariants } from '../src/db/schema';
+import { bcProjects, bcExtractedPainPoints, bcLandingPageVariants, bcPainClusters } from '../src/db/schema';
 import { eq, and, desc } from 'drizzle-orm';
 
 dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
@@ -54,92 +55,185 @@ interface LpStructure {
   brandVoiceNotes: string;
   sectionOrder: string[];
   sectionWeaknesses: Record<string, string | null>;
-  founderVision?: string;
+}
+
+interface PainCluster {
+  id: number;
+  clusterTheme: string;
+  dominantEmotion: string | null;
+  aggregateIntensity: number | null;
+  bestQuotes: string[];
+  synthesizedProblemLabel: string | null;
+  synthesizedSuccessVision: string | null;
+  failedSolutions: string[];
+  triggerMoments: string[];
+  painPointIds: number[];
+}
+
+interface FeatureMapItem {
+  featureName: string;
+  whatItDoes: string;
+  userBenefit: string;
 }
 
 async function generateVariant(
-  variantType: 'founder_vision' | 'pain_point_1' | 'pain_point_2',
+  variantType: 'curiosity_hook' | 'pain_mirror' | 'outcome_promise',
   variantLabel: string,
   lpStructure: LpStructure,
-  painPoint: { title: string; description: string; customerLanguage: string | null; desiredOutcome: string | null; vocabularyQuotes: string[] } | null,
+  cluster: PainCluster | null,
   projectName: string,
   founderVision: string,
-): Promise<{ html: string; improvements: Record<string, string>; promptUsed: string }> {
+  projectDocumentation: string | null,
+  featureMap: FeatureMapItem[],
+): Promise<{ html: string; improvements: Record<string, string>; featurePainMap: any[]; promptUsed: string }> {
 
   const sectionWeaknessBlock = Object.entries(lpStructure.sectionWeaknesses || {})
     .filter(([, v]) => v)
     .map(([k, v]) => `- ${k}: ${v}`)
     .join('\n');
 
-  const painPointBlock = painPoint
-    ? `
-PAIN POINT FOCUS:
-- Title: ${painPoint.title}
-- Description: ${painPoint.description}
-- Customer Language: ${painPoint.customerLanguage || 'N/A'}
-- Desired Outcome: ${painPoint.desiredOutcome || 'N/A'}
-- Verbatim Quotes: ${painPoint.vocabularyQuotes.join(' | ')}
-`
-    : `
-FOUNDER VISION FOCUS:
-${founderVision}
-`;
+  const featureMapBlock = featureMap.length > 0
+    ? featureMap.map(f => `• ${f.featureName}: ${f.whatItDoes} → User benefit: ${f.userBenefit}`).join('\n')
+    : lpStructure.features.map(f => `• ${f.name}: ${f.description}`).join('\n');
 
-  const prompt = `You are a world-class landing page conversion copywriter.
+  const docsBlock = projectDocumentation
+    ? `\n=== PRODUCT DOCUMENTATION (source of truth — only mention features from here) ===\n${projectDocumentation.substring(0, 6000)}`
+    : '';
 
-PROJECT: ${projectName}
+  const clusterBlock = cluster ? `
+=== VOICE OF CUSTOMER DATA (from real YouTube comment analysis) ===
+Pain Theme: ${cluster.clusterTheme}
+How customers NAME this problem: "${cluster.synthesizedProblemLabel || ''}"
+Dominant emotion: ${cluster.dominantEmotion || 'frustration'}
+Their vision of success: "${cluster.synthesizedSuccessVision || ''}"
+What they've tried that failed: ${(cluster.failedSolutions as string[]).join(', ') || 'various solutions'}
+When they feel this pain most: ${(cluster.triggerMoments as string[]).join(' | ') || 'throughout the day'}
+Their exact words (use these verbatim in copy):
+${(cluster.bestQuotes as string[]).map((q, i) => `  ${i + 1}. "${q}"`).join('\n')}` : `
+=== FOUNDER VISION ===
+${founderVision}`;
+
+  const variantInstructions = {
+    curiosity_hook: `HERO STRATEGY: CURIOSITY HOOK
+Your headline must state something SURPRISING or COUNTERINTUITIVE.
+Something the reader doesn't expect. They should think: "Wait — what?"
+Ideas: a surprising stat, a counterintuitive truth about their problem, an unexpected cause.
+Example patterns:
+- "The reason you can't focus isn't what you think"
+- "87% of productivity apps make distraction worse"
+- "Your willpower isn't broken. Your environment is."
+The subheadline then explains the real answer in one simple sentence.`,
+
+    pain_mirror: `HERO STRATEGY: PAIN MIRROR
+Your headline must use the customer's EXACT language for their problem.
+Use: "${cluster?.synthesizedProblemLabel || lpStructure.problemStatement}"
+The reader must think: "This person gets me exactly."
+The subheadline mirrors their dominant emotion: ${cluster?.dominantEmotion || 'frustration'}.
+Example pattern: "[Their problem label] — [1 sentence that validates their struggle]"`,
+
+    outcome_promise: `HERO STRATEGY: OUTCOME PROMISE
+Structure: "Give me [specific action]. Get [specific outcome]."
+The outcome must come from: "${cluster?.synthesizedSuccessVision || lpStructure.corePromise}"
+Be CONCRETE — no vague words like "better" or "improve".
+The reader must think: "That's exactly what I want."
+Example: "Give me 10 minutes of setup. Get 3 uninterrupted hours of deep work."`,
+  };
+
+  const systemPrompt = `You are a conversion copywriter who uses Voice of Customer methodology.
+
+CORE PRINCIPLE: Every sentence must sound like it was written BY the customer, FOR the customer.
+The product speaks their language — not marketing speak.
+
+LANGUAGE LAWS (violating these fails the task):
+- Reading level: Grade 6. Short sentences. Max 15 words per sentence.
+- BANNED words: leverage, optimize, unlock, empower, transform, revolutionary, cutting-edge, game-changing, seamless, robust, holistic, synergy, streamline
+- Test every line: "Would a tired person at 11 PM understand this in 3 seconds?"
+- Use contractions (you're, it's, we've) — sounds human
+- Use specific numbers over vague claims ("90 minutes" not "longer focus sessions")`;
+
+  const prompt = `PROJECT: ${projectName}
 VARIANT TYPE: ${variantType}
+${docsBlock}
 
-ORIGINAL LP STRUCTURE (extracted from current landing page):
-- Headline: ${lpStructure.headline}
-- Subheadline: ${lpStructure.subheadline}
-- Target Audience: ${lpStructure.targetAudience}
-- Core Promise: ${lpStructure.corePromise}
-- Problem Statement: ${lpStructure.problemStatement}
-- Solution Mechanism: ${lpStructure.solutionMechanism}
-- Features: ${lpStructure.features.map(f => `${f.name}: ${f.description}`).join(' | ')}
-- Benefits: ${lpStructure.benefitStatements.join(' | ')}
-- Social Proof: ${lpStructure.socialProof.join(' | ')}
-- Primary CTA: ${lpStructure.primaryCTA}
-- Secondary CTA: ${lpStructure.secondaryCTA || 'none'}
-- Brand Voice: ${lpStructure.brandVoiceNotes}
-- Tone: ${lpStructure.toneKeywords.join(', ')}
-- Section Order: ${lpStructure.sectionOrder.join(' → ')}
+=== FEATURE MAP (ONLY reference features from this list) ===
+${featureMapBlock}
+${clusterBlock}
+
+=== LP STRUCTURE TO FOLLOW ===
+Section order: ${lpStructure.sectionOrder.join(' → ')}
+Brand voice: ${lpStructure.brandVoiceNotes}
+Tone: ${lpStructure.toneKeywords.join(', ')}
+Primary CTA: ${lpStructure.primaryCTA}
+${lpStructure.secondaryCTA ? `Secondary CTA: ${lpStructure.secondaryCTA}` : ''}
 
 KNOWN WEAKNESSES TO FIX:
 ${sectionWeaknessBlock || '(none specified)'}
-${painPointBlock}
 
-YOUR TASK:
-1. Write a FULL landing page HTML that:
-   - Follows EXACTLY the same section order: ${lpStructure.sectionOrder.join(' → ')}
-   - Preserves brand voice and tone
-   - ${variantType === 'founder_vision'
-      ? 'Centers the narrative on the founder\'s vision and personal mission'
-      : `Opens with the customer's pain: "${painPoint?.title}" — use their exact language`}
-   - Fixes each known weakness
-   - Uses semantic HTML5 with class names matching sections (e.g. <section class="hero">)
-   - Includes each section's improvement note as <!-- CRO NOTE: ... --> at section start
+${variantInstructions[variantType]}
 
-2. Output a JSON object with improvement suggestions per section:
+=== SECTION-BY-SECTION REQUIREMENTS ===
+
+HERO:
+Follow the variant strategy above for headline.
+Subheadline: 1 sentence, explains the "how" simply.
+
+PROBLEM:
+Open with: "You know that moment when ${cluster?.triggerMoments?.[0] || '[specific situation]'}..."
+Use at least 2 of these exact phrases verbatim: ${(cluster?.bestQuotes || []).slice(0, 3).map(q => `"${q}"`).join(', ')}
+Name failed solutions: "You've tried ${(cluster?.failedSolutions || []).slice(0, 3).join(', ')}."
+End: "It's not your fault. [Reframe — explain WHY it's a systemic problem, not personal failure]."
+
+SOLUTION:
+Transition: "What if ${cluster?.synthesizedSuccessVision || lpStructure.corePromise}?"
+For each feature relevant to this pain: "[Feature name] — [what it does]. So you can [benefit]."
+Max 4 features. Pick the most relevant to this pain cluster.
+
+WHAT YOU GET (add this section — label it clearly):
+List EVERY feature from the feature map above.
+Format: "✓ [Feature name] — [whatItDoes in 8 words]"
+This section must make a beta tester think: "I know exactly what I'm signing up for."
+
+SOCIAL PROOF:
+Use customer quotes: "People like you say: '${(cluster?.bestQuotes || [])[0] || ''}'"
+If no testimonials exist: "Join [N] people who felt exactly like you do right now."
+
+CTA:
+Primary: "Give me [action]. Get [outcome]." — specific, concrete
+Secondary: Address the #1 objection from their failed solutions
+No fake urgency. If beta: "Beta closes [specific timeframe]" or "Limited spots" if true.
+
+=== OUTPUT FORMAT ===
+First output the meta JSON inside \`\`\`json:
 {
-  "hero": "1 sentence on what was improved",
-  "problem": "1 sentence",
-  "solution": "1 sentence",
-  "features": "1 sentence",
-  "social_proof": "1 sentence",
-  "cta": "1 sentence"
+  "heroApproach": "1 sentence explaining WHY this hero will work for this audience",
+  "featurePainMap": [
+    { "feature": "feature name", "painItSolves": "which pain/cluster this addresses", "vocQuote": "customer quote used", "section": "which LP section" }
+  ],
+  "improvementSuggestions": {
+    "hero": "what was improved and why it will convert better",
+    "problem": "what was improved",
+    "solution": "what was improved",
+    "features": "what was improved",
+    "social_proof": "what was improved",
+    "cta": "what was improved"
+  }
 }
+\`\`\`
 
-Output the JSON first inside a \`\`\`json block, then the full HTML inside a \`\`\`html block.`;
+Then output the full HTML inside \`\`\`html block.
+The HTML must use semantic tags: <section class="hero">, <section class="problem">, etc.
+No external CSS dependencies. Include minimal inline styles for readability.`;
 
   let responseText = '';
   try {
     const response = await openai.chat.completions.create({
       model: MODEL,
-      temperature: 0.4,
-      max_tokens: 6000,
-      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.5,
+      max_tokens: 8000,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: prompt },
+      ],
     });
     responseText = response.choices[0]?.message?.content || '';
     log(`Got response for ${variantType} (${responseText.length} chars)`);
@@ -147,24 +241,23 @@ Output the JSON first inside a \`\`\`json block, then the full HTML inside a \`\
     throw new Error(`LLM call failed for ${variantType}: ${e.message}`);
   }
 
-  // Parse JSON block
+  // Parse JSON meta block
   const jsonMatch = responseText.match(/```json\s*([\s\S]*?)\s*```/i);
-  let improvements: Record<string, string> = {};
+  let metaJson: any = {};
   if (jsonMatch) {
-    try {
-      improvements = JSON.parse(jsonMatch[1]);
-    } catch {
-      log(`[WARN] Could not parse improvements JSON for ${variantType}`);
-    }
+    try { metaJson = JSON.parse(jsonMatch[1]); } catch { log(`[WARN] Could not parse meta JSON for ${variantType}`); }
   }
+
+  const improvements: Record<string, string> = metaJson.improvementSuggestions || {};
+  const featurePainMap: any[] = Array.isArray(metaJson.featurePainMap) ? metaJson.featurePainMap : [];
 
   // Parse HTML block
   const htmlMatch = responseText.match(/```html\s*([\s\S]*?)\s*```/i);
-  const html = htmlMatch ? htmlMatch[1].trim() : responseText.trim();
+  const html = htmlMatch ? htmlMatch[1].trim() : responseText.replace(/```json[\s\S]*?```/i, '').trim();
 
   if (!html) throw new Error(`No HTML generated for ${variantType}`);
 
-  return { html, improvements, promptUsed: prompt };
+  return { html, improvements, featurePainMap, promptUsed: prompt };
 }
 
 async function run() {
@@ -174,40 +267,87 @@ async function run() {
   if (!project) { console.error(`[ERROR] Project ${BC_PROJECT_ID} not found`); process.exit(1); }
 
   const lpStructure = project.lpStructureJson as LpStructure | null;
-  if (!lpStructure) {
-    console.error('[ERROR] lpStructureJson is empty — run bc-lp-parser first');
-    process.exit(1);
-  }
+  if (!lpStructure) { console.error('[ERROR] lpStructureJson is empty — run bc-lp-parser first'); process.exit(1); }
 
   log(`Generating LP variants for project "${project.name}" (id=${BC_PROJECT_ID})`);
   log(`Model: ${MODEL}`);
 
-  // Get top 2 approved pain points by emotional intensity
-  const approvedPainPoints = await db.select().from(bcExtractedPainPoints)
-    .where(and(
-      eq(bcExtractedPainPoints.projectId, BC_PROJECT_ID),
-      eq(bcExtractedPainPoints.status, 'approved'),
-    ))
-    .orderBy(desc(bcExtractedPainPoints.emotionalIntensity))
-    .limit(2);
+  // Load feature map
+  const featureMap: FeatureMapItem[] = Array.isArray((project as any).featureMap)
+    ? ((project as any).featureMap as FeatureMapItem[])
+    : [];
+  log(`Feature map: ${featureMap.length} items`);
 
-  if (approvedPainPoints.length < 2) {
-    log('[WARN] Fewer than 2 approved pain points — will use available or placeholder');
+  // Load pain clusters (preferred) or fall back to top pain points
+  const clusters = await db.select().from(bcPainClusters)
+    .where(eq(bcPainClusters.projectId, BC_PROJECT_ID));
+
+  let cluster1: PainCluster | null = null;
+  let cluster2: PainCluster | null = null;
+
+  if (clusters.length >= 2) {
+    // Sort clusters by aggregate intensity desc
+    const sorted = [...clusters].sort((a, b) => (b.aggregateIntensity || 0) - (a.aggregateIntensity || 0));
+    cluster1 = sorted[0] as PainCluster;
+    cluster2 = sorted[1] as PainCluster;
+    log(`Using ${clusters.length} pain clusters`);
+  } else if (clusters.length === 1) {
+    cluster1 = clusters[0] as PainCluster;
+    cluster2 = clusters[0] as PainCluster;
+    log(`Only 1 cluster available — both pain variants use it`);
+  } else {
+    // Fall back: build pseudo-clusters from top approved pain points
+    log(`No clusters found — falling back to top pain points`);
+    const approvedPainPoints = await db.select().from(bcExtractedPainPoints)
+      .where(and(eq(bcExtractedPainPoints.projectId, BC_PROJECT_ID), eq(bcExtractedPainPoints.status, 'approved')))
+      .orderBy(desc(bcExtractedPainPoints.emotionalIntensity))
+      .limit(4);
+
+    if (approvedPainPoints.length > 0) {
+      const pp1 = approvedPainPoints[0];
+      cluster1 = {
+        id: 0,
+        clusterTheme: pp1.painPointTitle,
+        dominantEmotion: 'frustration',
+        aggregateIntensity: pp1.emotionalIntensity,
+        bestQuotes: pp1.vocabularyQuotes as string[],
+        synthesizedProblemLabel: pp1.painPointTitle,
+        synthesizedSuccessVision: pp1.desiredOutcome,
+        failedSolutions: [],
+        triggerMoments: [],
+        painPointIds: [pp1.id],
+      };
+    }
+    if (approvedPainPoints.length > 1) {
+      const pp2 = approvedPainPoints[1];
+      cluster2 = {
+        id: 0,
+        clusterTheme: pp2.painPointTitle,
+        dominantEmotion: 'frustration',
+        aggregateIntensity: pp2.emotionalIntensity,
+        bestQuotes: pp2.vocabularyQuotes as string[],
+        synthesizedProblemLabel: pp2.painPointTitle,
+        synthesizedSuccessVision: pp2.desiredOutcome,
+        failedSolutions: [],
+        triggerMoments: [],
+        painPointIds: [pp2.id],
+      };
+    }
   }
 
   const founderVision = project.founderVision || project.founderDescription.substring(0, 500);
 
-  // Clear existing variants for this project
+  // Clear existing variants
   await db.delete(bcLandingPageVariants).where(eq(bcLandingPageVariants.projectId, BC_PROJECT_ID));
 
   const variants: Array<{
-    type: 'founder_vision' | 'pain_point_1' | 'pain_point_2';
+    type: 'curiosity_hook' | 'pain_mirror' | 'outcome_promise';
     label: string;
-    painPoint: typeof approvedPainPoints[0] | null;
+    cluster: PainCluster | null;
   }> = [
-    { type: 'founder_vision', label: 'Founder Vision', painPoint: null },
-    { type: 'pain_point_1', label: approvedPainPoints[0]?.painPointTitle || 'Pain Point 1', painPoint: approvedPainPoints[0] ?? null },
-    { type: 'pain_point_2', label: approvedPainPoints[1]?.painPointTitle || 'Pain Point 2', painPoint: approvedPainPoints[1] ?? approvedPainPoints[0] ?? null },
+    { type: 'curiosity_hook', label: 'Curiosity Hook', cluster: cluster1 },
+    { type: 'pain_mirror', label: cluster1 ? `Pain Mirror — ${cluster1.synthesizedProblemLabel || cluster1.clusterTheme}` : 'Pain Mirror', cluster: cluster1 },
+    { type: 'outcome_promise', label: cluster2 ? `Outcome Promise — ${cluster2.synthesizedSuccessVision?.substring(0, 60) || cluster2.clusterTheme}` : 'Outcome Promise', cluster: cluster2 },
   ];
 
   let generatedCount = 0;
@@ -215,21 +355,15 @@ async function run() {
   for (const variant of variants) {
     log(`Generating variant: ${variant.type}`);
     try {
-      const pp = variant.painPoint ? {
-        title: variant.painPoint.painPointTitle,
-        description: variant.painPoint.painPointDescription,
-        customerLanguage: variant.painPoint.customerLanguage,
-        desiredOutcome: variant.painPoint.desiredOutcome,
-        vocabularyQuotes: variant.painPoint.vocabularyQuotes,
-      } : null;
-
-      const { html, improvements, promptUsed } = await generateVariant(
+      const { html, improvements, featurePainMap, promptUsed } = await generateVariant(
         variant.type,
         variant.label,
         lpStructure,
-        pp,
+        variant.cluster,
         project.name,
         founderVision,
+        project.projectDocumentation,
+        featureMap,
       );
 
       await db.insert(bcLandingPageVariants).values({
@@ -238,7 +372,8 @@ async function run() {
         variantLabel: variant.label,
         htmlContent: html,
         improvementSuggestions: improvements,
-        primaryPainPointId: variant.painPoint?.id ?? null,
+        featurePainMap: featurePainMap,
+        primaryPainPointId: variant.cluster?.painPointIds?.[0] ?? null,
         generationPromptUsed: promptUsed,
         generationModel: MODEL,
         isSelected: false,
@@ -251,11 +386,8 @@ async function run() {
     }
   }
 
-  // Update project status
-  await db.update(bcProjects).set({
-    status: 'done',
-    updatedAt: new Date(),
-  }).where(eq(bcProjects.id, BC_PROJECT_ID));
+  await db.update(bcProjects).set({ status: 'done', updatedAt: new Date() })
+    .where(eq(bcProjects.id, BC_PROJECT_ID));
 
   log(`Done. Generated ${generatedCount}/3 variants.`);
   process.stdout.write(`VARIANTS_GENERATED:${generatedCount}\n`);

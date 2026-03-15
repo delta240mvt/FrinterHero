@@ -133,6 +133,13 @@ interface ExtractedPainPoint {
   customerLanguage: string | null;
   desiredOutcome: string | null;
   sourceCommentIndices: number[];
+  vocData: {
+    problemLabel: string;
+    dominantEmotion: string;
+    failedSolutions: string[];
+    triggerMoment: string;
+    successVision: string;
+  } | null;
 }
 
 async function extractPainPoints(
@@ -140,8 +147,8 @@ async function extractPainPoints(
   videoTitle: string,
   projectNiche: string,
 ): Promise<ExtractedPainPoint[]> {
-  const systemPrompt = `You are an expert in qualitative UX research and landing page conversion.
-You analyze YouTube comments to extract deeply felt customer pain points for a brand.
+  const systemPrompt = `You are an expert in qualitative UX research and Voice of Customer analysis.
+You analyze YouTube comments to extract deeply felt customer pain points.
 
 BRAND NICHE: ${projectNiche}
 
@@ -151,9 +158,7 @@ CRITERIA:
 - Look for EMOTIONALLY CHARGED problems (frustration, desire, urgency)
 - Prefer problems RECURRING across multiple comments
 - Preserve the LIVE LANGUAGE of users (direct quotes, exact phrases)
-- Extract the DESIRED OUTCOME behind each pain point
-- Extract what makes this person's language unique (customerLanguage)
-- Ignore spam, noise, praise, or off-topic comments
+- Extract structured Voice of Customer data for landing page copywriting
 
 RESPONSE FORMAT (JSON only, no markdown):
 {
@@ -165,9 +170,16 @@ RESPONSE FORMAT (JSON only, no markdown):
       "frequency": 3,
       "vocabularyQuotes": ["exact quote 1", "exact phrase 2"],
       "category": "focus",
-      "customerLanguage": "1 sentence on HOW they talk about this problem — their exact phrases and mental model",
+      "customerLanguage": "1 sentence on HOW they talk about this problem",
       "desiredOutcome": "1 sentence on what they ACTUALLY want to achieve",
-      "sourceCommentIndices": [1, 3, 7]
+      "sourceCommentIndices": [1, 3, 7],
+      "vocData": {
+        "problemLabel": "how they NAME this problem in plain everyday words (not marketing terms)",
+        "dominantEmotion": "ONE word: frustration | shame | fear | longing | anger | exhaustion | overwhelm",
+        "failedSolutions": ["thing they tried 1", "thing they tried 2"],
+        "triggerMoment": "the specific situation/moment when they feel this pain most acutely",
+        "successVision": "what success looks like in their exact words — concrete and specific"
+      }
     }
   ]
 }
@@ -179,7 +191,7 @@ Return ONLY valid JSON. No markdown, no explanations.`;
   const userContent =
     `Video: "${videoTitle}"\n\nAnalyze these ${comments.length} YouTube comments:\n\n` +
     comments.map((c, i) => `[${i + 1}] (likes:${c.voteCount}) ${c.commentText.substring(0, 400)}`).join('\n\n') +
-    `\n\nExtract 2–5 pain points with emotional intensity ≥ 7.`;
+    `\n\nNote: comments with high like counts indicate widely-shared experiences — weight these more heavily.\nExtract 2–5 pain points with emotional intensity ≥ 7. Include vocData for each.`;
 
   try {
     const response = await openai.chat.completions.create({
@@ -208,6 +220,13 @@ Return ONLY valid JSON. No markdown, no explanations.`;
       customerLanguage: p.customerLanguage ? String(p.customerLanguage) : null,
       desiredOutcome: p.desiredOutcome ? String(p.desiredOutcome) : null,
       sourceCommentIndices: Array.isArray(p.sourceCommentIndices) ? p.sourceCommentIndices : [],
+      vocData: p.vocData ? {
+        problemLabel: String(p.vocData.problemLabel || ''),
+        dominantEmotion: String(p.vocData.dominantEmotion || 'frustration'),
+        failedSolutions: Array.isArray(p.vocData.failedSolutions) ? p.vocData.failedSolutions.map(String) : [],
+        triggerMoment: String(p.vocData.triggerMoment || ''),
+        successVision: String(p.vocData.successVision || ''),
+      } : null,
     }));
   } catch (e: any) {
     log(`[WARN] LLM parse failed: ${e.message}`);
@@ -248,6 +267,9 @@ async function run() {
 
   let totalComments = 0;
   let totalPainPoints = 0;
+
+  // Track extracted pain point titles for cross-batch dedup
+  const extractedTitles = new Set<string>();
 
   for (const video of videos) {
     log(`Video: ${video.videoId} — "${video.title}"`);
@@ -290,7 +312,12 @@ async function run() {
         const points = await extractPainPoints(chunks[i], video.title, projectNiche);
         log(`  Extracted ${points.length} pain point(s)`);
 
+        // Engagement boost: high-liked comments indicate widely-shared pain
+        const avgVoteCount = chunks[i].reduce((s, c) => s + (c.voteCount || 0), 0) / Math.max(chunks[i].length, 1);
         for (const pp of points) {
+          if (avgVoteCount > 200) pp.emotionalIntensity = Math.min(10, Math.round(pp.emotionalIntensity * 1.5));
+          else if (avgVoteCount > 50) pp.emotionalIntensity = Math.min(10, Math.round(pp.emotionalIntensity * 1.3));
+
           // Apply brand filter
           const offBrand = findOffBrandMatch(
             pp.painPointTitle,
@@ -303,6 +330,14 @@ async function run() {
             continue;
           }
 
+          // Cross-batch dedup: skip if very similar title already extracted
+          const titleKey = pp.painPointTitle.toLowerCase().substring(0, 30);
+          if (extractedTitles.has(titleKey)) {
+            log(`  [DEDUP] Skipped duplicate: "${pp.painPointTitle}"`);
+            continue;
+          }
+          extractedTitles.add(titleKey);
+
           await db.insert(bcExtractedPainPoints).values({
             projectId: BC_PROJECT_ID,
             painPointTitle: pp.painPointTitle,
@@ -313,6 +348,7 @@ async function run() {
             category: pp.category,
             customerLanguage: pp.customerLanguage,
             desiredOutcome: pp.desiredOutcome,
+            vocData: pp.vocData,
             status: 'pending',
             sourceVideoIds: [video.id],
           });

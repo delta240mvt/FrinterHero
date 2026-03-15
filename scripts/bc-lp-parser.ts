@@ -49,13 +49,23 @@ async function run() {
     ? `\n\n--- MY FULL PROJECT DOCUMENTATION ---\n${project.projectDocumentation.substring(0, 8000)}`
     : '';
 
+  const task1cBlock = project.projectDocumentation
+    ? `
+TASK 1C — Extract Feature Map from documentation:
+Read the product documentation and extract every distinct built feature as:
+[{ "featureName": "name", "whatItDoes": "1 sentence plain English", "userBenefit": "why user cares" }]
+Only include BUILT features — not roadmap. Output on its own line:
+FEATURE_MAP:[...JSON array...]
+`
+    : '';
+
   const prompt = `You are a landing page architect and conversion copywriter.
 
 I will give you:
 1. My existing landing page (HTML or text)${project.projectDocumentation ? '\n2. My full project documentation' : ''}
 ${project.projectDocumentation ? '3' : '2'}. A short description of how I feel my product works
 
-Your job is to do two things:
+Your job is to do the following:
 
 TASK 1 — Extract the landing page structure as a JSON object with these exact fields:
 
@@ -97,13 +107,23 @@ TASK 2 — Generate a clean, improved landing page in full HTML that:
 - Includes placeholder comments <!-- PAIN POINT HOOK GOES HERE --> inside hero and problem sections
 - Includes CRO notes as HTML comments: <!-- CRO NOTE: {sectionWeaknesses.hero} --> at top of each section
 
+Output the JSON first inside a \`\`\`json block, then the full HTML inside a \`\`\`html block.
+
+TASK 1B — Generate audience pain keywords:
+Generate 5-7 keywords that frustrated customers would TYPE INTO YOUTUBE SEARCH
+when looking for help with the problem your product solves.
+These must be complaint-oriented and emotional — NOT topic labels.
+Examples of BAD keywords: "productivity", "focus", "time management"
+Examples of GOOD keywords: "why can't I focus at work", "brain fog after lunch", "can't get anything done", "wasting entire afternoons"
+Output as a JSON array: ["keyword1", "keyword2", ...]
+Label it: AUDIENCE_PAIN_KEYWORDS:[...JSON array...]
+Put this on its own line after the html block.
+${task1cBlock}
 --- MY LANDING PAGE ---
 ${project.lpRawInput.substring(0, 8000)}${docsSection}
 
 --- HOW I FEEL MY PRODUCT WORKS ---
-${project.founderDescription}
-
-Output the JSON first inside a \`\`\`json block, then the full HTML inside a \`\`\`html block.`;
+${project.founderDescription}`;
 
   let responseText = '';
   try {
@@ -160,18 +180,54 @@ Output the JSON first inside a \`\`\`json block, then the full HTML inside a \`\
     ? String(lpStructureJson.founderVision)
     : project.founderDescription.substring(0, 255);
 
+  // Parse AUDIENCE_PAIN_KEYWORDS
+  let audiencePainKeywords: string[] = [];
+  const painKeywordsMatch = responseText.match(/^AUDIENCE_PAIN_KEYWORDS:(\[.+\])/m);
+  if (painKeywordsMatch) {
+    try {
+      const parsed = JSON.parse(painKeywordsMatch[1]);
+      if (Array.isArray(parsed)) {
+        audiencePainKeywords = parsed.map(String);
+      }
+    } catch (e: any) {
+      log(`[WARN] Failed to parse AUDIENCE_PAIN_KEYWORDS: ${e.message}`);
+    }
+  } else {
+    log('[WARN] No AUDIENCE_PAIN_KEYWORDS found in response');
+  }
+
+  // Parse FEATURE_MAP
+  let featureMap: any[] = [];
+  const featureMapMatch = responseText.match(/^FEATURE_MAP:(\[.+\])/m);
+  if (featureMapMatch) {
+    try {
+      const parsed = JSON.parse(featureMapMatch[1]);
+      if (Array.isArray(parsed)) {
+        featureMap = parsed;
+      }
+    } catch (e: any) {
+      log(`[WARN] Failed to parse FEATURE_MAP: ${e.message}`);
+    }
+  } else if (project.projectDocumentation) {
+    log('[WARN] No FEATURE_MAP found in response despite documentation being present');
+  }
+
   // Write back to DB
   await db.update(bcProjects).set({
     lpStructureJson,
     lpTemplateHtml,
     founderVision,
     nicheKeywords,
+    audiencePainKeywords,
+    featureMap,
     status: 'channels_pending',
     updatedAt: new Date(),
   }).where(eq(bcProjects.id, BC_PROJECT_ID));
 
-  log(`Done. Keywords: ${nicheKeywords.join(', ')}`);
-  process.stdout.write(`LP_PARSE_RESULT:${JSON.stringify({ success: true, nicheKeywordsFound: nicheKeywords.length })}\n`);
+  log(`Done. Niche keywords: ${nicheKeywords.join(', ')}`);
+  log(`Audience pain keywords: ${audiencePainKeywords.join(', ')}`);
+  log(`Feature map items: ${featureMap.length}`);
+  process.stdout.write(`LP_PARSE_RESULT:${JSON.stringify({ success: true, nicheKeywordsFound: nicheKeywords.length, audiencePainKeywordsFound: audiencePainKeywords.length, featureMapItems: featureMap.length })}\n`);
 }
 
 run().catch((e) => {
