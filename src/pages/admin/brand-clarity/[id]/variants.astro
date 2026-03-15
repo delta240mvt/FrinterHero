@@ -200,33 +200,110 @@ const typeColors: Record<string, string> = {
     logContainer.scrollTop = logContainer.scrollHeight;
   }
 
+  // Track which variant IDs are already rendered on the page
+  const renderedIds = new Set(
+    [...document.querySelectorAll('.variant-card[data-id]')].map(el => parseInt(el.dataset.id))
+  );
+
+  const TYPE_COLORS = {
+    curiosity_hook: 'var(--teal)',
+    pain_mirror: '#ef4444',
+    outcome_promise: 'var(--gold)',
+  };
+
+  function appendVariantCard(v) {
+    const list = document.querySelector('.variants-list') || (() => {
+      const el = document.createElement('div');
+      el.className = 'variants-list';
+      document.querySelector('.admin-section').appendChild(el);
+      // Hide empty-state if visible
+      const empty = document.querySelector('.empty-state');
+      if (empty) empty.style.display = 'none';
+      return el;
+    })();
+
+    const color = TYPE_COLORS[v.variantType] || 'var(--text-muted)';
+    const modelShort = v.generationModel ? (v.generationModel.split('/')[1] || v.generationModel) : '';
+    const card = document.createElement('div');
+    card.className = 'variant-card';
+    card.id = `variant-${v.id}`;
+    card.dataset.id = String(v.id);
+    card.innerHTML = `
+      <div class="variant-header">
+        <div class="variant-badges">
+          <span class="variant-type" style="color:${color};background:${color}22">${v.variantType.replace(/_/g, ' ')}</span>
+          ${v.isSelected ? '<span class="variant-selected">★ Selected</span>' : ''}
+          <span class="variant-model">${modelShort}</span>
+        </div>
+        <h3 class="variant-label">${v.variantLabel}</h3>
+      </div>
+      <div class="variant-actions">
+        <button class="btn-preview" onclick="previewVariant(${v.id})">Preview HTML</button>
+        <button class="btn-copy" onclick="copyVariant(${v.id})">Copy HTML</button>
+        <button class="btn-select" onclick="selectVariant(${v.id})">★ Mark as Selected</button>
+      </div>`;
+    list.appendChild(card);
+    renderedIds.add(v.id);
+  }
+
+  let pollInterval = null;
+
+  function startPolling() {
+    pollInterval = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/brand-clarity/${PROJECT_ID}/variants-list`);
+        const data = await res.json();
+        for (const v of data.variants) {
+          if (!renderedIds.has(v.id)) {
+            appendVariantCard(v);
+            generateStatus.textContent = `Variant "${v.variantLabel}" ready — generating more…`;
+          }
+        }
+      } catch { /* non-critical */ }
+    }, 4000);
+  }
+
+  function stopPolling() {
+    if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
+  }
+
   generateBtn?.addEventListener('click', async () => {
     if (!confirm('Generate 3 new LP variants (Curiosity Hook, Pain Mirror, Outcome Promise)? This calls Claude Sonnet 3 times (~30-60s). Existing variants will be kept.')) return;
     generateBtn.disabled = true;
     generateBtn.textContent = 'Generating…';
     generateStatus.style.display = 'block';
     generateStatus.className = 'generate-status generate-status--running';
-    generateStatus.textContent = 'Generating landing page variants with Claude Sonnet… (this may take 30-60s)';
+    generateStatus.textContent = 'Generating… variants will appear below as they complete';
 
-    // Show log panel immediately with a working indicator
     logPanel.style.display = 'block';
     logPanel.open = true;
     logCount.textContent = '…';
-    logContainer.innerHTML = '<div class="log-line log-line--llm">[BC-LP-GEN] Starting… Claude Sonnet is generating 3 LP variants</div>';
+    logContainer.innerHTML = '<div class="log-line log-line--llm">[BC-LP-GEN] Starting… Claude Sonnet generating 3 LP variants</div>';
+
+    startPolling();
 
     try {
       const res = await fetch(`/api/brand-clarity/${PROJECT_ID}/generate-variants`, { method: 'POST' });
       const data = await res.json();
+      stopPolling();
+      // Final poll to catch the last variant
+      const finalRes = await fetch(`/api/brand-clarity/${PROJECT_ID}/variants-list`);
+      const finalData = await finalRes.json();
+      for (const v of finalData.variants) {
+        if (!renderedIds.has(v.id)) appendVariantCard(v);
+      }
       renderLogs(data.logs);
       if (!res.ok) throw new Error(data.error || 'Failed');
       generateStatus.className = 'generate-status generate-status--success';
-      generateStatus.textContent = `Generated ${data.variantsGenerated} variants. Reloading in 4s…`;
-      setTimeout(() => window.location.reload(), 4000);
+      generateStatus.textContent = `Done — ${data.variantsGenerated} new variants generated`;
+      generateBtn.disabled = false;
+      generateBtn.textContent = '+ Generate Again';
     } catch (e) {
+      stopPolling();
       generateStatus.className = 'generate-status generate-status--error';
       generateStatus.textContent = `Error: ${e.message}`;
       generateBtn.disabled = false;
-      generateBtn.textContent = 'Generate LP Variants';
+      generateBtn.textContent = '+ Generate Again';
     }
   });
 
