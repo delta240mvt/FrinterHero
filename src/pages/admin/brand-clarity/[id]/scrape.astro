@@ -495,16 +495,32 @@ const scraped   = selectedVideos.filter(v => v.isScraped);
       method: 'PUT', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status }),
     });
-    if (res.ok) {
-      const card = document.getElementById(`bcpp-${ppId}`);
-      if (card) {
-        card.dataset.status = status;
-        card.querySelector('.bcpp-status').textContent = status;
-        if (status === 'approved') card.style.borderColor = 'rgba(74,141,131,0.3)';
-        else if (status === 'rejected') card.style.opacity = '0.55';
-        else { card.style.borderColor = ''; card.style.opacity = ''; }
+    if (!res.ok) { alert('Failed to update status'); return; }
+
+    const card = document.getElementById(`bcpp-${ppId}`);
+    if (!card) return;
+
+    if (status === 'approved' || status === 'rejected') {
+      // Fade out and remove
+      card.style.transition = 'opacity 0.25s, transform 0.25s';
+      card.style.opacity = '0';
+      card.style.transform = 'translateX(12px)';
+      setTimeout(() => card.remove(), 260);
+      // Update subtitle counter
+      const subtitle = document.querySelector('.admin-section:last-child .section-subtitle');
+      if (subtitle) {
+        const approved = document.querySelectorAll('#pp-list .bcpp-card[data-status="approved"]').length + (status === 'approved' ? 1 : 0);
+        const rejected = document.querySelectorAll('#pp-list .bcpp-card[data-status="rejected"]').length + (status === 'rejected' ? 1 : 0);
+        const pending  = Math.max(0, document.querySelectorAll('#pp-list .bcpp-card[data-status="pending"]').length - 1);
+        subtitle.textContent = `${approved} approved · ${rejected} rejected · ${pending} pending`;
       }
-    } else alert('Failed to update status');
+    } else {
+      // Reset to pending — restore in place
+      card.dataset.status = status;
+      card.querySelector('.bcpp-status').textContent = status;
+      card.style.borderColor = '';
+      card.style.opacity = '';
+    }
   }
 
   function bcppToggle(ppId) {
