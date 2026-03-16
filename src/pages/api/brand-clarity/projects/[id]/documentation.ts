@@ -3,6 +3,7 @@ import { db } from '@/db/client';
 import { bcProjects } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { spawn } from 'child_process';
+import { getBcSettings, buildLlmEnv } from '@/lib/bc-settings';
 
 function auth(cookies: any) {
   return !!cookies.get('session')?.value;
@@ -34,9 +35,10 @@ export const PUT: APIRoute = async ({ params, request, cookies }) => {
   if (!updated) return new Response(JSON.stringify({ error: 'Not found' }), { status: 404, headers: JSON_HEADERS });
 
   // Re-run LP parser to incorporate documentation
+  const llmSettings = await getBcSettings();
   spawn('npx', ['tsx', 'scripts/bc-lp-parser.ts'], {
     cwd: process.cwd(),
-    env: { ...process.env, BC_PROJECT_ID: String(id) },
+    env: { ...process.env, BC_PROJECT_ID: String(id), ...buildLlmEnv(llmSettings) },
     shell: true,
     detached: false,
   });
