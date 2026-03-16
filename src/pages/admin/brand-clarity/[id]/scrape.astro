@@ -95,13 +95,9 @@ const rejected = painPoints.filter(p => p.status === 'rejected').length;
       <div class="section-header-row">
         <div class="section-title-block">
           <h2 class="section-title">Pain Points</h2>
-          <p class="section-subtitle">
-            {pending} pending · {approved} approved · {rejected} rejected
-            {approved >= 3 ? ' — Ready to cluster & generate LPs!' : ' — Approve at least 3 to generate LPs'}
-          </p>
+          <p class="section-subtitle">{approved} approved · {rejected} rejected · {pending} pending</p>
         </div>
         <div class="header-btns">
-          <button id="auto-filter-btn" class="btn-filter">Auto-Filter (Brand Filter)</button>
           {approved >= 3 && clusters.length === 0 && (
             <button id="cluster-btn" class="btn-primary">Cluster Pain Points</button>
           )}
@@ -325,16 +321,6 @@ const rejected = painPoints.filter(p => p.status === 'rejected').length;
   window.bcppSetStatus = bcppSetStatus;
   window.bcppToggle = bcppToggle;
 
-  // Auto-filter
-  document.getElementById('auto-filter-btn')?.addEventListener('click', async () => {
-    if (!confirm('Apply brand filter to all pending pain points? Off-brand entries will be auto-rejected.')) return;
-    const res = await fetch(`/api/brand-clarity/${PROJECT_ID}/pain-points/auto-filter`, { method: 'POST' });
-    if (res.ok) {
-      const data = await res.json();
-      alert(`Processed ${data.processed}: ${data.approved} approved, ${data.rejected} rejected`);
-      window.location.reload();
-    } else alert('Failed to auto-filter');
-  });
 
   // ── Cluster pain points ─────────────────────────────────────
   const clusterLogPanel     = document.getElementById('cluster-log-panel');
@@ -427,8 +413,6 @@ const rejected = painPoints.filter(p => p.status === 'rejected').length;
 .btn-scrape { padding: 0.5rem 1.25rem; background: transparent; color: var(--gold); border: 1px solid var(--gold); border-radius: 0.375rem; font-family: var(--font-mono); font-size: var(--text-sm); cursor: pointer; }
 .btn-scrape:hover { background: rgba(214,183,121,0.08); }
 .btn-scrape:disabled { opacity: 0.5; cursor: not-allowed; }
-.btn-filter { padding: 0.4rem 0.875rem; background: none; border: 1px solid var(--border); color: var(--text-secondary); border-radius: 0.3rem; font-family: var(--font-mono); font-size: var(--text-xs); cursor: pointer; }
-.btn-filter:hover { border-color: var(--violet); color: var(--violet); }
 .scrape-panel { background: var(--bg-elevated); border: 1px solid rgba(214,183,121,0.3); border-radius: 0.5rem; overflow: hidden; }
 .scrape-panel-top { display: flex; align-items: center; justify-content: space-between; padding: 0.625rem 1rem; background: rgba(214,183,121,0.05); border-bottom: 1px solid rgba(214,183,121,0.15); }
 .scrape-status { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); }

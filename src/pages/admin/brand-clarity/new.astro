@@ -69,17 +69,16 @@ import Base from '@/components/layouts/Base.astro';
 
       <div id="status-msg" class="status-msg" style="display:none"></div>
 
-      <!-- Console -->
-      <div id="parse-console" class="parse-console" style="display:none">
-        <div class="console-header">
-          <span id="console-status-dot" class="console-dot console-dot--running"></span>
-          <span id="console-title" class="console-title">LP Parser — running…</span>
-          <span id="console-elapsed" class="console-elapsed"></span>
+      <!-- Parse panel -->
+      <div id="parse-panel" class="parse-panel" style="display:none">
+        <div class="parse-panel-top">
+          <span id="parse-status" class="parse-status">LP Parser — initializing…</span>
+          <span id="parse-elapsed" class="parse-elapsed"></span>
         </div>
-        <div id="console-output" class="console-output"></div>
-        <div id="console-footer" class="console-footer" style="display:none">
-          <span id="console-result-msg"></span>
-          <span id="console-redirect-msg" class="console-redirect-msg"></span>
+        <div id="parse-log" class="parse-log"></div>
+        <div id="parse-footer" class="parse-footer" style="display:none">
+          <span id="parse-result-msg"></span>
+          <span id="parse-redirect-msg" class="parse-redirect-msg"></span>
         </div>
       </div>
     </section>
@@ -213,64 +212,62 @@ tone_of_voice: |
   const form = document.getElementById('new-project-form') as HTMLFormElement;
   const submitBtn = document.getElementById('submit-btn') as HTMLButtonElement;
   const statusMsg = document.getElementById('status-msg') as HTMLElement;
-  const parseConsole = document.getElementById('parse-console') as HTMLElement;
-  const consoleOutput = document.getElementById('console-output') as HTMLElement;
-  const consoleDot = document.getElementById('console-status-dot') as HTMLElement;
-  const consoleTitle = document.getElementById('console-title') as HTMLElement;
-  const consoleElapsed = document.getElementById('console-elapsed') as HTMLElement;
-  const consoleFooter = document.getElementById('console-footer') as HTMLElement;
-  const consoleResultMsg = document.getElementById('console-result-msg') as HTMLElement;
-  const consoleRedirectMsg = document.getElementById('console-redirect-msg') as HTMLElement;
+  const parsePanel = document.getElementById('parse-panel') as HTMLElement;
+  const parseLog = document.getElementById('parse-log') as HTMLElement;
+  const parseStatus = document.getElementById('parse-status') as HTMLElement;
+  const parseElapsed = document.getElementById('parse-elapsed') as HTMLElement;
+  const parseFooter = document.getElementById('parse-footer') as HTMLElement;
+  const parseResultMsg = document.getElementById('parse-result-msg') as HTMLElement;
+  const parseRedirectMsg = document.getElementById('parse-redirect-msg') as HTMLElement;
 
   let elapsedTimer: ReturnType<typeof setInterval> | null = null;
   let startTime = 0;
 
   function appendLine(text: string) {
     const el = document.createElement('div');
-    el.className = 'console-line';
-    // Colour certain keywords
-    if (text.includes('[ERROR]') || text.includes('error') || text.includes('Error')) {
-      el.classList.add('console-line--error');
-    } else if (text.includes('✓') || text.includes('done') || text.includes('Done') || text.includes('saved')) {
-      el.classList.add('console-line--ok');
+    el.className = 'parse-log-line';
+    if (text.includes('[ERROR]') || text.toLowerCase().includes('error') || text.includes('failed')) {
+      el.classList.add('error');
+    } else if (text.includes('✓') || text.includes('Done') || text.includes('done') || text.includes('saved') || text.includes('Saved')) {
+      el.classList.add('highlight');
     }
     el.textContent = text;
-    consoleOutput.appendChild(el);
-    consoleOutput.scrollTop = consoleOutput.scrollHeight;
+    parseLog.appendChild(el);
+    parseLog.scrollTop = parseLog.scrollHeight;
   }
 
-  function showConsole() {
-    parseConsole.style.display = 'block';
-    parseConsole.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  function showPanel() {
+    parsePanel.style.display = 'block';
+    parsePanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     startTime = Date.now();
     elapsedTimer = setInterval(() => {
       const s = Math.floor((Date.now() - startTime) / 1000);
-      consoleElapsed.textContent = `${s}s`;
+      parseElapsed.textContent = `${s}s`;
     }, 1000);
   }
 
-  function finishConsole(success: boolean, projectId: number) {
+  function finishPanel(success: boolean, projectId: number) {
     if (elapsedTimer) clearInterval(elapsedTimer);
-    consoleDot.className = success ? 'console-dot console-dot--ok' : 'console-dot console-dot--error';
-    consoleTitle.textContent = success ? 'LP Parser — done ✓' : 'LP Parser — error ✗';
-    consoleFooter.style.display = 'flex';
+    parseStatus.textContent = success ? 'LP Parser — done ✓' : 'LP Parser — error ✗';
+    parseStatus.className = 'parse-status ' + (success ? 'done' : 'error');
+    parseFooter.style.display = 'flex';
     if (success) {
-      consoleResultMsg.textContent = 'LP parsed successfully.';
-      consoleResultMsg.className = 'console-result-ok';
+      parseResultMsg.textContent = 'LP parsed successfully.';
+      parseResultMsg.className = 'parse-result-ok';
       let countdown = 3;
-      consoleRedirectMsg.textContent = `Redirecting to channels in ${countdown}s…`;
+      parseRedirectMsg.textContent = `Redirecting to channels in ${countdown}s…`;
       const t = setInterval(() => {
         countdown--;
         if (countdown <= 0) {
           clearInterval(t);
           window.location.href = `/admin/brand-clarity/${projectId}/channels`;
         } else {
-          consoleRedirectMsg.textContent = `Redirecting to channels in ${countdown}s…`;
+          parseRedirectMsg.textContent = `Redirecting to channels in ${countdown}s…`;
         }
       }, 1000);
     } else {
-      consoleResultMsg.textContent = 'Parser failed — check logs above.';
-      consoleResultMsg.className = 'console-result-error';
+      parseResultMsg.textContent = 'Parser failed — check logs above.';
+      parseResultMsg.className = 'parse-result-error';
       submitBtn.disabled = false;
       submitBtn.textContent = 'Parse LP & Create Project';
     }
@@ -281,11 +278,11 @@ tone_of_voice: |
     submitBtn.disabled = true;
     submitBtn.textContent = 'Creating project…';
     statusMsg.style.display = 'none';
-    consoleOutput.innerHTML = '';
-    consoleFooter.style.display = 'none';
-    consoleDot.className = 'console-dot console-dot--running';
-    consoleTitle.textContent = 'LP Parser — running…';
-    consoleElapsed.textContent = '';
+    parseLog.innerHTML = '';
+    parseFooter.style.display = 'none';
+    parseStatus.textContent = 'LP Parser — running…';
+    parseStatus.className = 'parse-status running';
+    parseElapsed.textContent = '';
 
     const body = {
       name: (document.getElementById('name') as HTMLInputElement).value.trim(),
@@ -310,7 +307,8 @@ tone_of_voice: |
       const projectId = data.project.id;
 
       submitBtn.textContent = 'Parsing LP…';
-      showConsole();
+      submitBtn.textContent = 'Parsing LP…';
+      showPanel();
       appendLine(`[BC-LP-PARSER] Project #${projectId} created — starting LP analysis…`);
 
       // Subscribe to SSE log stream
@@ -318,19 +316,14 @@ tone_of_voice: |
       sse.onmessage = (ev) => {
         try {
           const msg = JSON.parse(ev.data);
-          if (msg.line) {
-            appendLine(msg.line);
-          }
-          if (msg.done) {
-            sse.close();
-            finishConsole(msg.code === 0, projectId);
-          }
+          if (msg.line) appendLine(msg.line);
+          if (msg.done) { sse.close(); finishPanel(msg.code === 0, projectId); }
         } catch {}
       };
       sse.onerror = () => {
         sse.close();
         appendLine('[ERROR] Lost connection to parser stream.');
-        finishConsole(false, projectId);
+        finishPanel(false, projectId);
       };
 
     } catch (err: any) {
@@ -391,23 +384,23 @@ tone_of_voice: |
 .upload-zone-text { font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-muted); }
 .upload-zone-dim { color: var(--text-muted); opacity: 0.6; }
 
-/* ── Parse console ───────────────────────────────────────────────────────── */
-.parse-console { background: var(--bg-base); border: 1px solid var(--border); border-radius: 0.625rem; overflow: hidden; margin-top: 0.5rem; }
-.console-header { display: flex; align-items: center; gap: 0.625rem; padding: 0.6rem 1rem; background: var(--bg-elevated); border-bottom: 1px solid var(--border); }
-.console-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-.console-dot--running { background: var(--gold); box-shadow: 0 0 6px var(--gold); animation: pulse 1.2s ease-in-out infinite; }
-.console-dot--ok    { background: var(--teal); }
-.console-dot--error { background: #ef4444; }
-@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
-.console-title   { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-secondary); flex: 1; }
-.console-elapsed { font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-muted); }
-.console-output  { padding: 0.75rem 1rem; max-height: 320px; overflow-y: auto; display: flex; flex-direction: column; gap: 1px; }
-.console-line    { font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-secondary); line-height: 1.5; white-space: pre-wrap; word-break: break-all; }
-.console-line--ok    { color: var(--teal); }
-.console-line--error { color: #ef4444; }
-.console-footer  { display: flex; align-items: center; gap: 1rem; padding: 0.6rem 1rem; background: var(--bg-elevated); border-top: 1px solid var(--border); }
-.console-result-ok    { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--teal); }
-.console-result-error { font-family: var(--font-mono); font-size: var(--text-xs); color: #ef4444; }
-.console-redirect-msg { font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-muted); }
+/* ── Parse panel (matches scrape.astro style) ───────────────────────────── */
+.parse-panel { background: var(--bg-elevated); border: 1px solid rgba(214,183,121,0.3); border-radius: 0.5rem; overflow: hidden; }
+.parse-panel-top { display: flex; align-items: center; justify-content: space-between; padding: 0.625rem 1rem; background: rgba(214,183,121,0.05); border-bottom: 1px solid rgba(214,183,121,0.15); }
+.parse-status { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); }
+.parse-status.running { color: var(--gold); }
+.parse-status.done    { color: var(--teal); }
+.parse-status.error   { color: #ef4444; }
+.parse-elapsed { font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-muted); }
+.parse-log { height: 220px; overflow-y: auto; padding: 0.375rem 0; font-family: var(--font-mono); font-size: 0.71rem; line-height: 1.55; }
+.parse-log-line { padding: 0.1rem 1rem; color: var(--text-muted); border-left: 2px solid transparent; white-space: pre-wrap; word-break: break-all; }
+.parse-log-line.error     { color: #ef4444; border-left-color: #ef4444; }
+.parse-log-line.highlight { color: var(--teal); border-left-color: var(--teal); }
+.parse-log::-webkit-scrollbar { width: 4px; }
+.parse-log::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; }
+.parse-footer { display: flex; align-items: center; gap: 1rem; padding: 0.5rem 1rem; background: rgba(255,255,255,0.03); border-top: 1px solid var(--border); font-family: var(--font-mono); font-size: var(--text-xs); }
+.parse-result-ok    { color: var(--teal); }
+.parse-result-error { color: #ef4444; }
+.parse-redirect-msg { color: var(--text-muted); font-size: 0.65rem; }
 </style>
 </Base>

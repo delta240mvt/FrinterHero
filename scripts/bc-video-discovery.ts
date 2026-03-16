@@ -64,7 +64,7 @@ async function run() {
     : [];
   const query = keywords.join(' ');
 
-  log(`Finding top 3 videos per channel for ${confirmedChannels.length} channels`);
+  log(`Finding relevant + popular videos per channel for ${confirmedChannels.length} channels`);
   log(`Query: "${query}"`);
 
   // Clear existing videos for this project
@@ -76,8 +76,8 @@ async function run() {
     log(`Channel: ${channel.channelName} (${channel.channelId})`);
 
     try {
-      // Search by niche keywords
-      let candidates: any[] = [];
+      // ── Pool A: keyword-relevant videos ──────────────────────────────────
+      let relevantItems: any[] = [];
       if (query) {
         const searchData = await ytGet('search', {
           part: 'id,snippet',
@@ -87,83 +87,98 @@ async function run() {
           order: 'relevance',
           maxResults: '10',
         });
-        candidates = (searchData?.items ?? []).filter((item: any) => item?.id?.videoId);
-        log(`  Keyword search: ${candidates.length} candidates`);
+        relevantItems = (searchData?.items ?? []).filter((item: any) => item?.id?.videoId);
+        log(`  Keyword search (relevance): ${relevantItems.length} candidates`);
       }
 
-      // Fallback: if no results, get channel's most popular videos
-      if (!candidates.length) {
-        log(`  No keyword results — falling back to channel popular videos`);
-        const fallbackData = await ytGet('search', {
-          part: 'id,snippet',
-          channelId: channel.channelId,
-          type: 'video',
-          order: 'viewCount',
-          maxResults: '10',
-        });
-        candidates = (fallbackData?.items ?? []).filter((item: any) => item?.id?.videoId);
-        log(`  Fallback: ${candidates.length} candidates`);
+      // ── Pool B: most popular (highest view count) ─────────────────────────
+      const popularData = await ytGet('search', {
+        part: 'id,snippet',
+        channelId: channel.channelId,
+        type: 'video',
+        order: 'viewCount',
+        maxResults: '10',
+      });
+      const popularItems: any[] = (popularData?.items ?? []).filter((item: any) => item?.id?.videoId);
+      log(`  Popular search (viewCount): ${popularItems.length} candidates`);
+
+      // ── Merge & deduplicate ───────────────────────────────────────────────
+      const seen = new Set<string>();
+      const merged: Array<{ item: any; pool: 'relevant' | 'popular' }> = [];
+      for (const item of relevantItems) {
+        const vid = item.id.videoId;
+        if (!seen.has(vid)) { seen.add(vid); merged.push({ item, pool: 'relevant' }); }
+      }
+      for (const item of popularItems) {
+        const vid = item.id.videoId;
+        if (!seen.has(vid)) { seen.add(vid); merged.push({ item, pool: 'popular' }); }
       }
 
-      const allCandidates: Array<{ item: any }> = candidates.map((item: any) => ({ item }));
-
-      if (!allCandidates.length) {
+      // Fallback if both pools empty
+      if (!merged.length) {
         log(`  No videos found for ${channel.channelName}`);
         continue;
       }
 
-      const videoIds = allCandidates.map(({ item }) => item.id.videoId);
-
-      // ONE batched videos.list for stats (1 unit)
+      // ── Fetch stats for all candidates (1 API unit) ───────────────────────
+      const videoIds = merged.map(({ item }) => item.id.videoId);
       const statsData = await ytGet('videos', {
         part: 'statistics,contentDetails',
         id: videoIds.join(','),
       });
-
       const statsMap: Record<string, any> = {};
       for (const item of (statsData?.items ?? [])) {
         statsMap[item.id] = item;
       }
 
-      // Score and rank
-      const scored = allCandidates.map(({ item }, index: number) => {
-        const videoId = item.id.videoId;
-        const stats = statsMap[videoId];
-        const commentCount = parseInt(stats?.statistics?.commentCount || '0', 10);
-        const viewCount = parseInt(stats?.statistics?.viewCount || '0', 10);
-        const rankScore = (1 - index / Math.max(allCandidates.length, 10)) * 0.7;
-        const engagementScore = commentCount > 100 ? 0.3 : commentCount > 10 ? 0.15 : 0;
-        return {
-          videoId,
-          title: (item.snippet?.title || videoId).substring(0, 500),
-          description: item.snippet?.description ? item.snippet.description.substring(0, 500) : null,
-          viewCount,
-          commentCount,
-          publishedAt: item.snippet?.publishedAt ? new Date(item.snippet.publishedAt) : null,
-          relevanceScore: Math.min(1.0, rankScore + engagementScore),
-        };
-      });
+      // ── Score: top 3 relevant + top 2 popular (deduped) ───────────────────
+      const scoredRelevant = merged
+        .filter(({ pool }) => pool === 'relevant')
+        .map(({ item }, index) => {
+          const videoId = item.id.videoId;
+          const stats = statsMap[videoId];
+          const commentCount = parseInt(stats?.statistics?.commentCount || '0', 10);
+          const viewCount = parseInt(stats?.statistics?.viewCount || '0', 10);
+          const rankScore = (1 - index / Math.max(relevantItems.length, 10)) * 0.7;
+          const engagementScore = commentCount > 100 ? 0.3 : commentCount > 10 ? 0.15 : 0;
+          return { videoId, item, commentCount, viewCount, relevanceScore: Math.min(1.0, rankScore + engagementScore) };
+        })
+        .sort((a, b) => b.relevanceScore - a.relevanceScore)
+        .slice(0, 3);
 
-      scored.sort((a: { relevanceScore: number }, b: { relevanceScore: number }) => b.relevanceScore - a.relevanceScore);
-      const top3 = scored.slice(0, 3);
+      const relevantIds = new Set(scoredRelevant.map(v => v.videoId));
+      const scoredPopular = merged
+        .filter(({ pool, item }) => pool === 'popular' && !relevantIds.has(item.id.videoId))
+        .map(({ item }) => {
+          const videoId = item.id.videoId;
+          const stats = statsMap[videoId];
+          const commentCount = parseInt(stats?.statistics?.commentCount || '0', 10);
+          const viewCount = parseInt(stats?.statistics?.viewCount || '0', 10);
+          return { videoId, item, commentCount, viewCount, relevanceScore: 0.5 };
+        })
+        .sort((a, b) => b.viewCount - a.viewCount)
+        .slice(0, 2);
 
-      for (const video of top3) {
+      const finalVideos = [...scoredRelevant, ...scoredPopular];
+
+      for (const video of finalVideos) {
+        const item = video.item;
         await db.insert(bcTargetVideos).values({
           projectId: BC_PROJECT_ID,
           channelId: channel.id,
           videoId: video.videoId,
           videoUrl: `https://www.youtube.com/watch?v=${video.videoId}`,
-          title: video.title,
-          description: video.description,
+          title: (item.snippet?.title || video.videoId).substring(0, 500),
+          description: item.snippet?.description ? item.snippet.description.substring(0, 500) : null,
           viewCount: video.viewCount,
           commentCount: video.commentCount,
-          publishedAt: video.publishedAt,
+          publishedAt: item.snippet?.publishedAt ? new Date(item.snippet.publishedAt) : null,
           relevanceScore: video.relevanceScore,
         });
         totalVideos++;
       }
 
-      log(`  Inserted ${top3.length} videos`);
+      log(`  Inserted ${finalVideos.length} videos (${scoredRelevant.length} relevant + ${scoredPopular.length} popular)`);
     } catch (e: any) {
       log(`[WARN] Failed for channel ${channel.channelName}: ${e.message}`);
     }
