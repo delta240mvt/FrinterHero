@@ -217,9 +217,11 @@ const typeColors: Record<string, string> = {
     document.getElementById('btn-download-logs').style.display = '';
   }
 
-  // Track which variant IDs are already rendered on the page
+  // Track which variant IDs are already rendered on the page (SSR cards have id="variant-N")
   const renderedIds = new Set(
-    [...document.querySelectorAll('.variant-card[data-id]')].map(el => parseInt(el.dataset.id))
+    [...document.querySelectorAll('.variant-card')]
+      .map(el => parseInt(el.id.replace('variant-', '')))
+      .filter(n => !isNaN(n))
   );
 
   const TYPE_COLORS = {
