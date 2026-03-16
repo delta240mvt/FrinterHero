@@ -11,7 +11,7 @@ function auth(cookies: any) {
 
 const JSON_HEADERS = { 'Content-Type': 'application/json' };
 
-export const POST: APIRoute = async ({ params, cookies }) => {
+export const POST: APIRoute = async ({ params, cookies, request }) => {
   if (!auth(cookies)) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: JSON_HEADERS });
 
   const projectId = parseInt(params.projectId || '0', 10);
