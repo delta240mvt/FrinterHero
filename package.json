@@ -17,6 +17,7 @@
     "reddit:seed": "npx tsx scripts/seed-reddit-targets.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.78.0",
     "@astrojs/node": "^8.3.0",
     "@astrojs/tailwind": "^5.1.0",
     "@tailwindcss/typography": "^0.5.0",

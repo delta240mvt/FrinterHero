@@ -12,26 +12,22 @@
  *   RESULT_JSON:{...}
  */
 
-import OpenAI from 'openai';
 import * as dotenv from 'dotenv';
 import * as path from 'path';
 import { db } from '../src/db/client';
 import { bcProjects, bcTargetVideos, bcComments, bcExtractedPainPoints } from '../src/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { findOffBrandMatch } from '../src/utils/brandFilter';
+import { callBcLlm, getBcScraperModel, getBcThinkingBudget } from '../src/lib/bc-llm-client';
 
 dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
-
-const openai = new OpenAI({
-  baseURL: 'https://openrouter.ai/api/v1',
-  apiKey: process.env.OPENROUTER_API_KEY!,
-});
 
 const BC_PROJECT_ID  = parseInt(process.env.BC_PROJECT_ID || '0', 10);
 const YT_API_KEY     = process.env.YOUTUBE_API_KEY!;
 const MAX_COMMENTS   = parseInt(process.env.BC_MAX_COMMENTS_PER_VIDEO || '100', 10);
 const CHUNK_SIZE     = parseInt(process.env.BC_CHUNK_SIZE || '20', 10);
-const MODEL          = process.env.BC_SCRAPER_MODEL || 'anthropic/claude-haiku-4-5';
+const MODEL          = getBcScraperModel();
+const THINKING_BUDGET = getBcThinkingBudget('scraper');
 const YT_BASE        = 'https://www.googleapis.com/youtube/v3';
 
 const sessionLogs: string[] = [];
@@ -194,17 +190,15 @@ Return ONLY valid JSON. No markdown, no explanations.`;
     `\n\nNote: comments with high like counts indicate widely-shared experiences — weight these more heavily.\nExtract 2–5 pain points with emotional intensity ≥ 7. Include vocData for each.`;
 
   try {
-    const response = await openai.chat.completions.create({
+    const llmResp = await callBcLlm({
       model: MODEL,
-      temperature: 0.3,
-      max_tokens: 4096,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userContent },
-      ],
+      maxTokens: 4096,
+      messages: [{ role: 'user', content: userContent }],
+      systemPrompt,
+      thinkingBudget: THINKING_BUDGET,
     });
 
-    const raw = (response.choices[0]?.message?.content || '')
+    const raw = (llmResp.content)
       .replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim();
 
     let parsed: any;

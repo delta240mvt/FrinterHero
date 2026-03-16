@@ -18,22 +18,18 @@
  * Output: inserts bcLandingPageVariants, stdout VARIANTS_GENERATED:N
  */
 
-import OpenAI from 'openai';
 import * as dotenv from 'dotenv';
 import * as path from 'path';
 import { db } from '../src/db/client';
 import { bcProjects, bcExtractedPainPoints, bcLandingPageVariants, bcPainClusters } from '../src/db/schema';
 import { eq, and, desc } from 'drizzle-orm';
+import { callBcLlm, getBcGeneratorModel, getBcThinkingBudget } from '../src/lib/bc-llm-client';
 
 dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
 
-const openai = new OpenAI({
-  baseURL: 'https://openrouter.ai/api/v1',
-  apiKey: process.env.OPENROUTER_API_KEY!,
-});
-
 const BC_PROJECT_ID = parseInt(process.env.BC_PROJECT_ID || '0', 10);
-const MODEL = process.env.BC_LP_MODEL || 'anthropic/claude-sonnet-4-6';
+const MODEL = getBcGeneratorModel();
+const THINKING_BUDGET = getBcThinkingBudget('generator');
 
 function log(msg: string) {
   console.log(`[${new Date().toISOString()}] [BC-LP-GEN] ${msg}`);
@@ -211,19 +207,15 @@ No external CSS dependencies. Include minimal inline styles for readability.`;
   // ── Call 1: HTML only (full 8192 token budget) ──────────────────────────
   let htmlRaw = '';
   try {
-    const response = await openai.chat.completions.create({
+    const htmlLlmResp = await callBcLlm({
       model: MODEL,
-      temperature: 0.5,
-      max_tokens: 8192,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: prompt },
-      ],
+      maxTokens: 8192,
+      messages: [{ role: 'user', content: prompt }],
+      systemPrompt,
+      thinkingBudget: THINKING_BUDGET,
     });
-    htmlRaw = response.choices[0]?.message?.content || '';
-    const finishReason = response.choices[0]?.finish_reason;
-    log(`HTML call for ${variantType}: ${htmlRaw.length} chars, finish_reason: ${finishReason}`);
-    if (finishReason === 'length') log(`[WARN] HTML still truncated at 8192 tokens for ${variantType}`);
+    htmlRaw = htmlLlmResp.content;
+    log(`HTML call for ${variantType}: ${htmlRaw.length} chars`);
   } catch (e: any) {
     throw new Error(`LLM HTML call failed for ${variantType}: ${e.message}`);
   }
@@ -249,13 +241,13 @@ No external CSS dependencies. Include minimal inline styles for readability.`;
 }
 Variant strategy: ${variantInstructions[variantType].split('\n')[0]}
 Pain cluster: ${cluster?.synthesizedProblemLabel || 'n/a'}`;
-    const metaRes = await openai.chat.completions.create({
+    const metaLlmResp = await callBcLlm({
       model: MODEL,
-      temperature: 0.2,
-      max_tokens: 1000,
+      maxTokens: 1000,
       messages: [{ role: 'user', content: metaPrompt }],
+      thinkingBudget: undefined,
     });
-    const metaRaw = (metaRes.choices[0]?.message?.content || '').replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim();
+    const metaRaw = metaLlmResp.content.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim();
     const metaJson = JSON.parse(metaRaw);
     improvements = metaJson.improvementSuggestions || {};
     featurePainMap = Array.isArray(metaJson.featurePainMap) ? metaJson.featurePainMap : [];

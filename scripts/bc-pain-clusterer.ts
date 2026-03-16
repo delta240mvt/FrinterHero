@@ -6,22 +6,18 @@
  * Output: inserts bcPainClusters rows, stdout CLUSTERS_CREATED:N
  */
 
-import OpenAI from 'openai';
 import * as dotenv from 'dotenv';
 import * as path from 'path';
 import { db } from '../src/db/client';
 import { bcProjects, bcExtractedPainPoints, bcPainClusters } from '../src/db/schema';
 import { eq, and, desc } from 'drizzle-orm';
+import { callBcLlm, getBcClusterModel, getBcThinkingBudget } from '../src/lib/bc-llm-client';
 
 dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
 
-const openai = new OpenAI({
-  baseURL: 'https://openrouter.ai/api/v1',
-  apiKey: process.env.OPENROUTER_API_KEY!,
-});
-
 const BC_PROJECT_ID = parseInt(process.env.BC_PROJECT_ID || '0', 10);
-const MODEL = process.env.BC_LP_MODEL || 'anthropic/claude-sonnet-4-6';
+const MODEL = getBcClusterModel();
+const THINKING_BUDGET = getBcThinkingBudget('cluster');
 
 function log(msg: string) {
   console.log(`[${new Date().toISOString()}] [BC-CLUSTER] ${msg}`);
@@ -97,13 +93,13 @@ Return ONLY valid JSON array. No markdown.`;
 
   let responseText = '';
   try {
-    const response = await openai.chat.completions.create({
+    const llmResp = await callBcLlm({
       model: MODEL,
-      temperature: 0.3,
-      max_tokens: 3000,
+      maxTokens: 3000,
       messages: [{ role: 'user', content: prompt }],
+      thinkingBudget: THINKING_BUDGET,
     });
-    responseText = (response.choices[0]?.message?.content || '').trim();
+    responseText = llmResp.content.trim();
     log(`Got response (${responseText.length} chars)`);
   } catch (e: any) {
     log(`[ERROR] LLM call failed: ${e.message}`);
