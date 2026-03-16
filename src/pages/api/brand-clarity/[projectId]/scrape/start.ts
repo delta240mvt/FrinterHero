@@ -32,11 +32,17 @@ export const POST: APIRoute = async ({ params, cookies }) => {
     return new Response(JSON.stringify({ error: 'No selected videos — select at least one video to scrape' }), { status: 400, headers: JSON_HEADERS });
   }
 
+  const body = await request.json().catch(() => ({}));
+  const videoId = parseInt(body?.videoId || '0', 10);
+
   const llmSettings = await getBcSettings();
-  const result = bcScrapeJob.start(projectId, buildLlmEnv(llmSettings));
+  const extraEnv: Record<string, string> = { ...buildLlmEnv(llmSettings) };
+  if (videoId) extraEnv.BC_VIDEO_ID = String(videoId);
+
+  const result = bcScrapeJob.start(projectId, extraEnv);
   if (!result.ok) {
     return new Response(JSON.stringify({ error: result.reason }), { status: 409, headers: JSON_HEADERS });
   }
 
-  return new Response(JSON.stringify({ started: true, projectId, videosCount: videos.length }), { headers: JSON_HEADERS });
+  return new Response(JSON.stringify({ started: true, projectId, videoId: videoId || null, videosCount: videos.length }), { headers: JSON_HEADERS });
 };

@@ -98,6 +98,13 @@ const selectedCount = videos.filter(v => v.isSelected).length;
         </div>
       </div>
 
+      <!-- Manual add row -->
+      <div class="manual-add-row">
+        <input id="manual-url" type="text" class="manual-url-input" placeholder="https://youtube.com/watch?v=… or youtu.be/…" />
+        <button id="manual-add-btn" class="btn-manual-add">+ Add Video</button>
+        <span id="manual-add-msg" class="manual-add-msg"></span>
+      </div>
+
       <!-- Discover panel -->
       <div id="discover-panel" class="parse-panel" style="display:none">
         <div class="parse-panel-top">
@@ -190,6 +197,39 @@ const selectedCount = videos.filter(v => v.isSelected).length;
     a.href = url; a.download = `bc-videos-${PROJECT_ID}-logs.txt`;
     document.body.appendChild(a); a.click();
     document.body.removeChild(a); URL.revokeObjectURL(url);
+  });
+
+  // Manual add
+  document.getElementById('manual-add-btn')?.addEventListener('click', async () => {
+    const input = document.getElementById('manual-url');
+    const msgEl = document.getElementById('manual-add-msg');
+    const btn = document.getElementById('manual-add-btn');
+    const url = input.value.trim();
+    if (!url) { msgEl.className = 'manual-add-msg error'; msgEl.textContent = 'Paste a YouTube URL first.'; return; }
+
+    btn.disabled = true;
+    btn.textContent = 'Adding…';
+    msgEl.textContent = '';
+    msgEl.className = 'manual-add-msg';
+
+    try {
+      const res = await fetch(`/api/brand-clarity/${PROJECT_ID}/videos/add-manual`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed');
+      msgEl.className = 'manual-add-msg ok';
+      msgEl.textContent = `✓ Added: "${data.title}" — reloading…`;
+      input.value = '';
+      setTimeout(() => window.location.reload(), 1500);
+    } catch (e) {
+      msgEl.className = 'manual-add-msg error';
+      msgEl.textContent = e.message;
+      btn.disabled = false;
+      btn.textContent = '+ Add Video';
+    }
   });
 
   discoverBtn?.addEventListener('click', async () => {
@@ -325,6 +365,16 @@ const selectedCount = videos.filter(v => v.isSelected).length;
 .btn-discover { padding: 0.4rem 1rem; background: none; border: 1px solid var(--gold); color: var(--gold); border-radius: 0.3rem; font-family: var(--font-mono); font-size: var(--text-xs); cursor: pointer; }
 .btn-discover:hover { background: rgba(214,183,121,0.08); }
 .btn-discover:disabled { opacity: 0.5; cursor: not-allowed; }
+.manual-add-row { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+.manual-url-input { flex: 1; min-width: 260px; padding: 0.4rem 0.75rem; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 0.3rem; color: var(--text-primary); font-family: var(--font-mono); font-size: var(--text-xs); }
+.manual-url-input:focus { outline: none; border-color: var(--teal); }
+.manual-url-input::placeholder { color: var(--text-muted); }
+.btn-manual-add { padding: 0.4rem 0.875rem; background: none; border: 1px solid var(--teal); color: var(--teal); border-radius: 0.3rem; font-family: var(--font-mono); font-size: var(--text-xs); cursor: pointer; white-space: nowrap; }
+.btn-manual-add:hover { background: rgba(74,141,131,0.08); }
+.btn-manual-add:disabled { opacity: 0.5; cursor: not-allowed; }
+.manual-add-msg { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); }
+.manual-add-msg.ok { color: var(--teal); }
+.manual-add-msg.error { color: #ef4444; }
 .empty-state { padding: 2.5rem; text-align: center; font-family: var(--font-mono); color: var(--text-muted); }
 
 /* Channels & videos */

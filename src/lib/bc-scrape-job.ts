@@ -120,6 +120,12 @@ class BcScrapeJobManager extends EventEmitter {
         this._result = { error: 'QUOTA_EXCEEDED' };
       }
 
+      if (line.startsWith('VIDEO_SCRAPED:')) {
+        const videoId = parseInt(line.split(':')[1], 10) || 0;
+        this.emit('videoScraped', { videoId });
+        return; // don't push to visible log
+      }
+
       const entry: BcLogEntry = { line, ts: Date.now() };
       if (this._lines.length < MAX_LINES) this._lines.push(entry);
       this.emit('line', entry);

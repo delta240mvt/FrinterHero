@@ -19,13 +19,16 @@ export const GET: APIRoute = async ({ request, cookies }) => {
   };
 
   const onLine = (entry: BcLogEntry) => send({ line: entry.line });
+  const onVideoScraped = ({ videoId }: { videoId: number }) => send({ videoScraped: videoId });
   const onDone = ({ code }: { code: number | null }) => {
-    send({ done: true, code: code ?? 0 });
+    const snap = bcScrapeJob.getSnapshot();
+    send({ done: true, code: code ?? 0, quota: snap.result?.error === 'QUOTA_EXCEEDED' });
     try { ctrl?.close(); } catch {}
     cleanup();
   };
   const cleanup = () => {
     bcScrapeJob.off('line', onLine);
+    bcScrapeJob.off('videoScraped', onVideoScraped);
     bcScrapeJob.off('done', onDone);
   };
 
@@ -45,6 +48,7 @@ export const GET: APIRoute = async ({ request, cookies }) => {
       }
 
       bcScrapeJob.on('line', onLine);
+      bcScrapeJob.on('videoScraped', onVideoScraped);
       bcScrapeJob.on('done', onDone);
     },
     cancel() { cleanup(); },

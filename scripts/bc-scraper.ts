@@ -23,6 +23,7 @@ import { callBcLlm, getBcScraperModel, getBcScraperMaxTokens, getBcThinkingBudge
 dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
 
 const BC_PROJECT_ID  = parseInt(process.env.BC_PROJECT_ID || '0', 10);
+const BC_VIDEO_ID    = parseInt(process.env.BC_VIDEO_ID || '0', 10); // 0 = scrape all selected
 const YT_API_KEY     = process.env.YOUTUBE_API_KEY!;
 const MAX_COMMENTS   = parseInt(process.env.BC_MAX_COMMENTS_PER_VIDEO || '100', 10);
 const CHUNK_SIZE     = parseInt(process.env.BC_CHUNK_SIZE || '20', 10);
@@ -255,15 +256,18 @@ async function run() {
     ? (project.nicheKeywords as string[]).join(', ')
     : String(project.nicheKeywords || 'high performance, focus, productivity');
 
-  const videos = await db.select().from(bcTargetVideos)
-    .where(and(eq(bcTargetVideos.projectId, BC_PROJECT_ID), eq(bcTargetVideos.isSelected, true)));
+  const videoFilter = BC_VIDEO_ID
+    ? and(eq(bcTargetVideos.projectId, BC_PROJECT_ID), eq(bcTargetVideos.isSelected, true), eq(bcTargetVideos.id, BC_VIDEO_ID))
+    : and(eq(bcTargetVideos.projectId, BC_PROJECT_ID), eq(bcTargetVideos.isSelected, true));
+
+  const videos = await db.select().from(bcTargetVideos).where(videoFilter);
 
   if (!videos.length) {
-    console.error('[ERROR] No selected videos — select at least one video in the Videos step');
+    console.error('[ERROR] No matching videos — select at least one video in the Videos step');
     process.exit(1);
   }
 
-  log(`Starting scrape for project "${project.name}" — ${videos.length} selected videos`);
+  log(`Starting scrape for project "${project.name}" — ${videos.length} video(s)${BC_VIDEO_ID ? ` [single: id=${BC_VIDEO_ID}]` : ''}`);
   log(`Model: ${MODEL}, max comments/video: ${MAX_COMMENTS}`);
 
   // Preload existing commentIds for dedup
@@ -363,7 +367,16 @@ async function run() {
           process.stdout.write(`painPointsExtracted:${totalPainPoints}\n`);
         }
       }
+      // Mark video as scraped
+      await db.update(bcTargetVideos).set({ isScraped: true }).where(eq(bcTargetVideos.id, video.id));
+      process.stdout.write(`VIDEO_SCRAPED:${video.id}\n`);
+      log(`  Marked video ${video.id} as scraped`);
     } catch (e: any) {
+      if (e.message && (e.message.includes('403') || e.message.includes('quota') || e.message.toUpperCase().includes('QUOTA'))) {
+        log(`[QUOTA] YouTube quota exceeded for video ${video.videoId} — stopping`);
+        process.stdout.write('QUOTA_EXCEEDED\n');
+        break;
+      }
       log(`[WARN] Failed for video ${video.videoId}: ${e.message}`);
     }
   }
