@@ -2,8 +2,8 @@ import type { APIRoute } from 'astro';
 import { db } from '@/db/client';
 import { bcProjects, bcExtractedPainPoints } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
-import { spawn } from 'child_process';
 import { getBcSettings, buildLlmEnv } from '@/lib/bc-settings';
+import { bcLpGenJob } from '@/lib/bc-lp-gen-job';
 
 function auth(cookies: any) {
   return !!cookies.get('session')?.value;
@@ -11,49 +11,15 @@ function auth(cookies: any) {
 
 const JSON_HEADERS = { 'Content-Type': 'application/json' };
 
-function runLpGenerator(projectId: number, extraEnv: Record<string, string>): Promise<{ variantsGenerated: number; error?: string; logs: string[] }> {
-  return new Promise((resolve) => {
-    let variantsGenerated = 0;
-    const logs: string[] = [];
-    let buf = '';
-
-    const child = spawn('npx', ['tsx', 'scripts/bc-lp-generator.ts'], {
-      cwd: process.cwd(),
-      env: { ...process.env, BC_PROJECT_ID: String(projectId), ...extraEnv },
-      shell: true,
-    });
-
-    const onChunk = (chunk: Buffer) => {
-      buf += chunk.toString();
-      const parts = buf.split('\n');
-      buf = parts.pop() ?? '';
-      for (const line of parts) {
-        const trimmed = line.trim();
-        if (!trimmed) continue;
-        const match = trimmed.match(/VARIANTS_GENERATED:(\d+)/);
-        if (match) variantsGenerated = parseInt(match[1], 10);
-        logs.push(trimmed);
-      }
-    };
-
-    child.stdout.on('data', onChunk);
-    child.stderr.on('data', onChunk);
-
-    child.on('close', (code) => {
-      if (buf.trim()) logs.push(buf.trim());
-      if (code !== 0) resolve({ variantsGenerated, error: logs.slice(-3).join(' | ') || `exit code ${code}`, logs });
-      else resolve({ variantsGenerated, logs });
-    });
-
-    child.on('error', (err) => resolve({ variantsGenerated: 0, error: err.message, logs }));
-  });
-}
-
 export const POST: APIRoute = async ({ params, cookies }) => {
   if (!auth(cookies)) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: JSON_HEADERS });
 
   const projectId = parseInt(params.projectId || '0', 10);
   if (!projectId) return new Response(JSON.stringify({ error: 'Invalid projectId' }), { status: 400, headers: JSON_HEADERS });
+
+  if (bcLpGenJob.isRunning()) {
+    return new Response(JSON.stringify({ error: 'Generation already running', status: 'running' }), { status: 409, headers: JSON_HEADERS });
+  }
 
   const [project] = await db.select().from(bcProjects).where(eq(bcProjects.id, projectId));
   if (!project) return new Response(JSON.stringify({ error: 'Project not found' }), { status: 404, headers: JSON_HEADERS });
@@ -73,17 +39,14 @@ export const POST: APIRoute = async ({ params, cookies }) => {
     return new Response(JSON.stringify({ error: 'No approved pain points — approve pain points first' }), { status: 400, headers: JSON_HEADERS });
   }
 
-  // Update status to generating
   await db.update(bcProjects).set({ status: 'generating', updatedAt: new Date() })
     .where(eq(bcProjects.id, projectId));
 
   const llmSettings = await getBcSettings();
-  const result = await runLpGenerator(projectId, buildLlmEnv(llmSettings));
-  if (result.error) {
-    await db.update(bcProjects).set({ status: 'pain_points_pending', updatedAt: new Date() })
-      .where(eq(bcProjects.id, projectId));
-    return new Response(JSON.stringify({ error: result.error, logs: result.logs }), { status: 500, headers: JSON_HEADERS });
+  const result = bcLpGenJob.start(projectId, buildLlmEnv(llmSettings));
+  if (!result.ok) {
+    return new Response(JSON.stringify({ error: result.reason }), { status: 409, headers: JSON_HEADERS });
   }
 
-  return new Response(JSON.stringify({ variantsGenerated: result.variantsGenerated, logs: result.logs }), { headers: JSON_HEADERS });
+  return new Response(JSON.stringify({ started: true, projectId }), { status: 202, headers: JSON_HEADERS });
 };

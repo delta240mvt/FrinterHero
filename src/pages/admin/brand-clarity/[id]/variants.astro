@@ -183,41 +183,38 @@ const typeColors: Record<string, string> = {
 
 <script define:vars={{ projectId }}>
   const PROJECT_ID = projectId;
-  const generateBtn = document.getElementById('generate-btn');
-  const genPanel    = document.getElementById('gen-panel');
-  const genStatus   = document.getElementById('gen-status');
-  const genElapsed  = document.getElementById('gen-elapsed');
-  const genFooter   = document.getElementById('gen-footer');
+  const generateBtn  = document.getElementById('generate-btn');
+  const genPanel     = document.getElementById('gen-panel');
+  const genStatus    = document.getElementById('gen-status');
+  const genElapsed   = document.getElementById('gen-elapsed');
+  const genFooter    = document.getElementById('gen-footer');
   const genResultMsg = document.getElementById('gen-result-msg');
   const logContainer = document.getElementById('log-container');
 
+  // ── Elapsed timer ──────────────────────────────────────────
   let elapsedTimer = null;
-
-  function startElapsed() {
-    const t0 = Date.now();
-    elapsedTimer = setInterval(() => { genElapsed.textContent = `${Math.floor((Date.now() - t0) / 1000)}s`; }, 1000);
+  let elapsedStart = 0;
+  function startElapsed(fromMs = 0) {
+    elapsedStart = Date.now() - fromMs;
+    elapsedTimer = setInterval(() => {
+      genElapsed.textContent = `${Math.floor((Date.now() - elapsedStart) / 1000)}s`;
+    }, 1000);
   }
   function stopElapsed() { clearInterval(elapsedTimer); elapsedTimer = null; }
 
+  // ── Log helpers ────────────────────────────────────────────
   function appendLogLine(line) {
     const el = document.createElement('div');
     el.className = 'parse-log-line';
     if (line.includes('[WARN]') || line.includes('[FATAL]') || line.includes('[ERROR]')) el.classList.add('error');
-    else if (line.includes('VARIANTS_GENERATED') || line.includes('Done') || line.includes('Inserted')) el.classList.add('highlight');
-    else if (line.includes('[LLM]') || line.includes('Sonnet') || line.includes('variant') || line.includes('[BC-LP-GEN]')) el.classList.add('llm');
+    else if (line.includes('Done') || line.includes('Inserted') || line.includes('variant')) el.classList.add('highlight');
+    else if (line.includes('[LLM]') || line.includes('Sonnet') || line.includes('[BC-LP-GEN]')) el.classList.add('llm');
     el.textContent = line;
     logContainer.appendChild(el);
     logContainer.scrollTop = logContainer.scrollHeight;
   }
 
-  function renderLogs(logs) {
-    if (!logs || !logs.length) return;
-    logContainer.innerHTML = '';
-    logs.forEach(appendLogLine);
-    document.getElementById('btn-download-logs').style.display = '';
-  }
-
-  // Track which variant IDs are already rendered on the page (SSR cards have id="variant-N")
+  // ── Variant cards ──────────────────────────────────────────
   const renderedIds = new Set(
     [...document.querySelectorAll('.variant-card')]
       .map(el => parseInt(el.id.replace('variant-', '')))
@@ -231,16 +228,15 @@ const typeColors: Record<string, string> = {
   };
 
   function appendVariantCard(v) {
-    const list = document.querySelector('.variants-list') || (() => {
-      const el = document.createElement('div');
-      el.className = 'variants-list';
-      document.querySelector('.admin-section').appendChild(el);
-      // Hide empty-state if visible
+    if (renderedIds.has(v.id)) return;
+    let list = document.querySelector('.variants-list');
+    if (!list) {
+      list = document.createElement('div');
+      list.className = 'variants-list';
+      document.querySelector('.admin-section').appendChild(list);
       const empty = document.querySelector('.empty-state');
       if (empty) empty.style.display = 'none';
-      return el;
-    })();
-
+    }
     const color = TYPE_COLORS[v.variantType] || 'var(--text-muted)';
     const modelShort = v.generationModel ? (v.generationModel.split('/')[1] || v.generationModel) : '';
     const card = document.createElement('div');
@@ -265,70 +261,112 @@ const typeColors: Record<string, string> = {
     renderedIds.add(v.id);
   }
 
-  let pollInterval = null;
-
-  function startPolling() {
-    pollInterval = setInterval(async () => {
-      try {
-        const res = await fetch(`/api/brand-clarity/${PROJECT_ID}/variants-list`);
-        const data = await res.json();
-        for (const v of data.variants) {
-          if (!renderedIds.has(v.id)) {
-            appendVariantCard(v);
-            generateStatus.textContent = `Variant "${v.variantLabel}" ready — generating more…`;
-          }
-        }
-      } catch { /* non-critical */ }
-    }, 4000);
+  async function fetchAndShowNewVariants() {
+    try {
+      const res = await fetch(`/api/brand-clarity/${PROJECT_ID}/variants-list`);
+      const data = await res.json();
+      for (const v of (data.variants || [])) appendVariantCard(v);
+    } catch {}
   }
 
-  function stopPolling() {
-    if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
+  // ── SSE stream ─────────────────────────────────────────────
+  function connectStream(fromIndex) {
+    const es = new EventSource(`/api/brand-clarity/${PROJECT_ID}/variants/stream?from=${fromIndex}`);
+
+    es.onmessage = async (e) => {
+      let payload;
+      try { payload = JSON.parse(e.data); } catch { return; }
+
+      if (payload.line) {
+        appendLogLine(payload.line);
+      }
+
+      if (payload.done) {
+        es.close();
+        stopElapsed();
+        await fetchAndShowNewVariants();
+        document.getElementById('btn-download-logs').style.display = '';
+
+        const ok = payload.code === 0;
+        genStatus.textContent = ok ? `Done — ${payload.variantsGenerated} variants generated ✓` : 'Error ✗';
+        genStatus.className = `parse-status ${ok ? 'done' : 'error'}`;
+        genFooter.style.display = 'flex';
+        genResultMsg.className = ok ? 'parse-result-ok' : 'parse-result-error';
+        genResultMsg.textContent = ok
+          ? `${payload.variantsGenerated} new variants added.`
+          : 'Generation failed — check logs.';
+        generateBtn.disabled = false;
+        generateBtn.textContent = '+ Generate Again';
+      }
+    };
+
+    es.onerror = () => {
+      es.close();
+      stopElapsed();
+      genStatus.textContent = 'Stream disconnected';
+      genStatus.className = 'parse-status error';
+      generateBtn.disabled = false;
+      generateBtn.textContent = '+ Generate Again';
+    };
   }
 
-  generateBtn?.addEventListener('click', async () => {
-    if (!confirm('Generate 3 new LP variants (Curiosity Hook, Pain Mirror, Outcome Promise)? This calls Claude Sonnet 3 times (~30-60s). Existing variants will be kept.')) return;
-    generateBtn.disabled = true;
-    generateBtn.textContent = 'Generating…';
-
-    // Show console panel
-    logContainer.innerHTML = '';
+  function showPanel(statusText) {
     genFooter.style.display = 'none';
-    genStatus.textContent = 'Generating LP variants…';
+    genStatus.textContent = statusText;
     genStatus.className = 'parse-status running';
     genElapsed.textContent = '';
     document.getElementById('btn-download-logs').style.display = 'none';
     genPanel.style.display = 'block';
     genPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  // ── Restore on page load if job is running ─────────────────
+  (async () => {
+    try {
+      const res = await fetch(`/api/brand-clarity/${PROJECT_ID}/variants/status`);
+      const data = await res.json();
+      if (data.status === 'idle') return;
+
+      showPanel(data.status === 'running' ? 'Generating LP variants…' : data.status === 'done' ? 'Generation complete' : 'Error');
+
+      if (data.status === 'running') {
+        generateBtn.disabled = true;
+        generateBtn.textContent = 'Generating…';
+        const elapsed = data.startedAt ? Date.now() - data.startedAt : 0;
+        startElapsed(elapsed);
+        connectStream(0); // stream replays buffered lines from fromIndex=0
+      } else {
+        genStatus.className = `parse-status ${data.status === 'done' ? 'done' : 'error'}`;
+        genFooter.style.display = 'flex';
+        genResultMsg.className = data.status === 'done' ? 'parse-result-ok' : 'parse-result-error';
+        genResultMsg.textContent = data.status === 'done'
+          ? `${data.variantsGenerated} variants generated.`
+          : 'Generation failed.';
+        document.getElementById('btn-download-logs').style.display = '';
+        connectStream(0); // replay finished log
+      }
+    } catch { /* non-critical */ }
+  })();
+
+  // ── Generate button ────────────────────────────────────────
+  generateBtn?.addEventListener('click', async () => {
+    if (!confirm('Generate 3 new LP variants (Curiosity Hook, Pain Mirror, Outcome Promise)? This calls Claude Sonnet 3 times (~30-60s). Existing variants will be kept.')) return;
+    generateBtn.disabled = true;
+    generateBtn.textContent = 'Generating…';
+
+    logContainer.innerHTML = '';
+    showPanel('Generating LP variants…');
     startElapsed();
     appendLogLine('[BC-LP-GEN] Starting… Claude Sonnet generating 3 LP variants');
-
-    startPolling();
 
     try {
       const res = await fetch(`/api/brand-clarity/${PROJECT_ID}/generate-variants`, { method: 'POST' });
       const data = await res.json();
-      stopPolling();
-      stopElapsed();
-      // Final poll to catch the last variant
-      const finalRes = await fetch(`/api/brand-clarity/${PROJECT_ID}/variants-list`);
-      const finalData = await finalRes.json();
-      for (const v of finalData.variants) {
-        if (!renderedIds.has(v.id)) appendVariantCard(v);
-      }
-      renderLogs(data.logs);
       if (!res.ok) throw new Error(data.error || 'Failed');
-      genStatus.textContent = `Done — ${data.variantsGenerated} variants generated ✓`;
-      genStatus.className = 'parse-status done';
-      genFooter.style.display = 'flex';
-      genResultMsg.className = 'parse-result-ok';
-      genResultMsg.textContent = `${data.variantsGenerated} new variants added.`;
-      generateBtn.disabled = false;
-      generateBtn.textContent = '+ Generate Again';
+      // 202 Accepted — generation started, connect to SSE stream
+      connectStream(0);
     } catch (e) {
-      stopPolling();
       stopElapsed();
-      renderLogs([]);
       genStatus.textContent = `Error ✗`;
       genStatus.className = 'parse-status error';
       genFooter.style.display = 'flex';
