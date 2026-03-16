@@ -36,7 +36,7 @@ const timeAgo = (() => {
 ---
 
 <div class="bcpp-card" id={`bcpp-${pp.id}`} data-status={pp.status}>
-  <div class="bcpp-header">
+  <div class="bcpp-header" onclick={`bcppToggle(${pp.id})`} role="button" style="cursor:pointer">
     <div class="bcpp-badges">
       <span class="bcpp-intensity" style={`background:${intensityColor}22;color:${intensityColor};border-color:${intensityColor}44`}>
         {pp.emotionalIntensity}/10
@@ -114,7 +114,8 @@ const timeAgo = (() => {
   .bcpp-card { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 0.5rem; overflow: hidden; margin-bottom: 0.75rem; }
   .bcpp-card[data-status="approved"] { border-color: rgba(74,141,131,0.3); }
   .bcpp-card[data-status="rejected"] { opacity: 0.55; }
-  .bcpp-header { padding: 0.875rem 1.25rem 0.5rem; }
+  .bcpp-header { padding: 0.875rem 1.25rem 0.5rem; transition: background 0.1s; }
+  .bcpp-header:hover { background: rgba(255,255,255,0.025); }
   .bcpp-badges { display: flex; gap: 0.5rem; margin-bottom: 0.5rem; flex-wrap: wrap; }
   .bcpp-intensity { padding: 0.15rem 0.5rem; border-radius: 0.25rem; font-family: var(--font-mono); font-size: 0.65rem; font-weight: 700; border: 1px solid; }
   .bcpp-category  { padding: 0.15rem 0.5rem; border-radius: 0.25rem; font-family: var(--font-mono); font-size: 0.65rem; text-transform: uppercase; }
