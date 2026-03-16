@@ -418,6 +418,24 @@ export const bcLandingPageVariants = pgTable('bc_landing_page_variants', {
   projectIdx: index('idx_bc_variants_project').on(table.projectId),
 }));
 
+// Global LLM settings for Brand Clarity pipeline (single row, JSONB config)
+export const bcSettings = pgTable('bc_settings', {
+  id: serial('id').primaryKey(),
+  config: jsonb('config').notNull().$type<{
+    provider: string;
+    lpModel: string;
+    scraperModel: string;
+    clusterModel: string;
+    generatorModel: string;
+    extendedThinkingEnabled: boolean;
+    lpThinkingBudget: number;
+    scraperThinkingBudget: number;
+    clusterThinkingBudget: number;
+    generatorThinkingBudget: number;
+  }>(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
 // Pain point clusters synthesized by Sonnet before LP generation
 export const bcPainClusters = pgTable('bc_pain_clusters', {
   id: serial('id').primaryKey(),

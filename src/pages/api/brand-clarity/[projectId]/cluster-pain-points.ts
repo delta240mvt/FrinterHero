@@ -3,6 +3,7 @@ import { db } from '@/db/client';
 import { bcProjects, bcExtractedPainPoints, bcPainClusters } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { spawn } from 'child_process';
+import { getBcSettings, buildLlmEnv } from '@/lib/bc-settings';
 
 function auth(cookies: any) {
   return !!cookies.get('session')?.value;
@@ -10,7 +11,7 @@ function auth(cookies: any) {
 
 const JSON_HEADERS = { 'Content-Type': 'application/json' };
 
-function runClusterer(projectId: number): Promise<{ clustersCreated: number; logs: string[]; error?: string }> {
+function runClusterer(projectId: number, extraEnv: Record<string, string>): Promise<{ clustersCreated: number; logs: string[]; error?: string }> {
   return new Promise((resolve) => {
     let clustersCreated = 0;
     const logs: string[] = [];
@@ -18,7 +19,7 @@ function runClusterer(projectId: number): Promise<{ clustersCreated: number; log
 
     const child = spawn('npx', ['tsx', 'scripts/bc-pain-clusterer.ts'], {
       cwd: process.cwd(),
-      env: { ...process.env, BC_PROJECT_ID: String(projectId) },
+      env: { ...process.env, BC_PROJECT_ID: String(projectId), ...extraEnv },
       shell: true,
     });
 
@@ -68,7 +69,8 @@ export const POST: APIRoute = async ({ params, cookies }) => {
     return new Response(JSON.stringify({ error: 'Need at least 2 approved pain points' }), { status: 400, headers: JSON_HEADERS });
   }
 
-  const result = await runClusterer(projectId);
+  const llmSettings = await getBcSettings();
+  const result = await runClusterer(projectId, buildLlmEnv(llmSettings));
   if (result.error) {
     return new Response(JSON.stringify({ error: result.error, logs: result.logs }), { status: 500, headers: JSON_HEADERS });
   }

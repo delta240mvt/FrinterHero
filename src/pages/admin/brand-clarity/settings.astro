@@ -1,0 +1,265 @@
+---
+import Base from '@/components/layouts/Base.astro';
+import { getBcSettings, BC_SETTINGS_DEFAULTS } from '@/lib/bc-settings';
+
+let settings = BC_SETTINGS_DEFAULTS;
+try {
+  settings = await getBcSettings();
+} catch (e) {
+  console.error('[BC-Settings]', e);
+}
+---
+
+<Base title="LLM Settings — Brand Clarity" description="Configure LLM provider and models for Brand Clarity pipeline">
+<div class="admin-layout">
+  <header class="admin-header">
+    <a href="/admin" class="admin-logo">P·F</a>
+    <nav class="breadcrumb">
+      <a href="/admin/brand-clarity" class="bc-link">Brand Clarity</a>
+      <span class="bc-sep">›</span>
+      <span class="bc-current">LLM Settings</span>
+    </nav>
+    <div class="header-actions">
+      <a href="/api/logout" class="btn-logout">Logout</a>
+    </div>
+  </header>
+
+  <main class="admin-main">
+    <div class="settings-page">
+      <div class="settings-header">
+        <h1 class="settings-title">LLM Settings</h1>
+        <p class="settings-subtitle">Konfiguracja modeli i Extended Thinking dla całego Brand Clarity pipeline. Klucze API zostają w <code>.env</code>.</p>
+      </div>
+
+      <form id="settings-form" class="settings-form">
+
+        <!-- Provider -->
+        <section class="settings-section">
+          <h2 class="settings-section-title">Provider</h2>
+          <div class="radio-group">
+            <label class="radio-card">
+              <input type="radio" name="provider" value="openrouter" checked={settings.provider === 'openrouter'} />
+              <div class="radio-card-content">
+                <span class="radio-card-label">OpenRouter</span>
+                <span class="radio-card-desc">Routing przez OpenRouter. Wymaga OPENROUTER_API_KEY.</span>
+              </div>
+            </label>
+            <label class="radio-card">
+              <input type="radio" name="provider" value="anthropic" checked={settings.provider === 'anthropic'} />
+              <div class="radio-card-content">
+                <span class="radio-card-label">Anthropic Direct</span>
+                <span class="radio-card-desc">Bezpośrednie Anthropic API. Wymaga ANTHROPIC_API_KEY. Obsługuje Extended Thinking.</span>
+              </div>
+            </label>
+          </div>
+        </section>
+
+        <!-- Models (shown only for Anthropic) -->
+        <section class="settings-section" id="models-section">
+          <h2 class="settings-section-title">Modele <span class="badge-anthropic">Anthropic</span></h2>
+          <p class="settings-note">Używane tylko gdy provider = Anthropic Direct.</p>
+          <div class="model-grid">
+            <div class="model-row">
+              <label class="model-label">LP Parser + Generator</label>
+              <select name="lpModel" class="model-select">
+                <option value="claude-opus-4-6" selected={settings.lpModel === 'claude-opus-4-6'}>claude-opus-4-6 (max quality, adaptive thinking)</option>
+                <option value="claude-sonnet-4-6" selected={settings.lpModel === 'claude-sonnet-4-6'}>claude-sonnet-4-6 ★ (recommended)</option>
+                <option value="claude-haiku-4-5-20251001" selected={settings.lpModel === 'claude-haiku-4-5-20251001'}>claude-haiku-4-5-20251001 (fast, cheap)</option>
+              </select>
+            </div>
+            <div class="model-row">
+              <label class="model-label">Scraper (bulk extraction)</label>
+              <select name="scraperModel" class="model-select">
+                <option value="claude-haiku-4-5-20251001" selected={settings.scraperModel === 'claude-haiku-4-5-20251001'}>claude-haiku-4-5-20251001 ★ (recommended — cost)</option>
+                <option value="claude-sonnet-4-6" selected={settings.scraperModel === 'claude-sonnet-4-6'}>claude-sonnet-4-6 (better quality)</option>
+                <option value="claude-opus-4-6" selected={settings.scraperModel === 'claude-opus-4-6'}>claude-opus-4-6 (expensive for bulk)</option>
+              </select>
+            </div>
+            <div class="model-row">
+              <label class="model-label">Pain Clusterer</label>
+              <select name="clusterModel" class="model-select">
+                <option value="claude-opus-4-6" selected={settings.clusterModel === 'claude-opus-4-6'}>claude-opus-4-6 (max quality)</option>
+                <option value="claude-sonnet-4-6" selected={settings.clusterModel === 'claude-sonnet-4-6'}>claude-sonnet-4-6 ★ (recommended)</option>
+                <option value="claude-haiku-4-5-20251001" selected={settings.clusterModel === 'claude-haiku-4-5-20251001'}>claude-haiku-4-5-20251001 (fast)</option>
+              </select>
+            </div>
+            <div class="model-row">
+              <label class="model-label">LP Generator (HTML variants)</label>
+              <select name="generatorModel" class="model-select">
+                <option value="claude-opus-4-6" selected={settings.generatorModel === 'claude-opus-4-6'}>claude-opus-4-6 (max quality)</option>
+                <option value="claude-sonnet-4-6" selected={settings.generatorModel === 'claude-sonnet-4-6'}>claude-sonnet-4-6 ★ (recommended)</option>
+                <option value="claude-haiku-4-5-20251001" selected={settings.generatorModel === 'claude-haiku-4-5-20251001'}>claude-haiku-4-5-20251001 (fast)</option>
+              </select>
+            </div>
+          </div>
+        </section>
+
+        <!-- Extended Thinking -->
+        <section class="settings-section" id="thinking-section">
+          <h2 class="settings-section-title">Extended Thinking <span class="badge-anthropic">Anthropic only</span></h2>
+          <p class="settings-note">Działa tylko z Anthropic Direct. Zwiększa jakość kosztem latency i tokenów.</p>
+          <label class="toggle-row">
+            <input type="checkbox" id="et-toggle" name="extendedThinkingEnabled" checked={settings.extendedThinkingEnabled} />
+            <span class="toggle-label">Włącz Extended Thinking</span>
+          </label>
+
+          <div id="budgets-panel" class="budgets-panel">
+            <div class="budget-grid">
+              <div class="budget-row">
+                <label class="budget-label">LP Parser (budget tokens)</label>
+                <input type="number" name="lpThinkingBudget" class="budget-input" min="1024" max="32000" step="1000" value={settings.lpThinkingBudget} />
+              </div>
+              <div class="budget-row">
+                <label class="budget-label">Scraper (budget tokens)</label>
+                <input type="number" name="scraperThinkingBudget" class="budget-input" min="1024" max="16000" step="1000" value={settings.scraperThinkingBudget} />
+              </div>
+              <div class="budget-row">
+                <label class="budget-label">Clusterer (budget tokens)</label>
+                <input type="number" name="clusterThinkingBudget" class="budget-input" min="1024" max="64000" step="1000" value={settings.clusterThinkingBudget} />
+              </div>
+              <div class="budget-row">
+                <label class="budget-label">Generator HTML (budget tokens)</label>
+                <input type="number" name="generatorThinkingBudget" class="budget-input" min="1024" max="64000" step="1000" value={settings.generatorThinkingBudget} />
+              </div>
+            </div>
+            <p class="budget-note">⚠ Opus 4.6 ignoruje budżet — używa adaptive thinking automatycznie.<br>Min: 1024. Powyżej 32k zalecany batch processing.</p>
+          </div>
+        </section>
+
+        <div class="settings-actions">
+          <button type="submit" class="btn-save" id="save-btn">Zapisz ustawienia</button>
+          <span id="save-status" class="save-status"></span>
+        </div>
+      </form>
+    </div>
+  </main>
+</div>
+</Base>
+
+<script>
+  const form = document.getElementById('settings-form') as HTMLFormElement;
+  const saveBtn = document.getElementById('save-btn') as HTMLButtonElement;
+  const saveStatus = document.getElementById('save-status') as HTMLSpanElement;
+  const etToggle = document.getElementById('et-toggle') as HTMLInputElement;
+  const budgetsPanel = document.getElementById('budgets-panel') as HTMLDivElement;
+  const modelsSection = document.getElementById('models-section') as HTMLElement;
+  const thinkingSection = document.getElementById('thinking-section') as HTMLElement;
+  const providerRadios = document.querySelectorAll('input[name="provider"]') as NodeListOf<HTMLInputElement>;
+
+  function updateVisibility() {
+    const isAnthropic = [...providerRadios].find(r => r.checked)?.value === 'anthropic';
+    modelsSection.style.opacity = isAnthropic ? '1' : '0.4';
+    thinkingSection.style.opacity = isAnthropic ? '1' : '0.4';
+    budgetsPanel.style.display = (isAnthropic && etToggle.checked) ? 'block' : 'none';
+  }
+
+  providerRadios.forEach(r => r.addEventListener('change', updateVisibility));
+  etToggle.addEventListener('change', updateVisibility);
+  updateVisibility();
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    saveBtn.disabled = true;
+    saveStatus.textContent = 'Zapisywanie…';
+    saveStatus.className = 'save-status saving';
+
+    const fd = new FormData(form);
+    const payload = {
+      provider: fd.get('provider'),
+      lpModel: fd.get('lpModel'),
+      scraperModel: fd.get('scraperModel'),
+      clusterModel: fd.get('clusterModel'),
+      generatorModel: fd.get('generatorModel'),
+      extendedThinkingEnabled: etToggle.checked,
+      lpThinkingBudget: parseInt(String(fd.get('lpThinkingBudget') || '10000'), 10),
+      scraperThinkingBudget: parseInt(String(fd.get('scraperThinkingBudget') || '5000'), 10),
+      clusterThinkingBudget: parseInt(String(fd.get('clusterThinkingBudget') || '16000'), 10),
+      generatorThinkingBudget: parseInt(String(fd.get('generatorThinkingBudget') || '16000'), 10),
+    };
+
+    try {
+      const res = await fetch('/api/brand-clarity/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        saveStatus.textContent = '✓ Zapisano';
+        saveStatus.className = 'save-status ok';
+      } else {
+        const err = await res.json().catch(() => ({}));
+        saveStatus.textContent = `Błąd: ${err.error || res.status}`;
+        saveStatus.className = 'save-status error';
+      }
+    } catch (err: any) {
+      saveStatus.textContent = `Błąd: ${err.message}`;
+      saveStatus.className = 'save-status error';
+    } finally {
+      saveBtn.disabled = false;
+      setTimeout(() => { saveStatus.textContent = ''; saveStatus.className = 'save-status'; }, 4000);
+    }
+  });
+</script>
+
+<style>
+  .settings-page { max-width: 760px; margin: 0 auto; padding: 2rem 1rem; }
+  .settings-header { margin-bottom: 2rem; }
+  .settings-title { font-size: 1.6rem; font-weight: 700; color: #e2e8f0; margin: 0 0 0.5rem; }
+  .settings-subtitle { color: #94a3b8; font-size: 0.9rem; margin: 0; }
+  .settings-subtitle code { background: #1e293b; padding: 2px 6px; border-radius: 4px; font-size: 0.85rem; }
+
+  .settings-form { display: flex; flex-direction: column; gap: 1.5rem; }
+  .settings-section { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 1.5rem; }
+  .settings-section-title { font-size: 1rem; font-weight: 600; color: #e2e8f0; margin: 0 0 1rem; display: flex; align-items: center; gap: 0.5rem; }
+  .settings-note { color: #64748b; font-size: 0.82rem; margin: -0.5rem 0 1rem; }
+
+  .badge-anthropic { background: #1e3a5f; color: #60a5fa; font-size: 0.7rem; padding: 2px 8px; border-radius: 20px; font-weight: 500; }
+
+  .radio-group { display: flex; flex-direction: column; gap: 0.75rem; }
+  .radio-card { display: flex; align-items: flex-start; gap: 0.75rem; padding: 0.875rem 1rem; background: #0f172a; border: 1px solid #334155; border-radius: 8px; cursor: pointer; transition: border-color 0.15s; }
+  .radio-card:has(input:checked) { border-color: #d6b779; background: #1a1a0f; }
+  .radio-card input { margin-top: 2px; accent-color: #d6b779; }
+  .radio-card-label { display: block; font-weight: 600; color: #e2e8f0; font-size: 0.9rem; }
+  .radio-card-desc { display: block; color: #64748b; font-size: 0.8rem; margin-top: 2px; }
+
+  .model-grid { display: flex; flex-direction: column; gap: 0.75rem; }
+  .model-row { display: flex; align-items: center; gap: 1rem; }
+  .model-label { width: 200px; flex-shrink: 0; color: #94a3b8; font-size: 0.85rem; }
+  .model-select { flex: 1; background: #0f172a; border: 1px solid #334155; color: #e2e8f0; padding: 0.5rem 0.75rem; border-radius: 6px; font-size: 0.85rem; }
+  .model-select:focus { outline: none; border-color: #d6b779; }
+
+  .toggle-row { display: flex; align-items: center; gap: 0.75rem; cursor: pointer; margin-bottom: 1rem; }
+  .toggle-row input { width: 18px; height: 18px; accent-color: #d6b779; cursor: pointer; }
+  .toggle-label { color: #e2e8f0; font-size: 0.9rem; }
+
+  .budgets-panel { margin-top: 0.5rem; }
+  .budget-grid { display: flex; flex-direction: column; gap: 0.6rem; margin-bottom: 0.75rem; }
+  .budget-row { display: flex; align-items: center; gap: 1rem; }
+  .budget-label { width: 200px; flex-shrink: 0; color: #94a3b8; font-size: 0.85rem; }
+  .budget-input { width: 120px; background: #0f172a; border: 1px solid #334155; color: #e2e8f0; padding: 0.4rem 0.6rem; border-radius: 6px; font-size: 0.85rem; }
+  .budget-input:focus { outline: none; border-color: #d6b779; }
+  .budget-note { color: #64748b; font-size: 0.78rem; line-height: 1.5; margin: 0; }
+
+  .settings-actions { display: flex; align-items: center; gap: 1rem; padding-top: 0.5rem; }
+  .btn-save { background: #d6b779; color: #0f172a; border: none; padding: 0.6rem 1.5rem; border-radius: 8px; font-weight: 600; font-size: 0.9rem; cursor: pointer; transition: opacity 0.15s; }
+  .btn-save:hover { opacity: 0.9; }
+  .btn-save:disabled { opacity: 0.5; cursor: not-allowed; }
+  .save-status { font-size: 0.85rem; }
+  .save-status.ok { color: #4ade80; }
+  .save-status.error { color: #f87171; }
+  .save-status.saving { color: #94a3b8; }
+
+  /* Reuse admin layout styles from existing pages */
+  .admin-layout { min-height: 100vh; background: #0f172a; color: #e2e8f0; font-family: 'Roboto', sans-serif; }
+  .admin-header { display: flex; align-items: center; gap: 1rem; padding: 1rem 1.5rem; background: #1e293b; border-bottom: 1px solid #334155; }
+  .admin-logo { font-weight: 700; color: #d6b779; text-decoration: none; font-size: 1.1rem; margin-right: 0.5rem; }
+  .breadcrumb { display: flex; align-items: center; gap: 0.5rem; flex: 1; }
+  .bc-link { color: #94a3b8; text-decoration: none; font-size: 0.9rem; }
+  .bc-link:hover { color: #e2e8f0; }
+  .bc-sep { color: #475569; }
+  .bc-current { color: #e2e8f0; font-size: 0.9rem; }
+  .header-actions { display: flex; align-items: center; gap: 0.75rem; }
+  .btn-logout { color: #64748b; text-decoration: none; font-size: 0.85rem; }
+  .btn-logout:hover { color: #94a3b8; }
+  .admin-main { padding: 1.5rem; }
+</style>

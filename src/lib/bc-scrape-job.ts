@@ -69,7 +69,7 @@ class BcScrapeJobManager extends EventEmitter {
     return true;
   }
 
-  start(projectId: number): { ok: boolean; reason?: string } {
+  start(projectId: number, extraEnv: Record<string, string> = {}): { ok: boolean; reason?: string } {
     if (this._status === 'running') {
       return { ok: false, reason: 'Brand Clarity scrape already running' };
     }
@@ -91,6 +91,7 @@ class BcScrapeJobManager extends EventEmitter {
       env: {
         ...process.env,
         BC_PROJECT_ID: String(projectId),
+        ...extraEnv,
       },
       shell: true,
     });

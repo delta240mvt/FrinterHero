@@ -3,6 +3,7 @@ import { db } from '@/db/client';
 import { bcProjects, bcExtractedPainPoints } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { spawn } from 'child_process';
+import { getBcSettings, buildLlmEnv } from '@/lib/bc-settings';
 
 function auth(cookies: any) {
   return !!cookies.get('session')?.value;
@@ -10,7 +11,7 @@ function auth(cookies: any) {
 
 const JSON_HEADERS = { 'Content-Type': 'application/json' };
 
-function runLpGenerator(projectId: number): Promise<{ variantsGenerated: number; error?: string; logs: string[] }> {
+function runLpGenerator(projectId: number, extraEnv: Record<string, string>): Promise<{ variantsGenerated: number; error?: string; logs: string[] }> {
   return new Promise((resolve) => {
     let variantsGenerated = 0;
     const logs: string[] = [];
@@ -18,7 +19,7 @@ function runLpGenerator(projectId: number): Promise<{ variantsGenerated: number;
 
     const child = spawn('npx', ['tsx', 'scripts/bc-lp-generator.ts'], {
       cwd: process.cwd(),
-      env: { ...process.env, BC_PROJECT_ID: String(projectId) },
+      env: { ...process.env, BC_PROJECT_ID: String(projectId), ...extraEnv },
       shell: true,
     });
 
@@ -76,7 +77,8 @@ export const POST: APIRoute = async ({ params, cookies }) => {
   await db.update(bcProjects).set({ status: 'generating', updatedAt: new Date() })
     .where(eq(bcProjects.id, projectId));
 
-  const result = await runLpGenerator(projectId);
+  const llmSettings = await getBcSettings();
+  const result = await runLpGenerator(projectId, buildLlmEnv(llmSettings));
   if (result.error) {
     await db.update(bcProjects).set({ status: 'pain_points_pending', updatedAt: new Date() })
       .where(eq(bcProjects.id, projectId));

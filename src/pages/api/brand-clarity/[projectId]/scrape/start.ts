@@ -3,6 +3,7 @@ import { db } from '@/db/client';
 import { bcProjects, bcTargetVideos } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { bcScrapeJob } from '@/lib/bc-scrape-job';
+import { getBcSettings, buildLlmEnv } from '@/lib/bc-settings';
 
 function auth(cookies: any) {
   return !!cookies.get('session')?.value;
@@ -31,7 +32,8 @@ export const POST: APIRoute = async ({ params, cookies }) => {
     return new Response(JSON.stringify({ error: 'No selected videos — select at least one video to scrape' }), { status: 400, headers: JSON_HEADERS });
   }
 
-  const result = bcScrapeJob.start(projectId);
+  const llmSettings = await getBcSettings();
+  const result = bcScrapeJob.start(projectId, buildLlmEnv(llmSettings));
   if (!result.ok) {
     return new Response(JSON.stringify({ error: result.reason }), { status: 409, headers: JSON_HEADERS });
   }
