@@ -38,9 +38,9 @@ export const BC_SETTINGS_DEFAULTS: BcSettingsConfig = {
   scraperThinkingBudget: 5000,
   clusterThinkingBudget: 16000,
   generatorThinkingBudget: 16000,
-  lpMaxTokens: 6000,
+  lpMaxTokens: 6144,
   scraperMaxTokens: 4096,
-  clusterMaxTokens: 3000,
+  clusterMaxTokens: 3072,
   generatorMaxTokens: 8192,
 };
 

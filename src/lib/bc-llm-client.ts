@@ -206,7 +206,7 @@ export function getBcGeneratorModel(): string {
 // ─── Max tokens per step ──────────────────────────────────────────────────────
 
 export function getBcLpMaxTokens(): number {
-  return parseInt(process.env.BC_LP_MAX_TOKENS || '6000', 10);
+  return parseInt(process.env.BC_LP_MAX_TOKENS || '6144', 10);
 }
 
 export function getBcScraperMaxTokens(): number {
@@ -214,7 +214,7 @@ export function getBcScraperMaxTokens(): number {
 }
 
 export function getBcClusterMaxTokens(): number {
-  return parseInt(process.env.BC_CLUSTER_MAX_TOKENS || '3000', 10);
+  return parseInt(process.env.BC_CLUSTER_MAX_TOKENS || '3072', 10);
 }
 
 export function getBcGeneratorMaxTokens(): number {
