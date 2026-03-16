@@ -181,8 +181,10 @@ const scraped   = selectedVideos.filter(v => v.isScraped);
           <p class="section-subtitle">{approved} approved · {rejected} rejected · {pending} pending</p>
         </div>
         <div class="header-btns">
-          {approved >= 3 && clusters.length === 0 && (
-            <button id="cluster-btn" class="btn-primary">Cluster Pain Points</button>
+          {approved >= 3 && (
+            <button id="cluster-btn" class="btn-cluster">
+              {clusters.length > 0 ? '↺ Re-cluster' : 'Cluster Pain Points'}
+            </button>
           )}
           {clusters.length > 0 && (
             <a href={`/admin/brand-clarity/${projectId}/variants`} class="btn-primary">Generate LPs →</a>
@@ -616,6 +618,9 @@ const scraped   = selectedVideos.filter(v => v.isScraped);
 .section-title { font-family: var(--font-mono); font-size: 1rem; color: var(--text-primary); font-weight: 700; margin: 0; }
 .section-subtitle { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); margin: 0; }
 .header-btns { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.btn-cluster { padding: 0.4rem 1rem; background: none; border: 1px solid var(--teal); color: var(--teal); border-radius: 0.3rem; font-family: var(--font-mono); font-size: var(--text-xs); cursor: pointer; }
+.btn-cluster:hover { background: rgba(74,141,131,0.08); }
+.btn-cluster:disabled { opacity: 0.5; cursor: not-allowed; }
 .link-teal { color: var(--teal); }
 
 /* Video tabs */
