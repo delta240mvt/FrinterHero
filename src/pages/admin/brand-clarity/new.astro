@@ -68,6 +68,20 @@ import Base from '@/components/layouts/Base.astro';
       </form>
 
       <div id="status-msg" class="status-msg" style="display:none"></div>
+
+      <!-- Console -->
+      <div id="parse-console" class="parse-console" style="display:none">
+        <div class="console-header">
+          <span id="console-status-dot" class="console-dot console-dot--running"></span>
+          <span id="console-title" class="console-title">LP Parser — running…</span>
+          <span id="console-elapsed" class="console-elapsed"></span>
+        </div>
+        <div id="console-output" class="console-output"></div>
+        <div id="console-footer" class="console-footer" style="display:none">
+          <span id="console-result-msg"></span>
+          <span id="console-redirect-msg" class="console-redirect-msg"></span>
+        </div>
+      </div>
     </section>
   </main>
 </div>
@@ -199,12 +213,79 @@ tone_of_voice: |
   const form = document.getElementById('new-project-form') as HTMLFormElement;
   const submitBtn = document.getElementById('submit-btn') as HTMLButtonElement;
   const statusMsg = document.getElementById('status-msg') as HTMLElement;
+  const parseConsole = document.getElementById('parse-console') as HTMLElement;
+  const consoleOutput = document.getElementById('console-output') as HTMLElement;
+  const consoleDot = document.getElementById('console-status-dot') as HTMLElement;
+  const consoleTitle = document.getElementById('console-title') as HTMLElement;
+  const consoleElapsed = document.getElementById('console-elapsed') as HTMLElement;
+  const consoleFooter = document.getElementById('console-footer') as HTMLElement;
+  const consoleResultMsg = document.getElementById('console-result-msg') as HTMLElement;
+  const consoleRedirectMsg = document.getElementById('console-redirect-msg') as HTMLElement;
+
+  let elapsedTimer: ReturnType<typeof setInterval> | null = null;
+  let startTime = 0;
+
+  function appendLine(text: string) {
+    const el = document.createElement('div');
+    el.className = 'console-line';
+    // Colour certain keywords
+    if (text.includes('[ERROR]') || text.includes('error') || text.includes('Error')) {
+      el.classList.add('console-line--error');
+    } else if (text.includes('✓') || text.includes('done') || text.includes('Done') || text.includes('saved')) {
+      el.classList.add('console-line--ok');
+    }
+    el.textContent = text;
+    consoleOutput.appendChild(el);
+    consoleOutput.scrollTop = consoleOutput.scrollHeight;
+  }
+
+  function showConsole() {
+    parseConsole.style.display = 'block';
+    parseConsole.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    startTime = Date.now();
+    elapsedTimer = setInterval(() => {
+      const s = Math.floor((Date.now() - startTime) / 1000);
+      consoleElapsed.textContent = `${s}s`;
+    }, 1000);
+  }
+
+  function finishConsole(success: boolean, projectId: number) {
+    if (elapsedTimer) clearInterval(elapsedTimer);
+    consoleDot.className = success ? 'console-dot console-dot--ok' : 'console-dot console-dot--error';
+    consoleTitle.textContent = success ? 'LP Parser — done ✓' : 'LP Parser — error ✗';
+    consoleFooter.style.display = 'flex';
+    if (success) {
+      consoleResultMsg.textContent = 'LP parsed successfully.';
+      consoleResultMsg.className = 'console-result-ok';
+      let countdown = 3;
+      consoleRedirectMsg.textContent = `Redirecting to channels in ${countdown}s…`;
+      const t = setInterval(() => {
+        countdown--;
+        if (countdown <= 0) {
+          clearInterval(t);
+          window.location.href = `/admin/brand-clarity/${projectId}/channels`;
+        } else {
+          consoleRedirectMsg.textContent = `Redirecting to channels in ${countdown}s…`;
+        }
+      }, 1000);
+    } else {
+      consoleResultMsg.textContent = 'Parser failed — check logs above.';
+      consoleResultMsg.className = 'console-result-error';
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Parse LP & Create Project';
+    }
+  }
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     submitBtn.disabled = true;
-    submitBtn.textContent = 'Creating & parsing LP…';
+    submitBtn.textContent = 'Creating project…';
     statusMsg.style.display = 'none';
+    consoleOutput.innerHTML = '';
+    consoleFooter.style.display = 'none';
+    consoleDot.className = 'console-dot console-dot--running';
+    consoleTitle.textContent = 'LP Parser — running…';
+    consoleElapsed.textContent = '';
 
     const body = {
       name: (document.getElementById('name') as HTMLInputElement).value.trim(),
@@ -226,24 +307,31 @@ tone_of_voice: |
       }
 
       const data = await res.json();
-      statusMsg.style.display = 'block';
-      statusMsg.className = 'status-msg status-msg--success';
-      statusMsg.textContent = `Project created! LP parsing started. Redirecting to channels…`;
-
-      // Poll until status changes from 'draft'
       const projectId = data.project.id;
-      let attempts = 0;
-      const poll = setInterval(async () => {
-        attempts++;
+
+      submitBtn.textContent = 'Parsing LP…';
+      showConsole();
+      appendLine(`[BC-LP-PARSER] Project #${projectId} created — starting LP analysis…`);
+
+      // Subscribe to SSE log stream
+      const sse = new EventSource('/api/brand-clarity/projects/parse-stream');
+      sse.onmessage = (ev) => {
         try {
-          const r = await fetch(`/api/brand-clarity/projects/${projectId}`);
-          const p = await r.json();
-          if (p.status !== 'draft' || attempts > 30) {
-            clearInterval(poll);
-            window.location.href = `/admin/brand-clarity/${projectId}/channels`;
+          const msg = JSON.parse(ev.data);
+          if (msg.line) {
+            appendLine(msg.line);
           }
-        } catch { clearInterval(poll); window.location.href = `/admin/brand-clarity/${projectId}/channels`; }
-      }, 3000);
+          if (msg.done) {
+            sse.close();
+            finishConsole(msg.code === 0, projectId);
+          }
+        } catch {}
+      };
+      sse.onerror = () => {
+        sse.close();
+        appendLine('[ERROR] Lost connection to parser stream.');
+        finishConsole(false, projectId);
+      };
 
     } catch (err: any) {
       statusMsg.style.display = 'block';
@@ -302,5 +390,24 @@ tone_of_voice: |
 .upload-zone--done { border-color: var(--teal); border-style: solid; }
 .upload-zone-text { font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-muted); }
 .upload-zone-dim { color: var(--text-muted); opacity: 0.6; }
+
+/* ── Parse console ───────────────────────────────────────────────────────── */
+.parse-console { background: var(--bg-base); border: 1px solid var(--border); border-radius: 0.625rem; overflow: hidden; margin-top: 0.5rem; }
+.console-header { display: flex; align-items: center; gap: 0.625rem; padding: 0.6rem 1rem; background: var(--bg-elevated); border-bottom: 1px solid var(--border); }
+.console-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.console-dot--running { background: var(--gold); box-shadow: 0 0 6px var(--gold); animation: pulse 1.2s ease-in-out infinite; }
+.console-dot--ok    { background: var(--teal); }
+.console-dot--error { background: #ef4444; }
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+.console-title   { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-secondary); flex: 1; }
+.console-elapsed { font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-muted); }
+.console-output  { padding: 0.75rem 1rem; max-height: 320px; overflow-y: auto; display: flex; flex-direction: column; gap: 1px; }
+.console-line    { font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-secondary); line-height: 1.5; white-space: pre-wrap; word-break: break-all; }
+.console-line--ok    { color: var(--teal); }
+.console-line--error { color: #ef4444; }
+.console-footer  { display: flex; align-items: center; gap: 1rem; padding: 0.6rem 1rem; background: var(--bg-elevated); border-top: 1px solid var(--border); }
+.console-result-ok    { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--teal); }
+.console-result-error { font-family: var(--font-mono); font-size: var(--text-xs); color: #ef4444; }
+.console-redirect-msg { font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-muted); }
 </style>
 </Base>

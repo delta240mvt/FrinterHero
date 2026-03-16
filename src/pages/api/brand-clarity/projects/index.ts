@@ -2,8 +2,8 @@ import type { APIRoute } from 'astro';
 import { db } from '@/db/client';
 import { bcProjects } from '@/db/schema';
 import { desc } from 'drizzle-orm';
-import { spawn } from 'child_process';
 import { getBcSettings, buildLlmEnv } from '@/lib/bc-settings';
+import { bcLpParseJob } from '@/lib/bc-lp-parse-job';
 
 function auth(cookies: any) {
   return !!cookies.get('session')?.value;
@@ -39,14 +39,9 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     status: 'draft',
   }).returning();
 
-  // Spawn LP parser asynchronously (non-blocking — client polls status)
+  // Spawn LP parser via job manager (captures logs for SSE stream)
   const llmSettings = await getBcSettings();
-  spawn('npx', ['tsx', 'scripts/bc-lp-parser.ts'], {
-    cwd: process.cwd(),
-    env: { ...process.env, BC_PROJECT_ID: String(project.id), ...buildLlmEnv(llmSettings) },
-    shell: true,
-    detached: false,
-  });
+  bcLpParseJob.start(project.id, buildLlmEnv(llmSettings));
 
   return new Response(JSON.stringify({ project, parsingStarted: true }), { status: 201, headers: JSON_HEADERS });
 };
