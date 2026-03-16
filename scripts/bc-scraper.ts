@@ -18,7 +18,7 @@ import { db } from '../src/db/client';
 import { bcProjects, bcTargetVideos, bcComments, bcExtractedPainPoints } from '../src/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { findOffBrandMatch } from '../src/utils/brandFilter';
-import { callBcLlm, getBcScraperModel, getBcThinkingBudget } from '../src/lib/bc-llm-client';
+import { callBcLlm, getBcScraperModel, getBcScraperMaxTokens, getBcThinkingBudget } from '../src/lib/bc-llm-client';
 
 dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
 
@@ -27,6 +27,7 @@ const YT_API_KEY     = process.env.YOUTUBE_API_KEY!;
 const MAX_COMMENTS   = parseInt(process.env.BC_MAX_COMMENTS_PER_VIDEO || '100', 10);
 const CHUNK_SIZE     = parseInt(process.env.BC_CHUNK_SIZE || '20', 10);
 const MODEL          = getBcScraperModel();
+const MAX_TOKENS     = getBcScraperMaxTokens();
 const THINKING_BUDGET = getBcThinkingBudget('scraper');
 const YT_BASE        = 'https://www.googleapis.com/youtube/v3';
 
@@ -192,7 +193,7 @@ Return ONLY valid JSON. No markdown, no explanations.`;
   try {
     const llmResp = await callBcLlm({
       model: MODEL,
-      maxTokens: 4096,
+      maxTokens: MAX_TOKENS,
       messages: [{ role: 'user', content: userContent }],
       systemPrompt,
       thinkingBudget: THINKING_BUDGET,

@@ -203,6 +203,24 @@ export function getBcGeneratorModel(): string {
   return process.env.BC_LP_MODEL || 'anthropic/claude-sonnet-4-6';
 }
 
+// ─── Max tokens per step ──────────────────────────────────────────────────────
+
+export function getBcLpMaxTokens(): number {
+  return parseInt(process.env.BC_LP_MAX_TOKENS || '6000', 10);
+}
+
+export function getBcScraperMaxTokens(): number {
+  return parseInt(process.env.BC_SCRAPER_MAX_TOKENS || '4096', 10);
+}
+
+export function getBcClusterMaxTokens(): number {
+  return parseInt(process.env.BC_CLUSTER_MAX_TOKENS || '3000', 10);
+}
+
+export function getBcGeneratorMaxTokens(): number {
+  return parseInt(process.env.BC_GENERATOR_MAX_TOKENS || '8192', 10);
+}
+
 // ─── Thinking budget per step ─────────────────────────────────────────────────
 
 export function getBcThinkingBudget(

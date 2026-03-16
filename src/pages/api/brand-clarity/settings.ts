@@ -33,6 +33,10 @@ export const PUT: APIRoute = async ({ request, cookies }) => {
     scraperThinkingBudget: Math.max(1024, parseInt(String(body.scraperThinkingBudget || 5000), 10)),
     clusterThinkingBudget: Math.max(1024, parseInt(String(body.clusterThinkingBudget || 16000), 10)),
     generatorThinkingBudget: Math.max(1024, parseInt(String(body.generatorThinkingBudget || 16000), 10)),
+    lpMaxTokens: Math.max(512, parseInt(String(body.lpMaxTokens || 6000), 10)),
+    scraperMaxTokens: Math.max(512, parseInt(String(body.scraperMaxTokens || 4096), 10)),
+    clusterMaxTokens: Math.max(512, parseInt(String(body.clusterMaxTokens || 3000), 10)),
+    generatorMaxTokens: Math.max(512, parseInt(String(body.generatorMaxTokens || 8192), 10)),
   };
 
   await saveBcSettings(config);

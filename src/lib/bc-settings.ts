@@ -21,6 +21,10 @@ export interface BcSettingsConfig {
   scraperThinkingBudget: number;
   clusterThinkingBudget: number;
   generatorThinkingBudget: number;
+  lpMaxTokens: number;
+  scraperMaxTokens: number;
+  clusterMaxTokens: number;
+  generatorMaxTokens: number;
 }
 
 export const BC_SETTINGS_DEFAULTS: BcSettingsConfig = {
@@ -34,6 +38,10 @@ export const BC_SETTINGS_DEFAULTS: BcSettingsConfig = {
   scraperThinkingBudget: 5000,
   clusterThinkingBudget: 16000,
   generatorThinkingBudget: 16000,
+  lpMaxTokens: 6000,
+  scraperMaxTokens: 4096,
+  clusterMaxTokens: 3000,
+  generatorMaxTokens: 8192,
 };
 
 export async function getBcSettings(): Promise<BcSettingsConfig> {
@@ -67,5 +75,9 @@ export function buildLlmEnv(s: BcSettingsConfig): Record<string, string> {
     BC_SCRAPER_THINKING_BUDGET: String(s.scraperThinkingBudget),
     BC_CLUSTER_THINKING_BUDGET: String(s.clusterThinkingBudget),
     BC_GENERATOR_THINKING_BUDGET: String(s.generatorThinkingBudget),
+    BC_LP_MAX_TOKENS: String(s.lpMaxTokens),
+    BC_SCRAPER_MAX_TOKENS: String(s.scraperMaxTokens),
+    BC_CLUSTER_MAX_TOKENS: String(s.clusterMaxTokens),
+    BC_GENERATOR_MAX_TOKENS: String(s.generatorMaxTokens),
   };
 }

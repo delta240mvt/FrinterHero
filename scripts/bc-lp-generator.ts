@@ -23,12 +23,13 @@ import * as path from 'path';
 import { db } from '../src/db/client';
 import { bcProjects, bcExtractedPainPoints, bcLandingPageVariants, bcPainClusters } from '../src/db/schema';
 import { eq, and, desc } from 'drizzle-orm';
-import { callBcLlm, getBcGeneratorModel, getBcThinkingBudget } from '../src/lib/bc-llm-client';
+import { callBcLlm, getBcGeneratorModel, getBcGeneratorMaxTokens, getBcThinkingBudget } from '../src/lib/bc-llm-client';
 
 dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
 
 const BC_PROJECT_ID = parseInt(process.env.BC_PROJECT_ID || '0', 10);
 const MODEL = getBcGeneratorModel();
+const MAX_TOKENS = getBcGeneratorMaxTokens();
 const THINKING_BUDGET = getBcThinkingBudget('generator');
 
 function log(msg: string) {
@@ -209,7 +210,7 @@ No external CSS dependencies. Include minimal inline styles for readability.`;
   try {
     const htmlLlmResp = await callBcLlm({
       model: MODEL,
-      maxTokens: 8192,
+      maxTokens: MAX_TOKENS,
       messages: [{ role: 'user', content: prompt }],
       systemPrompt,
       thinkingBudget: THINKING_BUDGET,

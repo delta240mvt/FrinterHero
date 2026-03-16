@@ -15,6 +15,8 @@ try {
   <header class="admin-header">
     <a href="/admin" class="admin-logo">P·F</a>
     <nav class="breadcrumb">
+      <a href="/admin" class="bc-link">Admin</a>
+      <span class="bc-sep">›</span>
       <a href="/admin/brand-clarity" class="bc-link">Brand Clarity</a>
       <span class="bc-sep">›</span>
       <span class="bc-current">LLM Settings</span>
@@ -25,17 +27,19 @@ try {
   </header>
 
   <main class="admin-main">
-    <div class="settings-page">
-      <div class="settings-header">
-        <h1 class="settings-title">LLM Settings</h1>
-        <p class="settings-subtitle">Konfiguracja modeli i Extended Thinking dla całego Brand Clarity pipeline. Klucze API zostają w <code>.env</code>.</p>
+    <section class="admin-section">
+      <div class="section-header-row">
+        <div class="section-title-block">
+          <h2 class="section-title">⚙ LLM Settings</h2>
+          <p class="section-subtitle">Provider · Modele · Max Tokens · Extended Thinking — klucze API zostają w <code>.env</code></p>
+        </div>
       </div>
 
       <form id="settings-form" class="settings-form">
 
         <!-- Provider -->
-        <section class="settings-section">
-          <h2 class="settings-section-title">Provider</h2>
+        <div class="settings-card">
+          <h3 class="card-title">Provider</h3>
           <div class="radio-group">
             <label class="radio-card">
               <input type="radio" name="provider" value="openrouter" checked={settings.provider === 'openrouter'} />
@@ -52,86 +56,110 @@ try {
               </div>
             </label>
           </div>
-        </section>
+        </div>
 
-        <!-- Models (shown only for Anthropic) -->
-        <section class="settings-section" id="models-section">
-          <h2 class="settings-section-title">Modele <span class="badge-anthropic">Anthropic</span></h2>
-          <p class="settings-note">Używane tylko gdy provider = Anthropic Direct.</p>
-          <div class="model-grid">
-            <div class="model-row">
-              <label class="model-label">LP Parser + Generator</label>
-              <select name="lpModel" class="model-select">
+        <!-- Models -->
+        <div class="settings-card" id="models-section">
+          <h3 class="card-title">Modele <span class="badge">Anthropic</span></h3>
+          <p class="card-note">Używane tylko gdy provider = Anthropic Direct.</p>
+          <div class="field-grid">
+            <div class="field-row">
+              <label class="field-label">LP Parser + Generator</label>
+              <select name="lpModel" class="field-select">
                 <option value="claude-opus-4-6" selected={settings.lpModel === 'claude-opus-4-6'}>claude-opus-4-6 (max quality, adaptive thinking)</option>
                 <option value="claude-sonnet-4-6" selected={settings.lpModel === 'claude-sonnet-4-6'}>claude-sonnet-4-6 ★ (recommended)</option>
                 <option value="claude-haiku-4-5-20251001" selected={settings.lpModel === 'claude-haiku-4-5-20251001'}>claude-haiku-4-5-20251001 (fast, cheap)</option>
               </select>
             </div>
-            <div class="model-row">
-              <label class="model-label">Scraper (bulk extraction)</label>
-              <select name="scraperModel" class="model-select">
-                <option value="claude-haiku-4-5-20251001" selected={settings.scraperModel === 'claude-haiku-4-5-20251001'}>claude-haiku-4-5-20251001 ★ (recommended — cost)</option>
+            <div class="field-row">
+              <label class="field-label">Scraper (bulk extraction)</label>
+              <select name="scraperModel" class="field-select">
+                <option value="claude-haiku-4-5-20251001" selected={settings.scraperModel === 'claude-haiku-4-5-20251001'}>claude-haiku-4-5-20251001 ★ (recommended)</option>
                 <option value="claude-sonnet-4-6" selected={settings.scraperModel === 'claude-sonnet-4-6'}>claude-sonnet-4-6 (better quality)</option>
                 <option value="claude-opus-4-6" selected={settings.scraperModel === 'claude-opus-4-6'}>claude-opus-4-6 (expensive for bulk)</option>
               </select>
             </div>
-            <div class="model-row">
-              <label class="model-label">Pain Clusterer</label>
-              <select name="clusterModel" class="model-select">
+            <div class="field-row">
+              <label class="field-label">Pain Clusterer</label>
+              <select name="clusterModel" class="field-select">
                 <option value="claude-opus-4-6" selected={settings.clusterModel === 'claude-opus-4-6'}>claude-opus-4-6 (max quality)</option>
                 <option value="claude-sonnet-4-6" selected={settings.clusterModel === 'claude-sonnet-4-6'}>claude-sonnet-4-6 ★ (recommended)</option>
                 <option value="claude-haiku-4-5-20251001" selected={settings.clusterModel === 'claude-haiku-4-5-20251001'}>claude-haiku-4-5-20251001 (fast)</option>
               </select>
             </div>
-            <div class="model-row">
-              <label class="model-label">LP Generator (HTML variants)</label>
-              <select name="generatorModel" class="model-select">
+            <div class="field-row">
+              <label class="field-label">LP Generator (HTML variants)</label>
+              <select name="generatorModel" class="field-select">
                 <option value="claude-opus-4-6" selected={settings.generatorModel === 'claude-opus-4-6'}>claude-opus-4-6 (max quality)</option>
                 <option value="claude-sonnet-4-6" selected={settings.generatorModel === 'claude-sonnet-4-6'}>claude-sonnet-4-6 ★ (recommended)</option>
                 <option value="claude-haiku-4-5-20251001" selected={settings.generatorModel === 'claude-haiku-4-5-20251001'}>claude-haiku-4-5-20251001 (fast)</option>
               </select>
             </div>
           </div>
-        </section>
+        </div>
+
+        <!-- Max Tokens -->
+        <div class="settings-card">
+          <h3 class="card-title">Max Tokens per krok</h3>
+          <p class="card-note">Maksymalna liczba tokenów odpowiedzi. Dotyczy obu providerów. Meta JSON call w generatorze zawsze używa 1000 (niezmienne).</p>
+          <div class="field-grid">
+            <div class="field-row">
+              <label class="field-label">LP Parser</label>
+              <input type="number" name="lpMaxTokens" class="field-input-num" min="512" max="16000" step="512" value={settings.lpMaxTokens} />
+            </div>
+            <div class="field-row">
+              <label class="field-label">Scraper (per video)</label>
+              <input type="number" name="scraperMaxTokens" class="field-input-num" min="512" max="8192" step="512" value={settings.scraperMaxTokens} />
+            </div>
+            <div class="field-row">
+              <label class="field-label">Pain Clusterer</label>
+              <input type="number" name="clusterMaxTokens" class="field-input-num" min="512" max="16000" step="512" value={settings.clusterMaxTokens} />
+            </div>
+            <div class="field-row">
+              <label class="field-label">LP Generator (HTML)</label>
+              <input type="number" name="generatorMaxTokens" class="field-input-num" min="512" max="16000" step="512" value={settings.generatorMaxTokens} />
+            </div>
+          </div>
+        </div>
 
         <!-- Extended Thinking -->
-        <section class="settings-section" id="thinking-section">
-          <h2 class="settings-section-title">Extended Thinking <span class="badge-anthropic">Anthropic only</span></h2>
-          <p class="settings-note">Działa tylko z Anthropic Direct. Zwiększa jakość kosztem latency i tokenów.</p>
+        <div class="settings-card" id="thinking-section">
+          <h3 class="card-title">Extended Thinking <span class="badge">Anthropic only</span></h3>
+          <p class="card-note">Działa tylko z Anthropic Direct. Zwiększa jakość kosztem latency i tokenów.</p>
           <label class="toggle-row">
             <input type="checkbox" id="et-toggle" name="extendedThinkingEnabled" checked={settings.extendedThinkingEnabled} />
             <span class="toggle-label">Włącz Extended Thinking</span>
           </label>
 
           <div id="budgets-panel" class="budgets-panel">
-            <div class="budget-grid">
-              <div class="budget-row">
-                <label class="budget-label">LP Parser (budget tokens)</label>
-                <input type="number" name="lpThinkingBudget" class="budget-input" min="1024" max="32000" step="1000" value={settings.lpThinkingBudget} />
+            <div class="field-grid">
+              <div class="field-row">
+                <label class="field-label">LP Parser (budget tokens)</label>
+                <input type="number" name="lpThinkingBudget" class="field-input-num" min="1024" max="32000" step="1000" value={settings.lpThinkingBudget} />
               </div>
-              <div class="budget-row">
-                <label class="budget-label">Scraper (budget tokens)</label>
-                <input type="number" name="scraperThinkingBudget" class="budget-input" min="1024" max="16000" step="1000" value={settings.scraperThinkingBudget} />
+              <div class="field-row">
+                <label class="field-label">Scraper (budget tokens)</label>
+                <input type="number" name="scraperThinkingBudget" class="field-input-num" min="1024" max="16000" step="1000" value={settings.scraperThinkingBudget} />
               </div>
-              <div class="budget-row">
-                <label class="budget-label">Clusterer (budget tokens)</label>
-                <input type="number" name="clusterThinkingBudget" class="budget-input" min="1024" max="64000" step="1000" value={settings.clusterThinkingBudget} />
+              <div class="field-row">
+                <label class="field-label">Clusterer (budget tokens)</label>
+                <input type="number" name="clusterThinkingBudget" class="field-input-num" min="1024" max="64000" step="1000" value={settings.clusterThinkingBudget} />
               </div>
-              <div class="budget-row">
-                <label class="budget-label">Generator HTML (budget tokens)</label>
-                <input type="number" name="generatorThinkingBudget" class="budget-input" min="1024" max="64000" step="1000" value={settings.generatorThinkingBudget} />
+              <div class="field-row">
+                <label class="field-label">Generator HTML (budget tokens)</label>
+                <input type="number" name="generatorThinkingBudget" class="field-input-num" min="1024" max="64000" step="1000" value={settings.generatorThinkingBudget} />
               </div>
             </div>
-            <p class="budget-note">⚠ Opus 4.6 ignoruje budżet — używa adaptive thinking automatycznie.<br>Min: 1024. Powyżej 32k zalecany batch processing.</p>
+            <p class="card-note" style="margin-top:0.5rem">⚠ Opus 4.6 ignoruje budżet — używa adaptive thinking automatycznie. Min: 1024.</p>
           </div>
-        </section>
+        </div>
 
         <div class="settings-actions">
-          <button type="submit" class="btn-save" id="save-btn">Zapisz ustawienia</button>
+          <button type="submit" class="btn-primary" id="save-btn">Zapisz ustawienia</button>
           <span id="save-status" class="save-status"></span>
         </div>
       </form>
-    </div>
+    </section>
   </main>
 </div>
 </Base>
@@ -150,7 +178,7 @@ try {
     const isAnthropic = [...providerRadios].find(r => r.checked)?.value === 'anthropic';
     modelsSection.style.opacity = isAnthropic ? '1' : '0.4';
     thinkingSection.style.opacity = isAnthropic ? '1' : '0.4';
-    budgetsPanel.style.display = (isAnthropic && etToggle.checked) ? 'block' : 'none';
+    budgetsPanel.style.display = (isAnthropic && etToggle.checked) ? 'flex' : 'none';
   }
 
   providerRadios.forEach(r => r.addEventListener('change', updateVisibility));
@@ -171,6 +199,10 @@ try {
       clusterModel: fd.get('clusterModel'),
       generatorModel: fd.get('generatorModel'),
       extendedThinkingEnabled: etToggle.checked,
+      lpMaxTokens: parseInt(String(fd.get('lpMaxTokens') || '6000'), 10),
+      scraperMaxTokens: parseInt(String(fd.get('scraperMaxTokens') || '4096'), 10),
+      clusterMaxTokens: parseInt(String(fd.get('clusterMaxTokens') || '3000'), 10),
+      generatorMaxTokens: parseInt(String(fd.get('generatorMaxTokens') || '8192'), 10),
       lpThinkingBudget: parseInt(String(fd.get('lpThinkingBudget') || '10000'), 10),
       scraperThinkingBudget: parseInt(String(fd.get('scraperThinkingBudget') || '5000'), 10),
       clusterThinkingBudget: parseInt(String(fd.get('clusterThinkingBudget') || '16000'), 10),
@@ -202,64 +234,58 @@ try {
 </script>
 
 <style>
-  .settings-page { max-width: 760px; margin: 0 auto; padding: 2rem 1rem; }
-  .settings-header { margin-bottom: 2rem; }
-  .settings-title { font-size: 1.6rem; font-weight: 700; color: #e2e8f0; margin: 0 0 0.5rem; }
-  .settings-subtitle { color: #94a3b8; font-size: 0.9rem; margin: 0; }
-  .settings-subtitle code { background: #1e293b; padding: 2px 6px; border-radius: 4px; font-size: 0.85rem; }
+.admin-layout { min-height: 100vh; background: var(--bg-base); }
+.admin-header { display: flex; align-items: center; gap: 1.25rem; padding: 0.875rem 1.5rem; background: var(--bg-elevated); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 20; }
+.admin-logo   { font-family: var(--font-mono); font-weight: 700; color: var(--teal); text-decoration: none; font-size: 1.1rem; }
+.breadcrumb   { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-secondary); display: flex; gap: 0.4rem; align-items: center; }
+.bc-link  { color: var(--text-muted); text-decoration: none; }
+.bc-link:hover { color: var(--teal); }
+.bc-sep   { color: var(--text-muted); }
+.bc-current { color: var(--text-secondary); }
+.header-actions { margin-left: auto; }
+.btn-logout  { padding: 0.35rem 0.75rem; color: var(--text-muted); border: 1px solid var(--border); border-radius: 0.25rem; font-family: var(--font-mono); font-size: var(--text-xs); text-decoration: none; }
+.admin-main  { max-width: 760px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
 
-  .settings-form { display: flex; flex-direction: column; gap: 1.5rem; }
-  .settings-section { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 1.5rem; }
-  .settings-section-title { font-size: 1rem; font-weight: 600; color: #e2e8f0; margin: 0 0 1rem; display: flex; align-items: center; gap: 0.5rem; }
-  .settings-note { color: #64748b; font-size: 0.82rem; margin: -0.5rem 0 1rem; }
+.admin-section { display: flex; flex-direction: column; gap: 1rem; }
+.section-header-row { padding-bottom: 0.875rem; border-bottom: 1px solid var(--border); }
+.section-title-block { display: flex; flex-direction: column; gap: 0.2rem; }
+.section-title { font-family: var(--font-mono); font-size: 1rem; color: var(--text-primary); font-weight: 700; margin: 0; }
+.section-subtitle { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); margin: 0; }
+.section-subtitle code { background: var(--bg-elevated); padding: 1px 5px; border-radius: 3px; }
 
-  .badge-anthropic { background: #1e3a5f; color: #60a5fa; font-size: 0.7rem; padding: 2px 8px; border-radius: 20px; font-weight: 500; }
+.settings-form { display: flex; flex-direction: column; gap: 0.75rem; }
+.settings-card { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 0.625rem; padding: 1.25rem; display: flex; flex-direction: column; gap: 0.75rem; }
+.card-title { font-family: var(--font-mono); font-size: var(--text-sm); font-weight: 700; color: var(--text-primary); margin: 0; display: flex; align-items: center; gap: 0.5rem; }
+.card-note  { font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-muted); margin: 0; line-height: 1.5; }
+.badge { background: rgba(74,141,131,0.1); color: var(--teal); font-size: 0.65rem; padding: 1px 6px; border-radius: 0.2rem; font-weight: 500; border: 1px solid rgba(74,141,131,0.2); }
 
-  .radio-group { display: flex; flex-direction: column; gap: 0.75rem; }
-  .radio-card { display: flex; align-items: flex-start; gap: 0.75rem; padding: 0.875rem 1rem; background: #0f172a; border: 1px solid #334155; border-radius: 8px; cursor: pointer; transition: border-color 0.15s; }
-  .radio-card:has(input:checked) { border-color: #d6b779; background: #1a1a0f; }
-  .radio-card input { margin-top: 2px; accent-color: #d6b779; }
-  .radio-card-label { display: block; font-weight: 600; color: #e2e8f0; font-size: 0.9rem; }
-  .radio-card-desc { display: block; color: #64748b; font-size: 0.8rem; margin-top: 2px; }
+.radio-group { display: flex; flex-direction: column; gap: 0.5rem; }
+.radio-card { display: flex; align-items: flex-start; gap: 0.75rem; padding: 0.75rem; background: var(--bg-base); border: 1px solid var(--border); border-radius: 0.375rem; cursor: pointer; transition: border-color 0.15s; }
+.radio-card:has(input:checked) { border-color: var(--gold); background: rgba(214,183,121,0.04); }
+.radio-card input { margin-top: 2px; accent-color: var(--gold); flex-shrink: 0; }
+.radio-card-label { display: block; font-family: var(--font-mono); font-weight: 600; color: var(--text-primary); font-size: var(--text-sm); }
+.radio-card-desc  { display: block; font-family: var(--font-mono); color: var(--text-muted); font-size: 0.65rem; margin-top: 2px; }
 
-  .model-grid { display: flex; flex-direction: column; gap: 0.75rem; }
-  .model-row { display: flex; align-items: center; gap: 1rem; }
-  .model-label { width: 200px; flex-shrink: 0; color: #94a3b8; font-size: 0.85rem; }
-  .model-select { flex: 1; background: #0f172a; border: 1px solid #334155; color: #e2e8f0; padding: 0.5rem 0.75rem; border-radius: 6px; font-size: 0.85rem; }
-  .model-select:focus { outline: none; border-color: #d6b779; }
+.field-grid { display: flex; flex-direction: column; gap: 0.5rem; }
+.field-row  { display: flex; align-items: center; gap: 1rem; }
+.field-label { width: 200px; flex-shrink: 0; font-family: var(--font-mono); color: var(--text-secondary); font-size: var(--text-xs); }
+.field-select { flex: 1; background: var(--bg-base); border: 1px solid var(--border); color: var(--text-primary); padding: 0.4rem 0.625rem; border-radius: 0.375rem; font-family: var(--font-mono); font-size: var(--text-xs); outline: none; }
+.field-select:focus { border-color: var(--teal); }
+.field-input-num { width: 110px; background: var(--bg-base); border: 1px solid var(--border); color: var(--text-primary); padding: 0.4rem 0.625rem; border-radius: 0.375rem; font-family: var(--font-mono); font-size: var(--text-xs); outline: none; }
+.field-input-num:focus { border-color: var(--gold); }
 
-  .toggle-row { display: flex; align-items: center; gap: 0.75rem; cursor: pointer; margin-bottom: 1rem; }
-  .toggle-row input { width: 18px; height: 18px; accent-color: #d6b779; cursor: pointer; }
-  .toggle-label { color: #e2e8f0; font-size: 0.9rem; }
+.toggle-row { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; }
+.toggle-row input { width: 15px; height: 15px; accent-color: var(--gold); cursor: pointer; }
+.toggle-label { font-family: var(--font-mono); color: var(--text-primary); font-size: var(--text-sm); }
 
-  .budgets-panel { margin-top: 0.5rem; }
-  .budget-grid { display: flex; flex-direction: column; gap: 0.6rem; margin-bottom: 0.75rem; }
-  .budget-row { display: flex; align-items: center; gap: 1rem; }
-  .budget-label { width: 200px; flex-shrink: 0; color: #94a3b8; font-size: 0.85rem; }
-  .budget-input { width: 120px; background: #0f172a; border: 1px solid #334155; color: #e2e8f0; padding: 0.4rem 0.6rem; border-radius: 6px; font-size: 0.85rem; }
-  .budget-input:focus { outline: none; border-color: #d6b779; }
-  .budget-note { color: #64748b; font-size: 0.78rem; line-height: 1.5; margin: 0; }
+.budgets-panel { display: flex; flex-direction: column; gap: 0.5rem; }
 
-  .settings-actions { display: flex; align-items: center; gap: 1rem; padding-top: 0.5rem; }
-  .btn-save { background: #d6b779; color: #0f172a; border: none; padding: 0.6rem 1.5rem; border-radius: 8px; font-weight: 600; font-size: 0.9rem; cursor: pointer; transition: opacity 0.15s; }
-  .btn-save:hover { opacity: 0.9; }
-  .btn-save:disabled { opacity: 0.5; cursor: not-allowed; }
-  .save-status { font-size: 0.85rem; }
-  .save-status.ok { color: #4ade80; }
-  .save-status.error { color: #f87171; }
-  .save-status.saving { color: #94a3b8; }
-
-  /* Reuse admin layout styles from existing pages */
-  .admin-layout { min-height: 100vh; background: #0f172a; color: #e2e8f0; font-family: 'Roboto', sans-serif; }
-  .admin-header { display: flex; align-items: center; gap: 1rem; padding: 1rem 1.5rem; background: #1e293b; border-bottom: 1px solid #334155; }
-  .admin-logo { font-weight: 700; color: #d6b779; text-decoration: none; font-size: 1.1rem; margin-right: 0.5rem; }
-  .breadcrumb { display: flex; align-items: center; gap: 0.5rem; flex: 1; }
-  .bc-link { color: #94a3b8; text-decoration: none; font-size: 0.9rem; }
-  .bc-link:hover { color: #e2e8f0; }
-  .bc-sep { color: #475569; }
-  .bc-current { color: #e2e8f0; font-size: 0.9rem; }
-  .header-actions { display: flex; align-items: center; gap: 0.75rem; }
-  .btn-logout { color: #64748b; text-decoration: none; font-size: 0.85rem; }
-  .btn-logout:hover { color: #94a3b8; }
-  .admin-main { padding: 1.5rem; }
+.settings-actions { display: flex; align-items: center; gap: 1rem; padding-top: 0.25rem; }
+.btn-primary { padding: 0.5rem 1.25rem; background: var(--teal); color: #fff; border: none; border-radius: 0.375rem; font-family: var(--font-mono); font-size: var(--text-sm); font-weight: 600; cursor: pointer; transition: opacity 0.15s; }
+.btn-primary:hover { opacity: 0.9; }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+.save-status { font-family: var(--font-mono); font-size: var(--text-xs); }
+.save-status.ok     { color: var(--teal); }
+.save-status.error  { color: #ef4444; }
+.save-status.saving { color: var(--text-muted); }
 </style>

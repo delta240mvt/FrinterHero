@@ -13,12 +13,13 @@ import * as path from 'path';
 import { db } from '../src/db/client';
 import { bcProjects } from '../src/db/schema';
 import { eq } from 'drizzle-orm';
-import { callBcLlm, getBcLpModel, getBcThinkingBudget } from '../src/lib/bc-llm-client';
+import { callBcLlm, getBcLpModel, getBcLpMaxTokens, getBcThinkingBudget } from '../src/lib/bc-llm-client';
 
 dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
 
 const BC_PROJECT_ID = parseInt(process.env.BC_PROJECT_ID || '0', 10);
 const MODEL = getBcLpModel();
+const MAX_TOKENS = getBcLpMaxTokens();
 const THINKING_BUDGET = getBcThinkingBudget('lp');
 
 function log(msg: string) {
@@ -125,7 +126,7 @@ ${project.founderDescription}`;
   try {
     const llmResp = await callBcLlm({
       model: MODEL,
-      maxTokens: 6000,
+      maxTokens: MAX_TOKENS,
       messages: [{ role: 'user', content: prompt }],
       thinkingBudget: THINKING_BUDGET,
     });

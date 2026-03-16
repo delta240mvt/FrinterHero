@@ -11,12 +11,13 @@ import * as path from 'path';
 import { db } from '../src/db/client';
 import { bcProjects, bcExtractedPainPoints, bcPainClusters } from '../src/db/schema';
 import { eq, and, desc } from 'drizzle-orm';
-import { callBcLlm, getBcClusterModel, getBcThinkingBudget } from '../src/lib/bc-llm-client';
+import { callBcLlm, getBcClusterModel, getBcClusterMaxTokens, getBcThinkingBudget } from '../src/lib/bc-llm-client';
 
 dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
 
 const BC_PROJECT_ID = parseInt(process.env.BC_PROJECT_ID || '0', 10);
 const MODEL = getBcClusterModel();
+const MAX_TOKENS = getBcClusterMaxTokens();
 const THINKING_BUDGET = getBcThinkingBudget('cluster');
 
 function log(msg: string) {
@@ -95,7 +96,7 @@ Return ONLY valid JSON array. No markdown.`;
   try {
     const llmResp = await callBcLlm({
       model: MODEL,
-      maxTokens: 3000,
+      maxTokens: MAX_TOKENS,
       messages: [{ role: 'user', content: prompt }],
       thinkingBudget: THINKING_BUDGET,
     });
