@@ -273,6 +273,41 @@ Extended Thinking (Anthropic only) is configurable per pipeline stage with token
 | `bc-scraper.ts` | 4 | Haiku × ~75 | `POST /[projectId]/scrape/start` |
 | `bc-pain-clusterer.ts` | 4.5 | Sonnet × 1 | `POST /[projectId]/cluster-pain-points` |
 | `bc-lp-generator.ts` | 5 | Sonnet × 3 | `POST /[projectId]/generate-variants` |
+---
+
+## SocialHub
+
+**SocialHub** is an autonomous content-to-social pipeline built into the admin dashboard. It transforms your raw articles, discovered pain points, and Voice of Customer clusters into viral social media posts, then distributes them natively across major platforms.
+
+> The core insight: Content distribution is the main bottleneck for solo founders. SocialHub eliminates manual posting by combining AI copywriting, local image generation, async video rendering, and a universal distribution API.
+
+### SocialHub Pipeline — 3 Stages
+
+```text
+  SOCIALHUB PIPELINE
+  ┌──────────────────────────────────────────────────────────────────────────┐
+  │                                                                          │
+  │  STAGE 1 — AI COPYWRITER                            [Sonnet × 1]         │
+  │  · Source: Article / Pain Point / Cluster / KB Entry                     │
+  │  · Enriches with fulltext Knowledge Base matching                        │
+  │  · Output: Hook, Body Text, Hashtags, CTA, Video Script                  │
+  │                                │                                          │
+  │  STAGE 2 — MEDIA RENDERING                                               │
+  │  · IMAGE: Server-side JSX → SVG → PNG via Satori & Resvg (instant)       │
+  │  · VIDEO: Text-to-Speech (ElevenLabs) + AI Avatar (WaveSpeed)            │
+  │                                │                                          │
+  │  STAGE 3 — MULTI-PLATFORM DISTRIBUTION                                   │
+  │  · Targets: Instagram, TikTok, X, LinkedIn, Pinterest, YouTube, etc.     │
+  │  · Uses Upload-Post.com API (1 request → 10+ platforms)                  │
+  │  · Fetches post analytics automatically and displays in the dashboard    │
+  │                                                                          │
+  └──────────────────────────────────────────────────────────────────────────┘
+```
+
+### Key Technologies
+- **Satori**: Serverless-friendly HTML/JSX to SVG to PNG rendering. Zero AI hallucination, 100% brand typography matched.
+- **WaveSpeed & ElevenLabs**: API integration for high-retention short-form video generation natively from text.
+- **Upload-Post.com**: Universal distribution layer.
 
 ---
 
@@ -318,9 +353,14 @@ YT_ANALYSIS_MODEL=anthropic/claude-sonnet-4-6
 
 # Brand Clarity — YouTube Data API
 YOUTUBE_API_KEY=your-yt-data-api-key
+
+# SocialHub — External APIs
+WAVESPEED_API_KEY=ws_placeholder
+ELEVENLABS_API_KEY=el_placeholder
+UPLOADPOST_API_KEY=up_placeholder
 ```
 
-> **Note:** Brand Clarity LLM provider, models, and Extended Thinking budgets are configured via the **admin panel** at `/admin/brand-clarity/settings` — not in `.env`.
+> **Note:** Brand Clarity and SocialHub LLM providers, models, and Extended Thinking budgets are configured via the **admin panel** (`/admin/brand-clarity/settings` and `/admin/social-hub/settings`) — not in `.env`.
 
 ### AI Integration
 
@@ -329,9 +369,12 @@ YOUTUBE_API_KEY=your-yt-data-api-key
 | `OpenAI` | `OPENAI_API_KEY` | GEO monitor queries, gap detection |
 | `Anthropic` | `ANTHROPIC_API_KEY` | Deep context analysis, Brand Clarity (direct API) |
 | `Perplexity` | `PERPLEXITY_API_KEY` | Live web search integration |
-| `OpenRouter` | `OPENROUTER_API_KEY` | Reddit/YT pain-point extraction, draft generation, Brand Clarity (default) |
+| `OpenRouter` | `OPENROUTER_API_KEY` | Scraping, draft generation, Brand Clarity, SocialHub copywriter (default) |
 | `Apify` | `APIFY_API_TOKEN` | Reddit (`trudax/reddit-scraper-lite`) + YouTube (`streamers/youtube-comments-scraper`) |
 | `YouTube Data API` | `YOUTUBE_API_KEY` | Brand Clarity channel + video discovery |
+| `WaveSpeed` | `WAVESPEED_API_KEY` | SocialHub AI video generation |
+| `ElevenLabs` | `ELEVENLABS_API_KEY` | SocialHub text-to-speech for videos |
+| `Upload-Post` | `UPLOADPOST_API_KEY` | SocialHub multi-platform distribution and analytics |
 
 ---
 
@@ -343,6 +386,7 @@ YOUTUBE_API_KEY=your-yt-data-api-key
 | Reddit pain-point intelligence (Apify) | YES | NO | NO |
 | LLM gap extraction + admin review queue | YES | NO | NO |
 | **Brand Clarity — VoC LP generator** | **YES** | NO | NO |
+| **SocialHub — Content-to-Social Pipeline** | **YES** | NO | NO |
 | **Anthropic Direct API + Extended Thinking** | **YES** | NO | NO |
 | Perfect semantic HTML & Schema.org | YES | Varies | Varies |
 | Railway 1-Click deploy with DB | YES | NO | NO |
@@ -394,6 +438,8 @@ YOUTUBE_API_KEY=your-yt-data-api-key
 - [x] **Brand Clarity v2** — 5-stage VoC pipeline (LP → 3 LP variants)
 - [x] **Brand Clarity — Anthropic Direct API + Extended Thinking**
 - [x] **Brand Clarity — LLM settings panel** (`/admin/brand-clarity/settings`)
+- [x] **SocialHub — Multi-platform content distribution**
+- [x] **SocialHub — Satori Image & WaveSpeed Video generator**
 - [ ] Blog markdown pipeline
 - [ ] Frint_bot interactive AI chat window
 - [ ] RSS Feed generation
@@ -431,6 +477,10 @@ Brand Clarity is a built-in admin tool for anyone who wants to A/B test landing 
 **Q: Which LLM provider should I use for Brand Clarity?**
 
 Start with **OpenRouter** (default) — lower friction, no additional setup. Switch to **Anthropic Direct** if you want Extended Thinking for higher-quality variant generation, especially for Cluster and Generator stages. Configure everything in `/admin/brand-clarity/settings`.
+
+**Q: Does SocialHub post to my accounts automatically?**
+
+Yes. Once you approve the AI-generated copy and media (Satori images or WaveSpeed videos), SocialHub uses the Upload-Post.com API to push your content directly to all your selected platforms (Instagram, TikTok, LinkedIn, Twitter, YouTube, etc.) simultaneously.
 
 ---
 
