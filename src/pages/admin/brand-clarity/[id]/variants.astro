@@ -68,7 +68,7 @@ const typeColors: Record<string, string> = {
       <span class="stage-arrow">→</span>
       <a href={`/admin/brand-clarity/${projectId}/videos`} class="stage done stage-link">3. Videos</a>
       <span class="stage-arrow">→</span>
-      <a href={`/admin/brand-clarity/${projectId}/scrape`} class="stage done stage-link">4–5. Scrape & Review</a>
+      <a href={`/admin/brand-clarity/${projectId}/scrape`} class="stage done stage-link">4–5. Pain Points Base</a>
       <span class="stage-arrow">→</span>
       <span class="stage active">6. LP Variants</span>
     </div>
@@ -105,7 +105,7 @@ const typeColors: Record<string, string> = {
         <div class="empty-state">
           No LP variants yet.
           {project.status === 'pain_points_pending' && (
-            <span> Approve at least 2 pain points in the <a href={`/admin/brand-clarity/${projectId}/scrape`}>Scrape & Review</a> step first.</span>
+            <span> Approve at least 2 pain points in the <a href={`/admin/brand-clarity/${projectId}/scrape`}>Pain Points Base</a> step first.</span>
           )}
         </div>
       ) : (

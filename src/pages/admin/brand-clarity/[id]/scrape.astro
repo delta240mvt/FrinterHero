@@ -23,16 +23,6 @@ try {
       .orderBy(desc(bcExtractedPainPoints.emotionalIntensity));
     clusters = await db.select().from(bcPainClusters)
       .where(and(eq(bcPainClusters.projectId, projectId), isNull(bcPainClusters.iterationId)));
-    iterations = await (async () => {
-      const its = await db.select().from(bcIterations)
-        .where(eq(bcIterations.projectId, projectId))
-        .orderBy(desc(bcIterations.createdAt));
-      return await Promise.all(its.map(async (it) => {
-        const sels = await db.select({ id: bcIterationSelections.id })
-          .from(bcIterationSelections).where(eq(bcIterationSelections.iterationId, it.id));
-        return { ...it, selectionCount: sels.length };
-      }));
-    })();
     selectedVideos = await db
       .select({
         id: bcTargetVideos.id,
@@ -50,6 +40,24 @@ try {
   }
 } catch (e) {
   console.error('[BC-Scrape]', e);
+}
+
+// Iterations loaded separately — failure here must not break the main page
+try {
+  if (project) {
+    const its = await db.select().from(bcIterations)
+      .where(eq(bcIterations.projectId, projectId))
+      .orderBy(desc(bcIterations.createdAt));
+    iterations = await Promise.all(its.map(async (it) => {
+      const sels = await db.select({ id: bcIterationSelections.id })
+        .from(bcIterationSelections)
+        .where(eq(bcIterationSelections.iterationId, it.id));
+      return { ...it, selectionCount: sels.length };
+    }));
+  }
+} catch (e) {
+  console.error('[BC-Scrape] iterations load failed (table may not exist yet):', e);
+  iterations = [];
 }
 
 if (!project) return Astro.redirect('/admin/brand-clarity');
@@ -189,13 +197,21 @@ const scraped   = selectedVideos.filter(v => v.isScraped);
       <div class="section-header-row">
         <div class="section-title-block">
           <h2 class="section-title">Iteracje LP</h2>
-          <p class="section-subtitle">Każda iteracja = intencja + top 30 pain pointów z bazy → clustering → LP</p>
+          <p class="section-subtitle">
+            {approved > 0
+              ? `${approved} approved PP w bazie · każda iteracja = intencja → AI wybiera top 30 → clustering → LP`
+              : 'Zatwierdź pain pointy poniżej, żeby móc tworzyć iteracje'}
+          </p>
         </div>
-        <button id="btn-new-iteration" class="btn-primary">+ Nowa iteracja</button>
+        <button id="btn-new-iteration" class="btn-primary" disabled={approved === 0} title={approved === 0 ? 'Najpierw zatwierdź pain pointy' : 'Utwórz nową iterację LP'}>+ Nowa iteracja</button>
       </div>
 
       {iterations.length === 0 ? (
-        <div class="empty-state">Brak iteracji. Utwórz pierwszą, żeby wygenerować LP pod konkretną grupę docelową.</div>
+        <div class="empty-state">
+          {approved === 0
+            ? 'Brak zatwierdzonych pain pointów. Scrape filmów i zaakceptuj pain pointy poniżej.'
+            : `Brak iteracji. Kliknij "+ Nowa iteracja" żeby wygenerować LP pod konkretną grupę docelową (${approved} PP gotowych).`}
+        </div>
       ) : (
         <div class="iterations-grid">
           {iterations.map((it: any) => {
