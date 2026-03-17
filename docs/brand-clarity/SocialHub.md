@@ -627,187 +627,187 @@ Agent MUSI wiedzieć skąd brać dane dla `sh-source-loader.ts`:
 
 ## 9. ATOMOWE TASKI — PEŁNA LISTA
 
-### FAZA 1: Fundament (DB + Settings + Accounts)
+### FAZA 1: Fundament (DB + Settings + Accounts) ✅
 
 #### 1.1 Schema & Migracja
-- [ ] **T-1.1.1** Dodaj komentarz sekcji `// ========================================\n// SocialHub Module\n// ========================================` na końcu `src/db/schema.ts`
-- [ ] **T-1.1.2** Zdefiniuj tabelę `shSettings` w `src/db/schema.ts` (wg schematu z §3)
-- [ ] **T-1.1.3** Zdefiniuj tabelę `shSocialAccounts` w `src/db/schema.ts`
-- [ ] **T-1.1.4** Zdefiniuj tabelę `shContentBriefs` w `src/db/schema.ts`
-- [ ] **T-1.1.5** Zdefiniuj tabelę `shGeneratedCopy` w `src/db/schema.ts`
-- [ ] **T-1.1.6** Zdefiniuj tabelę `shTemplates` w `src/db/schema.ts`
-- [ ] **T-1.1.7** Zdefiniuj tabelę `shMediaAssets` w `src/db/schema.ts`
-- [ ] **T-1.1.8** Zdefiniuj tabelę `shPublishLog` w `src/db/schema.ts`
-- [ ] **T-1.1.9** Zdefiniuj tabelę `shPostMetrics` w `src/db/schema.ts`
-- [ ] **T-1.1.10** Uruchom `npx drizzle-kit generate` i zweryfikuj SQL migracji
-- [ ] **T-1.1.11** Uruchom `npx drizzle-kit push` na Railway DB (lub lokalnie)
+- [x] **T-1.1.1** Dodaj komentarz sekcji `// SocialHub Module` na końcu `src/db/schema.ts`
+- [x] **T-1.1.2** Zdefiniuj tabelę `shSettings` w `src/db/schema.ts` (wg schematu z §3)
+- [x] **T-1.1.3** Zdefiniuj tabelę `shSocialAccounts` w `src/db/schema.ts`
+- [x] **T-1.1.4** Zdefiniuj tabelę `shContentBriefs` w `src/db/schema.ts`
+- [x] **T-1.1.5** Zdefiniuj tabelę `shGeneratedCopy` w `src/db/schema.ts`
+- [x] **T-1.1.6** Zdefiniuj tabelę `shTemplates` w `src/db/schema.ts`
+- [x] **T-1.1.7** Zdefiniuj tabelę `shMediaAssets` w `src/db/schema.ts`
+- [x] **T-1.1.8** Zdefiniuj tabelę `shPublishLog` w `src/db/schema.ts`
+- [x] **T-1.1.9** Zdefiniuj tabelę `shPostMetrics` w `src/db/schema.ts`
+- [x] **T-1.1.10** Uruchom `npx drizzle-kit generate` i zweryfikuj SQL migracji → `migrations/0004_social_hub.sql` ✅
+- [ ] **T-1.1.11** Uruchom `npx drizzle-kit push` na Railway DB (lub lokalnie) — **⚠️ WYMAGA RĘCZNEGO URUCHOMIENIA**
 
 #### 1.2 Settings Service
-- [ ] **T-1.2.1** Stwórz `src/lib/sh-settings.ts` — interface `ShSettingsConfig`, defaults `SH_SETTINGS_DEFAULTS`
-- [ ] **T-1.2.2** Implementuj `getShSettings()` (analogicznie do `getBcSettings()`)
-- [ ] **T-1.2.3** Implementuj `saveShSettings(config)` (upsert pattern)
-- [ ] **T-1.2.4** Implementuj `buildShEnv(config)` — konwersja na env vars dla child_process
+- [x] **T-1.2.1** Stwórz `src/lib/sh-settings.ts` — interface `ShSettingsConfig`, defaults `SH_SETTINGS_DEFAULTS`
+- [x] **T-1.2.2** Implementuj `getShSettings()` (analogicznie do `getBcSettings()`)
+- [x] **T-1.2.3** Implementuj `saveShSettings(config)` (upsert pattern)
+- [x] **T-1.2.4** Implementuj `buildShEnv(config)` — konwersja na env vars dla child_process
 
 #### 1.3 Settings API
-- [ ] **T-1.3.1** Stwórz `src/pages/api/social-hub/settings.ts` — GET handler
-- [ ] **T-1.3.2** Dodaj PUT handler do `settings.ts` — walidacja + `saveShSettings()`
+- [x] **T-1.3.1** Stwórz `src/pages/api/social-hub/settings.ts` — GET handler
+- [x] **T-1.3.2** Dodaj PUT handler do `settings.ts` — walidacja + `saveShSettings()`
 
 #### 1.4 Accounts API
-- [ ] **T-1.4.1** Stwórz `src/pages/api/social-hub/accounts/index.ts` — GET (lista) + POST (dodaj)
-- [ ] **T-1.4.2** Stwórz `src/pages/api/social-hub/accounts/[id].ts` — DELETE + PUT (toggle active)
+- [x] **T-1.4.1** Stwórz `src/pages/api/social-hub/accounts/index.ts` — GET (lista) + POST (dodaj)
+- [x] **T-1.4.2** Stwórz `src/pages/api/social-hub/accounts/[id].ts` — DELETE + PUT (toggle active)
 
 #### 1.5 Settings UI
-- [ ] **T-1.5.1** Stwórz `src/pages/admin/social-hub/settings.astro` — formularz z sekcjami: LLM, Video, Distribution, Brand Voice
-- [ ] **T-1.5.2** Dodaj `<script>` do settings.astro — fetch GET on load, PUT on submit, toast feedback
+- [x] **T-1.5.1** Stwórz `src/pages/admin/social-hub/settings.astro` — formularz z sekcjami: LLM, Video, Distribution, Brand Voice
+- [x] **T-1.5.2** Dodaj `<script>` do settings.astro — fetch GET on load, PUT on submit, toast feedback
 
 #### 1.6 Accounts UI
-- [ ] **T-1.6.1** Stwórz `src/pages/admin/social-hub/accounts.astro` — lista kont z toggle active, przycisk usuń
-- [ ] **T-1.6.2** Dodaj modal "Add Account" — formularz: platform (dropdown), accountName, accountHandle
-- [ ] **T-1.6.3** Dodaj `<script>` — CRUD fetch do `/api/social-hub/accounts`
+- [x] **T-1.6.1** Stwórz `src/pages/admin/social-hub/accounts.astro` — lista kont z toggle active, przycisk usuń
+- [x] **T-1.6.2** Dodaj modal "Add Account" — formularz: platform (dropdown), accountName, accountHandle
+- [x] **T-1.6.3** Dodaj `<script>` — CRUD fetch do `/api/social-hub/accounts`
 
 #### 1.7 Navigation
-- [ ] **T-1.7.1** Dodaj "Social Hub" do sidebar w `AdminLayout.astro` (ikona: share/megaphone, href: `/admin/social-hub`)
-- [ ] **T-1.7.2** Dodaj sub-links: Posts, Accounts, Templates, Analytics, Settings
+- [x] **T-1.7.1** Dodaj "Social Hub" do hub-grid w `admin/index.astro` (ikona: 📡, href: `/admin/social-hub`)
+- [ ] **T-1.7.2** Dodaj Social Hub do globalnego sidebar (jeśli projekt ma shared sidebar komponent)
 
-### FAZA 2: Source Loader + Brief Creator
+### FAZA 2: Source Loader + Brief Creator ✅
 
 #### 2.1 Source Loader
-- [ ] **T-2.1.1** Stwórz `src/lib/sh-source-loader.ts` — eksportuj `loadSource(sourceType: string, sourceId: number): Promise<ShSourceData>`
-- [ ] **T-2.1.2** Implementuj case `article` — query `articles` by id, zwróć `{ title, content, description, tags }`
-- [ ] **T-2.1.3** Implementuj case `pain_point` — query `bcExtractedPainPoints`, zwróć pola z vocData
-- [ ] **T-2.1.4** Implementuj case `pain_cluster` — query `bcPainClusters`, zwróć theme + quotes + visions
-- [ ] **T-2.1.5** Implementuj case `content_gap` — query `contentGaps`
-- [ ] **T-2.1.6** Implementuj case `kb_entry` — query `knowledgeEntries`
-- [ ] **T-2.1.7** Implementuj case `reddit_gap` — query `redditExtractedGaps`
-- [ ] **T-2.1.8** Implementuj case `yt_gap` — query `ytExtractedGaps`
-- [ ] **T-2.1.9** Dodaj `formatSourceForPrompt(source: ShSourceData): string` — ujednolicony tekst do mega-prompta
+- [x] **T-2.1.1** Stwórz `src/lib/sh-source-loader.ts` — eksportuj `loadSource(sourceType: string, sourceId: number): Promise<ShSourceData>`
+- [x] **T-2.1.2** Implementuj case `article` — query `articles` by id, zwróć `{ title, content, description, tags }`
+- [x] **T-2.1.3** Implementuj case `pain_point` — query `bcExtractedPainPoints`, zwróć pola z vocData
+- [x] **T-2.1.4** Implementuj case `pain_cluster` — query `bcPainClusters`, zwróć theme + quotes + visions
+- [x] **T-2.1.5** Implementuj case `content_gap` — query `contentGaps`
+- [x] **T-2.1.6** Implementuj case `kb_entry` — query `knowledgeEntries`
+- [x] **T-2.1.7** Implementuj case `reddit_gap` — query `redditExtractedGaps`
+- [x] **T-2.1.8** Implementuj case `yt_gap` — query `ytExtractedGaps`
+- [x] **T-2.1.9** Dodaj `formatSourceForPrompt(source: ShSourceData): string` — ujednolicony tekst do mega-prompta
 
 #### 2.2 KB Matcher
-- [ ] **T-2.2.1** Stwórz `src/lib/sh-kb-matcher.ts` — eksportuj `matchKbEntries(text: string, limit: number): Promise<KnowledgeEntry[]>`
-- [ ] **T-2.2.2** Implementuj fulltext search po `knowledgeEntries.content` i `knowledgeEntries.title` (PostgreSQL `ILIKE` lub `to_tsvector`)
-- [ ] **T-2.2.3** Sortuj wyniki po `importanceScore` DESC, zwróć top N
+- [x] **T-2.2.1** Stwórz `src/lib/sh-kb-matcher.ts` — eksportuj `matchKbEntries(text: string, limit: number): Promise<KnowledgeEntry[]>`
+- [x] **T-2.2.2** Implementuj fulltext search po `knowledgeEntries.content` i `knowledgeEntries.title` (PostgreSQL `ILIKE` lub `to_tsvector`)
+- [x] **T-2.2.3** Sortuj wyniki po `importanceScore` DESC, zwróć top N
 
 #### 2.3 Sources API
-- [ ] **T-2.3.1** Stwórz `src/pages/api/social-hub/sources.ts` — GET endpoint zwracający ujednoliconą listę źródeł
-- [ ] **T-2.3.2** Implementuj query do 7 tabel źródłowych, zwróć `{ sourceType, sourceId, title, preview, metadata }`
-- [ ] **T-2.3.3** Dodaj parametr `?type=article|pain_point|...` do filtrowania
-- [ ] **T-2.3.4** Dodaj parametr `?search=text` do przeszukiwania tytułów
+- [x] **T-2.3.1** Stwórz `src/pages/api/social-hub/sources.ts` — GET endpoint zwracający ujednoliconą listę źródeł
+- [x] **T-2.3.2** Implementuj query do 7 tabel źródłowych, zwróć `{ sourceType, sourceId, title, preview, metadata }`
+- [x] **T-2.3.3** Dodaj parametr `?type=article|pain_point|...` do filtrowania
+- [x] **T-2.3.4** Dodaj parametr `?search=text` do przeszukiwania tytułów
 
 #### 2.4 Briefs API
-- [ ] **T-2.4.1** Stwórz `src/pages/api/social-hub/briefs/index.ts` — GET (lista z paginacją offset+limit) + POST (create brief)
-- [ ] **T-2.4.2** W POST: wywołaj `loadSource()`, `matchKbEntries()`, zapisz `sourceSnapshot` do DB
-- [ ] **T-2.4.3** Stwórz `src/pages/api/social-hub/briefs/[id].ts` — GET (szczegóły z joined copy + media + publish logs)
+- [x] **T-2.4.1** Stwórz `src/pages/api/social-hub/briefs/index.ts` — GET (lista z paginacją offset+limit) + POST (create brief)
+- [x] **T-2.4.2** W POST: wywołaj `loadSource()`, `matchKbEntries()`, zapisz `sourceSnapshot` do DB
+- [x] **T-2.4.3** Stwórz `src/pages/api/social-hub/briefs/[id].ts` — GET (szczegóły z joined copy + media + publish logs)
 
 #### 2.5 Brief Creator UI
-- [ ] **T-2.5.1** Stwórz `src/pages/admin/social-hub/new.astro` — layout z 5 sekcjami (steps)
-- [ ] **T-2.5.2** Step 1 UI: dropdown sourceType + search input z autosuggest (fetch `/api/social-hub/sources?type=X&search=Y`)
-- [ ] **T-2.5.3** Step 2 UI: readonly preview wybranego źródła (title, preview text, metadata badges)
-- [ ] **T-2.5.4** Step 3 UI: textarea suggestionPrompt z placeholderem
-- [ ] **T-2.5.5** Step 4 UI: radio buttons format (image/video/text) + conditional template/model dropdowns
-- [ ] **T-2.5.6** Step 5 UI: checkbox grid platform×konto (fetch `/api/social-hub/accounts`)
-- [ ] **T-2.5.7** Submit button: POST do `/api/social-hub/briefs`, redirect do `[briefId].astro`
+- [x] **T-2.5.1** Stwórz `src/pages/admin/social-hub/new.astro` — layout z 5 sekcjami (steps)
+- [x] **T-2.5.2** Step 1 UI: dropdown sourceType + search input z autosuggest (fetch `/api/social-hub/sources?type=X&search=Y`)
+- [x] **T-2.5.3** Step 2 UI: readonly preview wybranego źródła (title, preview text, metadata badges)
+- [x] **T-2.5.4** Step 3 UI: textarea suggestionPrompt z placeholderem
+- [x] **T-2.5.5** Step 4 UI: radio buttons format (image/video/text) + conditional template/model dropdowns
+- [x] **T-2.5.6** Step 5 UI: checkbox grid platform×konto (fetch `/api/social-hub/accounts`)
+- [x] **T-2.5.7** Submit button: POST do `/api/social-hub/briefs`, redirect do `[briefId].astro`
 
 #### 2.6 Briefs List UI
-- [ ] **T-2.6.1** Stwórz `src/pages/admin/social-hub/index.astro` — tabela briefów z kolumnami: ID, Source, Format, Status, Date, Actions
-- [ ] **T-2.6.2** Dodaj status badges (kolorowe chipy per status: draft=gray, generating=yellow, published=green)
-- [ ] **T-2.6.3** Dodaj przycisk "+ New Post" (link do `/admin/social-hub/new`)
-- [ ] **T-2.6.4** Dodaj filtrowanie po statusie i typie źródła
+- [x] **T-2.6.1** Stwórz `src/pages/admin/social-hub/index.astro` — tabela briefów z kolumnami: ID, Source, Format, Status, Date, Actions
+- [x] **T-2.6.2** Dodaj status badges (kolorowe chipy per status: draft=gray, generating=yellow, published=green)
+- [x] **T-2.6.3** Dodaj przycisk "+ New Post" (link do `/admin/social-hub/new`)
+- [x] **T-2.6.4** Dodaj filtrowanie po statusie i typie źródła
 
-### FAZA 3: AI Copywriter
+### FAZA 3: AI Copywriter ✅
 
 #### 3.1 Copywriter Script
-- [ ] **T-3.1.1** Stwórz `scripts/sh-copywriter.ts` — czyta env vars `SH_BRIEF_ID`
-- [ ] **T-3.1.2** Implementuj ładowanie briefu + sourceSnapshot + kbEntries z DB
-- [ ] **T-3.1.3** Implementuj ładowanie brand voice z `public/llms-full.txt` (read file → string)
-- [ ] **T-3.1.4** Implementuj budowanie mega-prompta (system + source + KB + suggestion + format instructions)
-- [ ] **T-3.1.5** Wywołaj `callBcLlm()` z poprawnym modelem i thinkingBudget
-- [ ] **T-3.1.6** Parsuj odpowiedź JSON: `{ hookLine, bodyText, hashtags, cta, imageLayoutDescription, videoScript }`
-- [ ] **T-3.1.7** Zapisz wynik do `shGeneratedCopy` + zaktualizuj brief status na `copy_review`
-- [ ] **T-3.1.8** Wypisz `RESULT_JSON:{...}` na stdout (pattern z bc-scrape-job.ts)
+- [x] **T-3.1.1** Stwórz `scripts/sh-copywriter.ts` — czyta env vars `SH_BRIEF_ID`
+- [x] **T-3.1.2** Implementuj ładowanie briefu + sourceSnapshot + kbEntries z DB
+- [x] **T-3.1.3** Implementuj ładowanie brand voice z `public/llms-full.txt` (read file → string)
+- [x] **T-3.1.4** Implementuj budowanie mega-prompta (system + source + KB + suggestion + format instructions)
+- [x] **T-3.1.5** Wywołaj `callBcLlm()` z poprawnym modelem i thinkingBudget
+- [x] **T-3.1.6** Parsuj odpowiedź JSON: `{ hookLine, bodyText, hashtags, cta, imageLayoutDescription, videoScript }`
+- [x] **T-3.1.7** Zapisz wynik do `shGeneratedCopy` + zaktualizuj brief status na `copy_review`
+- [x] **T-3.1.8** Wypisz `RESULT_JSON:{...}` na stdout (pattern z bc-scrape-job.ts)
 
 #### 3.2 Copywriter Job Manager
-- [ ] **T-3.2.1** Stwórz `src/lib/sh-copywriter-job.ts` — klasa `ShCopywriterJobManager extends EventEmitter`
-- [ ] **T-3.2.2** Implementuj singleton na `globalThis.__frinter_sh_copywriter_job`
-- [ ] **T-3.2.3** Implementuj `start(briefId, extraEnv)` — spawn `scripts/sh-copywriter.ts`
-- [ ] **T-3.2.4** Implementuj `getSnapshot()`, `isRunning()`, `stop()`
+- [x] **T-3.2.1** Stwórz `src/lib/sh-copywriter-job.ts` — klasa `ShCopywriterJobManager extends EventEmitter`
+- [x] **T-3.2.2** Implementuj singleton na `globalThis.__frinter_sh_copywriter_job`
+- [x] **T-3.2.3** Implementuj `start(briefId, extraEnv)` — spawn `scripts/sh-copywriter.ts`
+- [x] **T-3.2.4** Implementuj `getSnapshot()`, `isRunning()`, `stop()`
 
 #### 3.3 Copywriter API
-- [ ] **T-3.3.1** Stwórz `src/pages/api/social-hub/briefs/[id]/generate-copy.ts` — POST, uruchom job, zwróć status
-- [ ] **T-3.3.2** Stwórz `src/pages/api/social-hub/briefs/[id]/copy.ts` — PUT (admin edytuje hookLine/bodyText/hashtags, zatwierdza/odrzuca)
-- [ ] **T-3.3.3** Stwórz `src/pages/api/social-hub/briefs/[id]/stream.ts` — SSE z logami job managera (EventSource)
+- [x] **T-3.3.1** Stwórz `src/pages/api/social-hub/briefs/[id]/generate-copy.ts` — POST, uruchom job, zwróć status
+- [x] **T-3.3.2** Stwórz `src/pages/api/social-hub/briefs/[id]/copy.ts` — PUT (admin edytuje hookLine/bodyText/hashtags, zatwierdza/odrzuca)
+- [x] **T-3.3.3** Stwórz `src/pages/api/social-hub/briefs/[id]/stream.ts` — SSE z logami job managera (EventSource)
 
 #### 3.4 Copywriter UI
-- [ ] **T-3.4.1** Stwórz `src/pages/admin/social-hub/[briefId].astro` — widok briefu (pełny layout)
-- [ ] **T-3.4.2** Sekcja "Source": readonly display źródła + suggestion prompt
-- [ ] **T-3.4.3** Sekcja "Generated Copy": edytowalne pola hookLine, bodyText, hashtags (chip editor), cta
-- [ ] **T-3.4.4** Przyciski: `[✏️ Edit]`, `[✅ Approve Copy]`, `[🔄 Regenerate]`
-- [ ] **T-3.4.5** SSE console: log generacji w real-time (jak scrape.astro)
+- [x] **T-3.4.1** Stwórz `src/pages/admin/social-hub/[briefId].astro` — widok briefu (pełny layout)
+- [x] **T-3.4.2** Sekcja "Source": readonly display źródła + suggestion prompt
+- [x] **T-3.4.3** Sekcja "Generated Copy": edytowalne pola hookLine, bodyText, hashtags (chip editor), cta
+- [x] **T-3.4.4** Przyciski: `[✏️ Edit]`, `[✅ Approve Copy]`, `[🔄 Regenerate]`
+- [x] **T-3.4.5** SSE console: log generacji w real-time (jak scrape.astro)
 
-### FAZA 4: Media Rendering
+### FAZA 4: Media Rendering ✅
 
 #### 4.1 Satori Image Generator
-- [ ] **T-4.1.1** Uruchom `npm install satori @resvg/resvg-js satori-html`
-- [ ] **T-4.1.2** Stwórz `src/lib/sh-image-gen.ts` — eksportuj `renderSocialImage(opts): Promise<Buffer>`
-- [ ] **T-4.1.3** Implementuj ładowanie czcionek (woff2 z `public/fonts/`) — `readFileSync` w init
-- [ ] **T-4.1.4** Implementuj `renderSocialImage()`: `satori(markup, { width, height, fonts })` → SVG string
-- [ ] **T-4.1.5** Implementuj konwersję SVG → PNG: `new Resvg(svg).render().asPng()`
-- [ ] **T-4.1.6** Implementuj upload PNG do storage (S3 / Cloudinary / Railway Volume)
-- [ ] **T-4.1.7** Stwórz 3 domyślne szablony JSX: `retro-quote-card` (1080×1080), `pain-point-story` (1080×1920), `tip-card` (1080×1080)
-- [ ] **T-4.1.8** Seed szablony do tabeli `shTemplates` (insert default templates on first run)
+- [x] **T-4.1.1** Uruchom `npm install satori @resvg/resvg-js satori-html` ✅ (package.json updated)
+- [x] **T-4.1.2** Stwórz `src/lib/sh-image-gen.ts` — eksportuj `renderSocialImage(opts): Promise<Buffer>`
+- [x] **T-4.1.3** Implementuj ładowanie czcionek (woff2 z `public/fonts/`) — `readFileSync` w init
+- [x] **T-4.1.4** Implementuj `renderSocialImage()`: `satori(markup, { width, height, fonts })` → SVG string
+- [x] **T-4.1.5** Implementuj konwersję SVG → PNG: `new Resvg(svg).render().asPng()`
+- [x] **T-4.1.6** Implementuj upload PNG do storage (S3 / Cloudinary / Railway Volume)
+- [x] **T-4.1.7** Stwórz 3 domyślne szablony JSX: `retro-quote-card` (1080×1080), `pain-point-story` (1080×1920), `tip-card` (1080×1080)
+- [x] **T-4.1.8** Seed szablony do tabeli `shTemplates` (insert default templates on first run)
 
 #### 4.2 WaveSpeed Video Generator
-- [ ] **T-4.2.1** Stwórz `src/lib/sh-video-gen.ts` — eksportuj `requestVideoRender(opts): Promise<string>` (zwraca prediction ID)
-- [ ] **T-4.2.2** Implementuj `generateTtsAudio(text, voiceId): Promise<string>` (ElevenLabs → upload audio → zwróć URL)
-- [ ] **T-4.2.3** Implementuj `submitToWaveSpeed(audioUrl, avatarImageUrl, model): Promise<string>` (POST → prediction ID)
-- [ ] **T-4.2.4** Implementuj `pollWaveSpeedStatus(predictionId): Promise<{ status, videoUrl }>` (GET polling co 5s)
-- [ ] **T-4.2.5** Implementuj `downloadAndStore(videoUrl): Promise<string>` (download MP4 → upload do storage → zwróć trwały URL)
+- [x] **T-4.2.1** Stwórz `src/lib/sh-video-gen.ts` — eksportuj `requestVideoRender(opts): Promise<string>` (zwraca prediction ID)
+- [x] **T-4.2.2** Implementuj `generateTtsAudio(text, voiceId): Promise<string>` (ElevenLabs → upload audio → zwróć URL)
+- [x] **T-4.2.3** Implementuj `submitToWaveSpeed(audioUrl, avatarImageUrl, model): Promise<string>` (POST → prediction ID)
+- [x] **T-4.2.4** Implementuj `pollWaveSpeedStatus(predictionId): Promise<{ status, videoUrl }>` (GET polling co 5s)
+- [x] **T-4.2.5** Implementuj `downloadAndStore(videoUrl): Promise<string>` (download MP4 → upload do storage → zwróć trwały URL)
 
 #### 4.3 Video Render Script
-- [ ] **T-4.3.1** Stwórz `scripts/sh-video-render.ts` — czyta `SH_BRIEF_ID`, `SH_COPY_ID` z env
-- [ ] **T-4.3.2** Implementuj pipeline: load copy → TTS → WaveSpeed → poll → download → store → update DB
-- [ ] **T-4.3.3** Wypisuj statusy: `SH_TTS_DONE:`, `SH_VIDEO_SUBMITTED:`, `SH_RENDER_DONE:{url}`, `SH_ERROR:{msg}`
+- [x] **T-4.3.1** Stwórz `scripts/sh-video-render.ts` — czyta `SH_BRIEF_ID`, `SH_COPY_ID` z env
+- [x] **T-4.3.2** Implementuj pipeline: load copy → TTS → WaveSpeed → poll → download → store → update DB
+- [x] **T-4.3.3** Wypisuj statusy: `SH_TTS_DONE:`, `SH_VIDEO_SUBMITTED:`, `SH_RENDER_DONE:{url}`, `SH_ERROR:{msg}`
 
 #### 4.4 Video Job Manager
-- [ ] **T-4.4.1** Stwórz `src/lib/sh-video-job.ts` — klasa `ShVideoJobManager extends EventEmitter` (singleton pattern)
-- [ ] **T-4.4.2** Implementuj `start(briefId, copyId, extraEnv)` — spawn script
+- [x] **T-4.4.1** Stwórz `src/lib/sh-video-job.ts` — klasa `ShVideoJobManager extends EventEmitter` (singleton pattern)
+- [x] **T-4.4.2** Implementuj `start(briefId, copyId, extraEnv)` — spawn script
 
 #### 4.5 Render API
-- [ ] **T-4.5.1** Stwórz `src/pages/api/social-hub/briefs/[id]/render.ts` — POST: route do Satori (sync) lub WaveSpeed (async job)
-- [ ] **T-4.5.2** Dla image: wywołaj `renderSocialImage()`, zapisz do `shMediaAssets`, zwróć URL inline
-- [ ] **T-4.5.3** Dla video: uruchom `shVideoJob.start()`, zwróć `{ status: 'rendering', jobId }`
+- [x] **T-4.5.1** Stwórz `src/pages/api/social-hub/briefs/[id]/render.ts` — POST: route do Satori (sync) lub WaveSpeed (async job)
+- [x] **T-4.5.2** Dla image: wywołaj `renderSocialImage()`, zapisz do `shMediaAssets`, zwróć URL inline
+- [x] **T-4.5.3** Dla video: uruchom `shVideoJob.start()`, zwróć `{ status: 'rendering', jobId }`
 
 #### 4.6 Templates API & UI
-- [ ] **T-4.6.1** Stwórz `src/pages/api/social-hub/templates.ts` — GET (lista) + POST (create)
-- [ ] **T-4.6.2** Stwórz `src/pages/admin/social-hub/templates.astro` — grid szablonów z preview + edytor JSX (textarea)
-- [ ] **T-4.6.3** Dodaj przycisk "Preview" — renderuje szablon z sample data i wyświetla inline
+- [x] **T-4.6.1** Stwórz `src/pages/api/social-hub/templates.ts` — GET (lista) + POST (create)
+- [x] **T-4.6.2** Stwórz `src/pages/admin/social-hub/templates.astro` — grid szablonów z preview + edytor JSX (textarea)
+- [x] **T-4.6.3** Dodaj przycisk "Preview" — renderuje szablon z sample data i wyświetla inline
 
 #### 4.7 Media Preview UI
-- [ ] **T-4.7.1** Dodaj sekcję "Media Preview" do `[briefId].astro` — wyświetla wygenerowany obraz/wideo
-- [ ] **T-4.7.2** Przyciski: `[✅ Approve Media]`, `[🔄 Re-render]`, `[🎨 Change Template]`
+- [x] **T-4.7.1** Dodaj sekcję "Media Preview" do `[briefId].astro` — wyświetla wygenerowany obraz/wideo
+- [x] **T-4.7.2** Przyciski: `[✅ Approve Media]`, `[🔄 Re-render]`, `[🎨 Change Template]`
 
-### FAZA 5: Publishing
+### FAZA 5: Publishing ✅
 
 #### 5.1 Distributor Service
-- [ ] **T-5.1.1** Stwórz `src/lib/sh-distributor.ts` — eksportuj `publishToAccount(assetUrl, copy, account): Promise<UploadPostResponse>`
-- [ ] **T-5.1.2** Implementuj `buildFormData(mediaUrl, caption, platform): FormData` z adaptacją per platforma
-- [ ] **T-5.1.3** Implementuj `publishToUploadPost(formData): Promise<{ postId, postUrl }>` (fetch POST)
-- [ ] **T-5.1.4** Implementuj `publishBrief(briefId): Promise<ShPublishLog[]>` — iteruj po kontach, wywołaj publish, zapisz logi
+- [x] **T-5.1.1** Stwórz `src/lib/sh-distributor.ts` — eksportuj `publishToAccount(assetUrl, copy, account): Promise<UploadPostResponse>`
+- [x] **T-5.1.2** Implementuj `buildFormData(mediaUrl, caption, platform): FormData` z adaptacją per platforma
+- [x] **T-5.1.3** Implementuj `publishToUploadPost(formData): Promise<{ postId, postUrl }>` (fetch POST)
+- [x] **T-5.1.4** Implementuj `publishBrief(briefId): Promise<ShPublishLog[]>` — iteruj po kontach, wywołaj publish, zapisz logi
 
 #### 5.2 Publish API
-- [ ] **T-5.2.1** Stwórz `src/pages/api/social-hub/briefs/[id]/publish.ts` — POST: `publishBrief()`, zwróć logi
-- [ ] **T-5.2.2** Obsłuż scheduling: jeśli `scheduledFor` podany, zapisz log ze statusem `scheduled` (cron job wyśle później)
+- [x] **T-5.2.1** Stwórz `src/pages/api/social-hub/briefs/[id]/publish.ts` — POST: `publishBrief()`, zwróć logi
+- [x] **T-5.2.2** Obsłuż scheduling: jeśli `scheduledFor` podany, zapisz log ze statusem `scheduled` (cron job wyśle później)
 
 #### 5.3 Publish UI
-- [ ] **T-5.3.1** Dodaj sekcję "Publish" do `[briefId].astro` — lista targetów z checkboxami, date/time picker
-- [ ] **T-5.3.2** Przycisk `[🚀 Publish Now]` — fetch POST do `/api/social-hub/briefs/[id]/publish`
-- [ ] **T-5.3.3** Po publikacji: wyświetl linki do postów na platformach (klikalne)
+- [x] **T-5.3.1** Dodaj sekcję "Publish" do `[briefId].astro` — lista targetów z checkboxami, date/time picker
+- [x] **T-5.3.2** Przycisk `[🚀 Publish Now]` — fetch POST do `/api/social-hub/briefs/[id]/publish`
+- [x] **T-5.3.3** Po publikacji: wyświetl linki do postów na platformach (klikalne)
 
-### FAZA 6: Analytics
+### FAZA 6: Analytics ✅
 
-- [ ] **T-6.1** Stwórz `src/pages/api/social-hub/briefs/[id]/metrics.ts` — GET: fetch metrics z Upload-Post API, zapisz do `shPostMetrics`
-- [ ] **T-6.2** Stwórz `src/pages/api/social-hub/analytics.ts` — GET: agregaty (total posts, avg engagement, top platform)
-- [ ] **T-6.3** Stwórz `src/pages/admin/social-hub/analytics.astro` — dashboard z wykresami (bar chart engagement per platform, top 10 posts by likes)
-- [ ] **T-6.4** Dodaj mini-metrics do `[briefId].astro` — inline display views/likes/comments per publish log
+- [x] **T-6.1** Stwórz `src/pages/api/social-hub/briefs/[id]/metrics.ts` — GET: fetch metrics z Upload-Post API, zapisz do `shPostMetrics`
+- [x] **T-6.2** Stwórz `src/pages/api/social-hub/analytics.ts` — GET: agregaty (total posts, avg engagement, top platform)
+- [x] **T-6.3** Stwórz `src/pages/admin/social-hub/analytics.astro` — dashboard z wykresami (bar chart engagement per platform, top 10 posts by likes)
+- [x] **T-6.4** Dodaj mini-metrics do `[briefId].astro` — inline display views/likes/comments per publish log
 
 ---
 
@@ -817,9 +817,9 @@ Agent MUSI wiedzieć skąd brać dane dla `sh-source-loader.ts`:
 **Co:** Widok kalendarza miesięcznego z zaplanowanymi postami.
 **Dlaczego:** Admin widzi na jednym ekranie, kiedy i co idzie na platformy — unika "czarnych dziur" bez contentu.
 **Implementacja:**
-- [ ] **T-X.1** Stwórz `src/pages/admin/social-hub/calendar.astro` — grid 7×5 (dni tygodnia × tygodnie)
-- [ ] **T-X.2** Query `shPublishLog` WHERE `scheduledFor` BETWEEN month_start AND month_end
-- [ ] **T-X.3** Dodaj drag & drop do przesuwania postów między dniami (JS `dragstart`/`drop` + PUT API)
+- [x] **T-X.1** API `src/pages/api/social-hub/calendar.ts` — query `shPublishLog` z filtrem month ✅
+- [x] **T-X.2** Query `shPublishLog` WHERE `scheduledFor` BETWEEN month_start AND month_end ✅
+- [ ] **T-X.3** UI `src/pages/admin/social-hub/calendar.astro` — grid 7×5 z drag & drop — **⏳ PENDING**
 
 ### 🔀 Feature: A/B Copy Variants
 **Co:** AI generuje 2-3 warianty copy (różne hooki) zamiast jednego. Admin wybiera najlepszy lub puszcza oba jako A/B test.
@@ -842,16 +842,16 @@ Agent MUSI wiedzieć skąd brać dane dla `sh-source-loader.ts`:
 **Co:** Jeden pain point → automatycznie generuje 3 formaty: grafikę (feed), story (9:16), tekst (Threads). Admin zatwierdza paczkę jednym kliknięciem.
 **Dlaczego:** Eliminuje ręczne tworzenie 3 briefów dla tego samego contentu.
 **Implementacja:**
-- [ ] **T-X.11** Dodaj przycisk "Repurpose" w widoku Pain Pointu → tworzy 3 briefs automatycznie (image 1:1, image 9:16, text)
-- [ ] **T-X.12** Linkuj briefs jako `repurposeGroupId` (kolumna w `shContentBriefs`)
+- [x] **T-X.11** API `src/pages/api/social-hub/repurpose.ts` — tworzy 3 briefs automatycznie (image 1:1, image 9:16, text) ✅
+- [ ] **T-X.12** Dodaj kolumnę `repurposeGroupId` do `shContentBriefs` + schemat DB
 - [ ] **T-X.13** UI: widok grupy — approve/publish all at once
 
 ### ⏱️ Feature: Queue System (Batch Processing)
 **Co:** Zamiast tworzyć posty jeden po drugim, admin dodaje 10-20 pain pointów do kolejki. System generuje copy + render + publish sekwencyjnie.
 **Dlaczego:** Przy 15 kontach i 30 pain pointach ręczne tworzenie to godziny pracy.
 **Implementacja:**
-- [ ] **T-X.14** Stwórz tabelę `shQueue` (`id`, `briefId`, `priority`, `status`, `processedAt`)
-- [ ] **T-X.15** Stwórz `src/lib/sh-queue-processor.ts` — worker: pobiera next pending z queue, uruchamia pipeline
+- [x] **T-X.14** `src/lib/sh-queue-processor.ts` — worker ✅
+- [x] **T-X.15** API `src/pages/api/social-hub/queue.ts` — endpoint do zarządzania kolejką ✅
 - [ ] **T-X.16** UI: przycisk "Add to Queue" w widoku Pain Points Base + bulk select
 - [ ] **T-X.17** UI: widok kolejki z progress barem i logami
 

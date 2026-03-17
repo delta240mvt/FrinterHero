@@ -486,3 +486,159 @@ export const bcPainClusters = pgTable('bc_pain_clusters', {
   projectIdx: index('idx_bc_clusters_project').on(table.projectId),
   iterationIdx: index('idx_bc_clusters_iteration').on(table.iterationId),
 }));
+
+// ========================================
+// SocialHub Module
+// ========================================
+
+export const shSettings = pgTable('sh_settings', {
+  id: serial('id').primaryKey(),
+  config: jsonb('config').notNull().$type<{
+    copywriterModel: string;
+    copywriterThinkingBudget: number;
+    videoProvider: string;
+    videoModel: string;
+    ttsProvider: string;
+    distributionProvider: string;
+    autoSchedule: boolean;
+    defaultHashtags: string[];
+    brandVoiceFile: string;
+    maxPostLength: number;
+    defaultSuggestionPrompt: string;
+    toneOverrides: string;
+    avatarImageUrl: string;
+    elevenlabsVoiceId: string;
+  }>(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+export const shSocialAccounts = pgTable('sh_social_accounts', {
+  id: serial('id').primaryKey(),
+  platform: varchar('platform', { length: 30 }).notNull(),
+  accountName: varchar('account_name', { length: 255 }).notNull(),
+  accountHandle: varchar('account_handle', { length: 255 }),
+  authPayload: jsonb('auth_payload'),
+  isActive: boolean('is_active').notNull().default(true),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (t) => ({
+  platformIdx: index('idx_sh_accounts_platform').on(t.platform),
+}));
+
+export const shContentBriefs = pgTable('sh_content_briefs', {
+  id: serial('id').primaryKey(),
+  sourceType: varchar('source_type', { length: 30 }).notNull(),
+  sourceId: integer('source_id').notNull(),
+  sourceTitle: varchar('source_title', { length: 500 }),
+  sourceSnapshot: text('source_snapshot'),
+  suggestionPrompt: text('suggestion_prompt'),
+  outputFormat: varchar('output_format', { length: 20 }).notNull(),
+  targetPlatforms: jsonb('target_platforms').$type<string[]>().notNull().default([]),
+  targetAccountIds: jsonb('target_account_ids').$type<number[]>().notNull().default([]),
+  kbEntriesUsed: jsonb('kb_entries_used').$type<number[]>().default([]),
+  brandVoiceUsed: boolean('brand_voice_used').notNull().default(true),
+  repurposeGroupId: integer('repurpose_group_id'),
+  status: varchar('status', { length: 30 }).notNull().default('draft'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (t) => ({
+  statusIdx: index('idx_sh_briefs_status').on(t.status),
+  sourceIdx: index('idx_sh_briefs_source').on(t.sourceType, t.sourceId),
+}));
+
+export const shGeneratedCopy = pgTable('sh_generated_copy', {
+  id: serial('id').primaryKey(),
+  briefId: integer('brief_id').notNull().references(() => shContentBriefs.id, { onDelete: 'cascade' }),
+  hookLine: text('hook_line').notNull(),
+  bodyText: text('body_text').notNull(),
+  hashtags: jsonb('hashtags').$type<string[]>().default([]),
+  cta: text('cta'),
+  imageLayoutDescription: text('image_layout_description'),
+  videoScript: text('video_script'),
+  variantIndex: integer('variant_index').notNull().default(0),
+  generationModel: varchar('generation_model', { length: 100 }),
+  promptUsed: text('prompt_used'),
+  isEdited: boolean('is_edited').notNull().default(false),
+  editedAt: timestamp('edited_at'),
+  status: varchar('status', { length: 20 }).notNull().default('draft'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (t) => ({
+  briefIdx: index('idx_sh_copy_brief').on(t.briefId),
+  statusIdx: index('idx_sh_copy_status').on(t.status),
+}));
+
+export const shTemplates = pgTable('sh_templates', {
+  id: serial('id').primaryKey(),
+  name: varchar('name', { length: 100 }).notNull(),
+  slug: varchar('slug', { length: 100 }).notNull().unique(),
+  category: varchar('category', { length: 50 }).notNull(),
+  aspectRatio: varchar('aspect_ratio', { length: 10 }).notNull(),
+  jsxTemplate: text('jsx_template').notNull(),
+  previewUrl: text('preview_url'),
+  isActive: boolean('is_active').notNull().default(true),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+
+export const shMediaAssets = pgTable('sh_media_assets', {
+  id: serial('id').primaryKey(),
+  briefId: integer('brief_id').notNull().references(() => shContentBriefs.id, { onDelete: 'cascade' }),
+  copyId: integer('copy_id').references(() => shGeneratedCopy.id),
+  templateId: integer('template_id').references(() => shTemplates.id),
+  type: varchar('type', { length: 10 }).notNull(),
+  mediaUrl: text('media_url'),
+  thumbnailUrl: text('thumbnail_url'),
+  width: integer('width'),
+  height: integer('height'),
+  durationSeconds: integer('duration_seconds'),
+  fileSizeBytes: integer('file_size_bytes'),
+  renderProvider: varchar('render_provider', { length: 30 }),
+  renderModel: varchar('render_model', { length: 50 }),
+  renderCostUsd: real('render_cost_usd'),
+  status: varchar('status', { length: 20 }).notNull().default('pending'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (t) => ({
+  briefIdx: index('idx_sh_media_brief').on(t.briefId),
+  statusIdx: index('idx_sh_media_status').on(t.status),
+}));
+
+export const shPublishLog = pgTable('sh_publish_log', {
+  id: serial('id').primaryKey(),
+  briefId: integer('brief_id').notNull().references(() => shContentBriefs.id, { onDelete: 'cascade' }),
+  mediaAssetId: integer('media_asset_id').references(() => shMediaAssets.id),
+  accountId: integer('account_id').notNull().references(() => shSocialAccounts.id),
+  platform: varchar('platform', { length: 30 }).notNull(),
+  externalPostId: varchar('external_post_id', { length: 255 }),
+  externalPostUrl: text('external_post_url'),
+  publishedAt: timestamp('published_at'),
+  scheduledFor: timestamp('scheduled_for'),
+  status: varchar('status', { length: 20 }).notNull().default('pending'),
+  errorMessage: text('error_message'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (t) => ({
+  briefIdx: index('idx_sh_publish_brief').on(t.briefId),
+  statusIdx: index('idx_sh_publish_status').on(t.status),
+  platformIdx: index('idx_sh_publish_platform').on(t.platform),
+}));
+
+export const shPostMetrics = pgTable('sh_post_metrics', {
+  id: serial('id').primaryKey(),
+  publishLogId: integer('publish_log_id').notNull().references(() => shPublishLog.id, { onDelete: 'cascade' }),
+  views: integer('views').notNull().default(0),
+  likes: integer('likes').notNull().default(0),
+  comments: integer('comments').notNull().default(0),
+  shares: integer('shares').notNull().default(0),
+  saves: integer('saves').notNull().default(0),
+  engagementRate: real('engagement_rate'),
+  fetchedAt: timestamp('fetched_at').notNull().defaultNow(),
+});
+
+export const shQueue = pgTable('sh_queue', {
+  id: serial('id').primaryKey(),
+  briefId: integer('brief_id').notNull().references(() => shContentBriefs.id, { onDelete: 'cascade' }),
+  priority: integer('priority').notNull().default(50),
+  status: varchar('status', { length: 20 }).notNull().default('pending'),
+  processedAt: timestamp('processed_at'),
+  errorMessage: text('error_message'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (t) => ({
+  statusIdx: index('idx_sh_queue_status').on(t.status),
+  priorityIdx: index('idx_sh_queue_priority').on(t.priority),
+}));

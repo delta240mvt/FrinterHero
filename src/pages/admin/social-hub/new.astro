@@ -1,0 +1,698 @@
+---
+import Base from '@/components/layouts/Base.astro';
+import { db } from '@/db/client';
+import { shSocialAccounts, shTemplates } from '@/db/schema';
+import { eq } from 'drizzle-orm';
+
+const accounts = await db.select().from(shSocialAccounts).where(eq(shSocialAccounts.isActive, true));
+const templates = await db.select().from(shTemplates).where(eq(shTemplates.isActive, true));
+---
+
+<Base title="New Post — Social Hub" description="Create a new social media post with the 5-step wizard">
+<div class="admin-layout">
+  <header class="admin-header">
+    <a href="/admin" class="admin-logo">P·F</a>
+    <nav class="breadcrumb">
+      <a href="/admin" class="bc-link">Admin</a>
+      <span class="bc-sep">›</span>
+      <a href="/admin/social-hub" class="bc-link">Social Hub</a>
+      <span class="bc-sep">›</span>
+      <span class="bc-current">New Post</span>
+    </nav>
+    <div class="header-actions">
+      <a href="/api/logout" class="btn-logout">Logout</a>
+    </div>
+  </header>
+
+  <main class="admin-main">
+    <!-- Progress bar -->
+    <div class="wizard-progress">
+      <div class="progress-steps">
+        {[1, 2, 3, 4, 5].map((n) => (
+          <div class="progress-step" data-step={n}>
+            <div class="step-dot">{n}</div>
+            <span class="step-label">
+              {n === 1 && 'Source'}
+              {n === 2 && 'Preview'}
+              {n === 3 && 'Prompt'}
+              {n === 4 && 'Format'}
+              {n === 5 && 'Platforms'}
+            </span>
+          </div>
+        ))}
+      </div>
+      <div class="progress-bar-track">
+        <div class="progress-bar-fill" id="progress-bar-fill"></div>
+      </div>
+    </div>
+
+    <!-- ─── STEP 1: Choose Source ──────────────────────────────────────────── -->
+    <section class="wizard-step" id="step-1" data-step="1">
+      <div class="step-header">
+        <h2 class="step-title">Choose Source</h2>
+        <p class="step-subtitle">Select the content you want to turn into a social post.</p>
+      </div>
+
+      <div class="source-controls">
+        <div class="source-type-wrap">
+          <label class="field-label" for="source-type">Source Type</label>
+          <select id="source-type" class="field-select">
+            <option value="articles">Articles</option>
+            <option value="pain_points">Pain Points</option>
+            <option value="pain_clusters">Pain Clusters</option>
+            <option value="content_gaps">Content Gaps</option>
+            <option value="kb_entries">KB Entries</option>
+            <option value="reddit_gaps">Reddit Gaps</option>
+            <option value="yt_gaps">YouTube Gaps</option>
+          </select>
+        </div>
+        <div class="source-search-wrap">
+          <label class="field-label" for="source-search">Search</label>
+          <input type="text" id="source-search" class="field-input" placeholder="Search by title or keyword…" autocomplete="off" />
+        </div>
+      </div>
+
+      <div id="source-results" class="source-results">
+        <div class="source-empty" id="source-empty">
+          <span class="source-empty-icon">⌕</span>
+          <span>Choose a source type to load results.</span>
+        </div>
+        <div class="source-loading" id="source-loading" style="display:none">
+          <span class="spinner"></span> Loading…
+        </div>
+        <div id="source-list" class="source-list"></div>
+      </div>
+    </section>
+
+    <!-- ─── STEP 2: Source Preview ─────────────────────────────────────────── -->
+    <section class="wizard-step" id="step-2" data-step="2" style="display:none">
+      <div class="step-header">
+        <h2 class="step-title">Source Preview</h2>
+        <p class="step-subtitle">Review the selected content before proceeding.</p>
+      </div>
+
+      <div class="preview-card" id="preview-card">
+        <div class="preview-meta-row">
+          <span class="preview-badge" id="preview-badge">—</span>
+          <span class="preview-meta" id="preview-meta"></span>
+        </div>
+        <h3 class="preview-title" id="preview-title">—</h3>
+        <p class="preview-text" id="preview-text">—</p>
+      </div>
+
+      <div class="step-actions">
+        <button type="button" class="btn-back" id="back-2">← Back</button>
+        <button type="button" class="btn-next" id="continue-2">Continue →</button>
+      </div>
+    </section>
+
+    <!-- ─── STEP 3: Suggestion Prompt ──────────────────────────────────────── -->
+    <section class="wizard-step" id="step-3" data-step="3" style="display:none">
+      <div class="step-header">
+        <h2 class="step-title">Suggestion Prompt</h2>
+        <p class="step-subtitle">Optional: guide the AI with a tone, angle, or focus for the post.</p>
+      </div>
+
+      <div class="form-group">
+        <label class="field-label" for="suggestion-prompt">Direction for AI (optional)</label>
+        <textarea
+          id="suggestion-prompt"
+          class="field-textarea"
+          rows={5}
+          placeholder="Skup się na aspekcie ADHD i digital minimalism, ton ironiczny"
+        ></textarea>
+        <span class="field-hint">Leave blank to let the AI decide based on source content.</span>
+      </div>
+
+      <div class="step-actions">
+        <button type="button" class="btn-back" id="back-3">← Back</button>
+        <button type="button" class="btn-next" id="continue-3">Continue →</button>
+      </div>
+    </section>
+
+    <!-- ─── STEP 4: Format Selection ───────────────────────────────────────── -->
+    <section class="wizard-step" id="step-4" data-step="4" style="display:none">
+      <div class="step-header">
+        <h2 class="step-title">Format Selection</h2>
+        <p class="step-subtitle">Choose how the post will be rendered.</p>
+      </div>
+
+      <div class="format-grid" role="group" aria-label="Output format">
+        <label class="format-card" id="fmt-image-label">
+          <input type="radio" name="output-format" value="image" class="format-radio" id="fmt-image" />
+          <span class="format-icon">📷</span>
+          <span class="format-name">Image</span>
+          <span class="format-desc">Static graphic via Satori</span>
+        </label>
+        <label class="format-card" id="fmt-video-label">
+          <input type="radio" name="output-format" value="video" class="format-radio" id="fmt-video" />
+          <span class="format-icon">🎬</span>
+          <span class="format-name">Video</span>
+          <span class="format-desc">Short video via WaveSpeed</span>
+        </label>
+        <label class="format-card" id="fmt-text-label">
+          <input type="radio" name="output-format" value="text" class="format-radio" id="fmt-text" />
+          <span class="format-icon">📝</span>
+          <span class="format-name">Text only</span>
+          <span class="format-desc">Copy only, no media</span>
+        </label>
+      </div>
+
+      <!-- Image sub-options -->
+      <div id="image-options" class="format-suboptions" style="display:none">
+        <label class="field-label" for="template-select">Satori Template</label>
+        {templates.length > 0 ? (
+          <select id="template-select" class="field-select">
+            {templates.map((t) => (
+              <option value={t.id}>{t.name} — {t.aspectRatio} · {t.category}</option>
+            ))}
+          </select>
+        ) : (
+          <p class="field-hint field-hint--warn">No active templates found. Add templates in Social Hub settings.</p>
+        )}
+      </div>
+
+      <!-- Video sub-options -->
+      <div id="video-options" class="format-suboptions" style="display:none">
+        <label class="field-label" for="video-model-select">Video Model</label>
+        <select id="video-model-select" class="field-select">
+          <option value="wan-2.2-ultra-fast">wan-2.2-ultra-fast (fast, lower cost)</option>
+          <option value="InfiniteTalk">InfiniteTalk (talking head, portrait)</option>
+        </select>
+      </div>
+
+      <div class="step-actions">
+        <button type="button" class="btn-back" id="back-4">← Back</button>
+        <button type="button" class="btn-next" id="continue-4">Continue →</button>
+      </div>
+    </section>
+
+    <!-- ─── STEP 5: Platforms & Accounts ──────────────────────────────────── -->
+    <section class="wizard-step" id="step-5" data-step="5" style="display:none">
+      <div class="step-header">
+        <h2 class="step-title">Platforms &amp; Accounts</h2>
+        <p class="step-subtitle">Select which accounts should receive this post.</p>
+      </div>
+
+      {accounts.length === 0 ? (
+        <div class="accounts-empty">
+          <p>No active social accounts found. Add accounts in Social Hub settings first.</p>
+          <a href="/admin/social-hub/settings" class="btn-ghost-sm">Open Settings</a>
+        </div>
+      ) : (
+        <div id="accounts-grid" class="accounts-grid">
+          {(() => {
+            const platforms = [...new Set(accounts.map(a => a.platform))].sort();
+            return platforms.map((platform) => {
+              const platformAccounts = accounts.filter(a => a.platform === platform);
+              return (
+                <div class="platform-group" key={platform}>
+                  <div class="platform-group-header">
+                    <span class="platform-icon" data-platform={platform}></span>
+                    <span class="platform-name">{platform}</span>
+                  </div>
+                  <div class="platform-accounts">
+                    {platformAccounts.map((acc) => (
+                      <label class="account-card" key={acc.id}>
+                        <input
+                          type="checkbox"
+                          class="account-checkbox"
+                          value={acc.id}
+                          data-platform={acc.platform}
+                        />
+                        <div class="account-info">
+                          <span class="account-name">{acc.accountName}</span>
+                          {acc.accountHandle && (
+                            <span class="account-handle">@{acc.accountHandle}</span>
+                          )}
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              );
+            });
+          })()}
+        </div>
+      )}
+
+      <div class="step-actions step-actions--submit">
+        <button type="button" class="btn-back" id="back-5">← Back</button>
+        <button type="button" class="btn-submit" id="submit-btn">
+          Generate Copy →
+        </button>
+      </div>
+
+      <div id="submit-status" class="submit-status" style="display:none"></div>
+    </section>
+
+  </main>
+</div>
+
+<script define:vars={{ templatesData: templates, accountsData: accounts }}>
+  // ── State ────────────────────────────────────────────────────────────────
+  let currentStep = 1;
+  const TOTAL_STEPS = 5;
+
+  const state = {
+    sourceType: 'articles',
+    selectedSource: null,   // { id, title, preview, meta }
+    suggestionPrompt: '',
+    outputFormat: null,     // 'image' | 'video' | 'text'
+    templateId: null,
+    videoModel: null,
+    selectedAccountIds: [],
+  };
+
+  // ── Step navigation ──────────────────────────────────────────────────────
+  function showStep(n) {
+    document.querySelectorAll('.wizard-step').forEach((el) => {
+      el.style.display = el.dataset.step == n ? 'block' : 'none';
+    });
+
+    document.querySelectorAll('.progress-step').forEach((el) => {
+      const s = parseInt(el.dataset.step, 10);
+      el.classList.toggle('active', s === n);
+      el.classList.toggle('done', s < n);
+    });
+
+    const fill = document.getElementById('progress-bar-fill');
+    if (fill) fill.style.width = ((n - 1) / (TOTAL_STEPS - 1) * 100) + '%';
+
+    currentStep = n;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  // ── Source search (debounced) ────────────────────────────────────────────
+  let searchTimer = null;
+
+  const sourceTypeEl = document.getElementById('source-type');
+  const sourceSearchEl = document.getElementById('source-search');
+  const sourceList = document.getElementById('source-list');
+  const sourceEmpty = document.getElementById('source-empty');
+  const sourceLoading = document.getElementById('source-loading');
+
+  function debounce(fn, ms) {
+    return (...args) => {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(() => fn(...args), ms);
+    };
+  }
+
+  async function fetchSources() {
+    const type = sourceTypeEl.value;
+    const search = sourceSearchEl.value.trim();
+
+    sourceList.innerHTML = '';
+    sourceEmpty.style.display = 'none';
+    sourceLoading.style.display = 'flex';
+
+    try {
+      const params = new URLSearchParams({ type });
+      if (search) params.set('search', search);
+      const res = await fetch('/api/social-hub/sources?' + params.toString());
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+
+      sourceLoading.style.display = 'none';
+
+      if (!data.items || data.items.length === 0) {
+        sourceEmpty.style.display = 'flex';
+        sourceEmpty.querySelector('span:last-child').textContent = 'No results found.';
+        return;
+      }
+
+      data.items.forEach((item) => {
+        const card = document.createElement('div');
+        card.className = 'source-card';
+        card.dataset.id = item.id;
+        card.dataset.title = item.title;
+        card.dataset.preview = item.preview || '';
+        card.dataset.meta = item.meta || '';
+        card.innerHTML = `
+          <div class="source-card-top">
+            <span class="source-card-title">${escapeHtml(item.title)}</span>
+            ${item.meta ? `<span class="source-card-badge">${escapeHtml(item.meta)}</span>` : ''}
+          </div>
+          ${item.preview ? `<p class="source-card-preview">${escapeHtml(item.preview)}</p>` : ''}
+        `;
+        card.addEventListener('click', () => selectSource(card));
+        sourceList.appendChild(card);
+      });
+    } catch (err) {
+      sourceLoading.style.display = 'none';
+      sourceEmpty.style.display = 'flex';
+      sourceEmpty.querySelector('span:last-child').textContent = 'Error loading sources: ' + err.message;
+    }
+  }
+
+  function selectSource(card) {
+    document.querySelectorAll('.source-card').forEach(c => c.classList.remove('selected'));
+    card.classList.add('selected');
+
+    state.sourceType = sourceTypeEl.value;
+    state.selectedSource = {
+      id: parseInt(card.dataset.id, 10),
+      title: card.dataset.title,
+      preview: card.dataset.preview,
+      meta: card.dataset.meta,
+    };
+
+    // Populate step 2 preview
+    document.getElementById('preview-badge').textContent = formatSourceType(state.sourceType);
+    document.getElementById('preview-meta').textContent = state.selectedSource.meta || '';
+    document.getElementById('preview-title').textContent = state.selectedSource.title;
+    document.getElementById('preview-text').textContent = state.selectedSource.preview || '(no preview available)';
+
+    setTimeout(() => showStep(2), 150);
+  }
+
+  function formatSourceType(type) {
+    const map = {
+      articles: 'Article',
+      pain_points: 'Pain Point',
+      pain_clusters: 'Pain Cluster',
+      content_gaps: 'Content Gap',
+      kb_entries: 'KB Entry',
+      reddit_gaps: 'Reddit Gap',
+      yt_gaps: 'YT Gap',
+    };
+    return map[type] || type;
+  }
+
+  function escapeHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  sourceTypeEl.addEventListener('change', () => {
+    sourceList.innerHTML = '';
+    sourceEmpty.style.display = 'flex';
+    sourceEmpty.querySelector('span:last-child').textContent = 'Choose a source type to load results.';
+    fetchSources();
+  });
+
+  sourceSearchEl.addEventListener('input', debounce(fetchSources, 300));
+
+  // Initial load
+  fetchSources();
+
+  // ── Step 2 buttons ───────────────────────────────────────────────────────
+  document.getElementById('back-2').addEventListener('click', () => showStep(1));
+  document.getElementById('continue-2').addEventListener('click', () => {
+    if (!state.selectedSource) return;
+    showStep(3);
+  });
+
+  // ── Step 3 buttons ───────────────────────────────────────────────────────
+  document.getElementById('back-3').addEventListener('click', () => showStep(2));
+  document.getElementById('continue-3').addEventListener('click', () => {
+    state.suggestionPrompt = document.getElementById('suggestion-prompt').value.trim();
+    showStep(4);
+  });
+
+  // ── Step 4: format radio + sub-options ──────────────────────────────────
+  const formatRadios = document.querySelectorAll('input[name="output-format"]');
+  const imageOptions = document.getElementById('image-options');
+  const videoOptions = document.getElementById('video-options');
+
+  function updateFormatOptions() {
+    const selected = [...formatRadios].find(r => r.checked)?.value;
+    imageOptions.style.display = selected === 'image' ? 'block' : 'none';
+    videoOptions.style.display = selected === 'video' ? 'block' : 'none';
+
+    // Update card highlight
+    document.querySelectorAll('.format-card').forEach(card => {
+      const radio = card.querySelector('input[type="radio"]');
+      card.classList.toggle('selected', radio?.checked ?? false);
+    });
+  }
+
+  formatRadios.forEach(r => r.addEventListener('change', updateFormatOptions));
+
+  document.getElementById('back-4').addEventListener('click', () => showStep(3));
+  document.getElementById('continue-4').addEventListener('click', () => {
+    const selected = [...formatRadios].find(r => r.checked)?.value;
+    if (!selected) {
+      // Flash an error hint
+      document.querySelectorAll('.format-card').forEach(c => c.classList.add('shake'));
+      setTimeout(() => document.querySelectorAll('.format-card').forEach(c => c.classList.remove('shake')), 400);
+      return;
+    }
+    state.outputFormat = selected;
+    const templateEl = document.getElementById('template-select');
+    const videoModelEl = document.getElementById('video-model-select');
+    state.templateId = templateEl ? parseInt(templateEl.value, 10) || null : null;
+    state.videoModel = videoModelEl ? videoModelEl.value || null : null;
+    showStep(5);
+  });
+
+  // ── Step 5 buttons + submit ──────────────────────────────────────────────
+  document.getElementById('back-5').addEventListener('click', () => showStep(4));
+
+  document.getElementById('submit-btn').addEventListener('click', async () => {
+    const checkedBoxes = document.querySelectorAll('.account-checkbox:checked');
+    state.selectedAccountIds = [...checkedBoxes].map(cb => parseInt(cb.value, 10));
+
+    if (state.selectedAccountIds.length === 0) {
+      const statusEl = document.getElementById('submit-status');
+      statusEl.style.display = 'block';
+      statusEl.className = 'submit-status submit-status--error';
+      statusEl.textContent = 'Select at least one account.';
+      return;
+    }
+
+    const submitBtn = document.getElementById('submit-btn');
+    const statusEl = document.getElementById('submit-status');
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Generating…';
+    statusEl.style.display = 'none';
+
+    const payload = {
+      sourceType: state.sourceType,
+      sourceId: state.selectedSource.id,
+      sourceTitle: state.selectedSource.title,
+      sourceSnapshot: state.selectedSource.preview || null,
+      suggestionPrompt: state.suggestionPrompt || null,
+      outputFormat: state.outputFormat,
+      templateId: state.outputFormat === 'image' ? state.templateId : null,
+      videoModel: state.outputFormat === 'video' ? state.videoModel : null,
+      targetAccountIds: state.selectedAccountIds,
+    };
+
+    try {
+      const res = await fetch('/api/social-hub/briefs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'HTTP ' + res.status);
+      }
+
+      const result = await res.json();
+      window.location.href = '/admin/social-hub/' + result.id;
+    } catch (err) {
+      statusEl.style.display = 'block';
+      statusEl.className = 'submit-status submit-status--error';
+      statusEl.textContent = 'Error: ' + err.message;
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Generate Copy →';
+    }
+  });
+
+  // Initialize first step
+  showStep(1);
+</script>
+
+<style>
+/* ── Layout ──────────────────────────────────────────────────────────────── */
+.admin-layout { min-height: 100vh; background: var(--bg-base); }
+.admin-header  { display: flex; align-items: center; gap: 1.25rem; padding: 0.875rem 1.5rem; background: var(--bg-elevated); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 20; }
+.admin-logo    { font-family: var(--font-mono); font-weight: 700; color: var(--teal); text-decoration: none; font-size: 1.1rem; }
+.breadcrumb    { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-secondary); display: flex; gap: 0.4rem; align-items: center; }
+.bc-link       { color: var(--text-muted); text-decoration: none; }
+.bc-link:hover { color: var(--teal); }
+.bc-sep        { color: var(--text-muted); }
+.bc-current    { color: var(--text-secondary); }
+.header-actions { margin-left: auto; }
+.btn-logout    { padding: 0.35rem 0.75rem; color: var(--text-muted); border: 1px solid var(--border); border-radius: 0.25rem; font-family: var(--font-mono); font-size: var(--text-xs); text-decoration: none; }
+.admin-main    { max-width: 800px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+
+/* ── Progress bar ────────────────────────────────────────────────────────── */
+.wizard-progress { margin-bottom: 2.5rem; }
+.progress-steps  { display: flex; justify-content: space-between; position: relative; margin-bottom: 0.625rem; }
+.progress-step   { display: flex; flex-direction: column; align-items: center; gap: 0.3rem; flex: 1; }
+.step-dot {
+  width: 2rem; height: 2rem; border-radius: 50%;
+  background: var(--bg-elevated); border: 2px solid var(--border);
+  font-family: var(--font-mono); font-size: 0.75rem; font-weight: 700;
+  color: var(--text-muted);
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+  position: relative; z-index: 1;
+}
+.progress-step.active .step-dot  { background: var(--gold); border-color: var(--gold); color: #1e293b; }
+.progress-step.done   .step-dot  { background: var(--teal); border-color: var(--teal); color: #fff; }
+.step-label {
+  font-family: var(--font-mono); font-size: 0.6rem; color: var(--text-muted);
+  text-align: center; white-space: nowrap;
+}
+.progress-step.active .step-label { color: var(--gold); }
+.progress-step.done   .step-label { color: var(--teal); }
+
+.progress-bar-track { height: 3px; background: var(--border); border-radius: 999px; }
+.progress-bar-fill  { height: 100%; background: var(--gold); border-radius: 999px; width: 0%; transition: width 0.35s ease; }
+
+/* ── Step scaffold ───────────────────────────────────────────────────────── */
+.wizard-step { animation: fadeIn 0.2s ease; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+.step-header { margin-bottom: 1.5rem; }
+.step-title  { font-family: var(--font-mono); font-size: 1.1rem; font-weight: 700; color: var(--text-primary); margin: 0 0 0.3rem; }
+.step-subtitle { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); margin: 0; }
+
+.step-actions { display: flex; gap: 0.75rem; align-items: center; margin-top: 2rem; }
+.step-actions--submit { justify-content: space-between; }
+
+/* ── Buttons ─────────────────────────────────────────────────────────────── */
+.btn-back { padding: 0.5rem 1rem; background: none; border: 1px solid var(--border); color: var(--text-secondary); border-radius: 0.375rem; font-family: var(--font-mono); font-size: var(--text-xs); cursor: pointer; }
+.btn-back:hover { border-color: var(--text-secondary); }
+.btn-next   { padding: 0.5rem 1.25rem; background: var(--teal); color: #fff; border: none; border-radius: 0.375rem; font-family: var(--font-mono); font-size: var(--text-sm); font-weight: 600; cursor: pointer; }
+.btn-next:hover { opacity: 0.9; }
+.btn-submit { padding: 0.625rem 1.5rem; background: var(--gold); color: #1e293b; border: none; border-radius: 0.375rem; font-family: var(--font-mono); font-size: var(--text-sm); font-weight: 700; cursor: pointer; }
+.btn-submit:hover { opacity: 0.9; }
+.btn-submit:disabled { opacity: 0.55; cursor: not-allowed; }
+.btn-ghost-sm { padding: 0.35rem 0.75rem; background: none; color: var(--text-secondary); border: 1px solid var(--border); border-radius: 0.25rem; font-family: var(--font-mono); font-size: var(--text-xs); cursor: pointer; text-decoration: none; }
+
+/* ── Field primitives ────────────────────────────────────────────────────── */
+.field-label { font-family: var(--font-mono); font-size: var(--text-xs); font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em; display: block; margin-bottom: 0.4rem; }
+.field-select { background: var(--bg-elevated); border: 1px solid var(--border); color: var(--text-primary); padding: 0.5rem 0.75rem; border-radius: 0.375rem; font-family: var(--font-mono); font-size: var(--text-sm); outline: none; width: 100%; }
+.field-select:focus { border-color: var(--teal); }
+.field-input  { background: var(--bg-elevated); border: 1px solid var(--border); color: var(--text-primary); padding: 0.5rem 0.75rem; border-radius: 0.375rem; font-family: var(--font-mono); font-size: var(--text-sm); outline: none; width: 100%; }
+.field-input:focus { border-color: var(--teal); }
+.field-textarea { background: var(--bg-elevated); border: 1px solid var(--border); color: var(--text-primary); padding: 0.625rem 0.875rem; border-radius: 0.375rem; font-family: var(--font-mono); font-size: var(--text-sm); outline: none; width: 100%; resize: vertical; line-height: 1.5; }
+.field-textarea:focus { border-color: var(--teal); }
+.field-hint { font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-muted); display: block; margin-top: 0.3rem; }
+.field-hint--warn { color: #d97706; }
+.form-group { display: flex; flex-direction: column; gap: 0.25rem; }
+
+/* ── Step 1: source controls ─────────────────────────────────────────────── */
+.source-controls { display: grid; grid-template-columns: 220px 1fr; gap: 1rem; margin-bottom: 1rem; }
+
+.source-results { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 0.5rem; min-height: 240px; }
+
+.source-empty {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 0.5rem; padding: 3rem 1rem;
+  font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted);
+}
+.source-empty-icon { font-size: 1.5rem; opacity: 0.4; }
+
+.source-loading {
+  display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+  padding: 3rem 1rem; font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted);
+}
+.spinner {
+  width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--teal);
+  border-radius: 50%; animation: spin 0.7s linear infinite; display: inline-block;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.source-list { display: flex; flex-direction: column; }
+
+.source-card {
+  padding: 0.75rem 1rem; border-bottom: 1px solid var(--border); cursor: pointer;
+  transition: background 0.12s;
+}
+.source-card:last-child { border-bottom: none; }
+.source-card:hover { background: rgba(74,141,131,0.05); }
+.source-card.selected { background: rgba(74,141,131,0.08); border-left: 3px solid var(--teal); }
+
+.source-card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.75rem; }
+.source-card-title { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--text-primary); font-weight: 600; }
+.source-card-badge { font-family: var(--font-mono); font-size: 0.6rem; background: rgba(214,183,121,0.12); color: var(--gold); border: 1px solid rgba(214,183,121,0.2); border-radius: 0.2rem; padding: 1px 6px; white-space: nowrap; flex-shrink: 0; }
+.source-card-preview { font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-muted); margin: 0.3rem 0 0; line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* ── Step 2: preview card ────────────────────────────────────────────────── */
+.preview-card { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 0.5rem; padding: 1.5rem; display: flex; flex-direction: column; gap: 0.75rem; }
+.preview-meta-row { display: flex; align-items: center; gap: 0.75rem; }
+.preview-badge { font-family: var(--font-mono); font-size: 0.65rem; background: rgba(74,141,131,0.1); color: var(--teal); border: 1px solid rgba(74,141,131,0.2); border-radius: 0.2rem; padding: 2px 8px; }
+.preview-meta  { font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-muted); }
+.preview-title { font-family: var(--font-mono); font-size: 1rem; font-weight: 700; color: var(--text-primary); margin: 0; }
+.preview-text  { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-secondary); margin: 0; line-height: 1.55; white-space: pre-wrap; }
+
+/* ── Step 4: format cards ────────────────────────────────────────────────── */
+.format-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; margin-bottom: 1.25rem; }
+.format-card {
+  background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 0.5rem;
+  padding: 1.25rem; display: flex; flex-direction: column; align-items: center; gap: 0.5rem;
+  cursor: pointer; transition: border-color 0.15s, background 0.15s;
+}
+.format-card:hover { border-color: var(--text-secondary); }
+.format-card.selected { border-color: var(--gold); background: rgba(214,183,121,0.05); }
+.format-radio { display: none; }
+.format-icon { font-size: 1.75rem; }
+.format-name { font-family: var(--font-mono); font-size: var(--text-sm); font-weight: 700; color: var(--text-primary); }
+.format-desc { font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-muted); text-align: center; }
+.format-card.shake { animation: shake 0.35s ease; }
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%       { transform: translateX(-4px); }
+  40%       { transform: translateX(4px); }
+  60%       { transform: translateX(-3px); }
+  80%       { transform: translateX(3px); }
+}
+
+.format-suboptions { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 0.375rem; padding: 1rem; margin-bottom: 0.75rem; }
+
+/* ── Step 5: accounts ────────────────────────────────────────────────────── */
+.accounts-empty { padding: 2rem; text-align: center; font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); display: flex; flex-direction: column; gap: 1rem; align-items: center; }
+.accounts-grid  { display: flex; flex-direction: column; gap: 1rem; }
+
+.platform-group { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 0.5rem; overflow: hidden; }
+.platform-group-header { display: flex; align-items: center; gap: 0.6rem; padding: 0.625rem 1rem; background: rgba(255,255,255,0.02); border-bottom: 1px solid var(--border); }
+.platform-name { font-family: var(--font-mono); font-size: var(--text-xs); font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; }
+.platform-icon { font-size: 0.9rem; }
+.platform-icon[data-platform="instagram"]::before { content: '📸'; }
+.platform-icon[data-platform="twitter"]::before   { content: '𝕏'; }
+.platform-icon[data-platform="x"]::before         { content: '𝕏'; }
+.platform-icon[data-platform="linkedin"]::before  { content: '💼'; }
+.platform-icon[data-platform="tiktok"]::before    { content: '🎵'; }
+.platform-icon[data-platform="facebook"]::before  { content: '📘'; }
+.platform-icon[data-platform="youtube"]::before   { content: '▶'; }
+.platform-icon[data-platform="threads"]::before   { content: '@'; }
+.platform-accounts { display: flex; flex-direction: column; }
+
+.account-card {
+  display: flex; align-items: center; gap: 0.75rem; padding: 0.625rem 1rem;
+  border-bottom: 1px solid var(--border); cursor: pointer;
+  transition: background 0.12s;
+}
+.account-card:last-child { border-bottom: none; }
+.account-card:hover { background: rgba(74,141,131,0.04); }
+.account-card:has(.account-checkbox:checked) { background: rgba(74,141,131,0.07); }
+.account-checkbox { accent-color: var(--teal); width: 15px; height: 15px; cursor: pointer; flex-shrink: 0; }
+.account-info { display: flex; flex-direction: column; gap: 0.1rem; }
+.account-name   { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--text-primary); font-weight: 600; }
+.account-handle { font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-muted); }
+
+/* ── Submit status ───────────────────────────────────────────────────────── */
+.submit-status { margin-top: 1rem; padding: 0.625rem 1rem; border-radius: 0.375rem; font-family: var(--font-mono); font-size: var(--text-xs); }
+.submit-status--error   { background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.25); color: #ef4444; }
+.submit-status--success { background: rgba(74,141,131,0.08); border: 1px solid rgba(74,141,131,0.25); color: var(--teal); }
+
+/* ── Responsive ──────────────────────────────────────────────────────────── */
+@media (max-width: 600px) {
+  .source-controls { grid-template-columns: 1fr; }
+  .format-grid { grid-template-columns: 1fr; }
+  .step-actions--submit { flex-direction: column-reverse; align-items: stretch; }
+  .btn-submit, .btn-back { text-align: center; width: 100%; }
+}
+</style>
+</Base>
