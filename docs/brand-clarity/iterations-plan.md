@@ -210,7 +210,17 @@ Analogicznie — pobierz klastry danej iteracji (`where iterationId = X`) i tagu
                          [Generuj LP →]
                                 │
                          Warianty LP
-```
+
+---
+
+## Dalsze kroki — Generowanie Mediów (VoC Clips)
+
+Następnym krokiem po wygenerowaniu wariantów LP jest stworzenie materiałów wideo ("Voice of Customer Clips") na podstawie wybranych Pain Pointów danej iteracji.
+
+Szczegółowy plan techniczny i finansowy (wybór **WaveSpeed AI**) znajduje się w osobnym dokumencie:
+👉 [**Video Generation Plan (VoC Clips)**](./video-generation-plan.md)
+
+---
 
 ### Widok "Pain Points Base" (obecna strona scrape.astro)
 

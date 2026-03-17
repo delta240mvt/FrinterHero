@@ -215,7 +215,7 @@ const scraped   = selectedVideos.filter(v => v.isScraped);
       ) : (
         <div class="iterations-grid">
           {iterations.map((it: any) => {
-            const statusColors: Record<string, string> = {
+            const statusColors = {
               draft: 'var(--text-muted)',
               selecting: 'var(--gold)',
               selected: 'var(--teal)',
