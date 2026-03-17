@@ -253,7 +253,13 @@ const scraped   = selectedVideos.filter(v => v.isScraped);
       <div class="section-header-row">
         <div class="section-title-block">
           <h2 class="section-title">Pain Points Base</h2>
-          <p class="section-subtitle">{approved} approved · {rejected} rejected · {pending} pending</p>
+          <p class="section-subtitle">
+            <button class="pp-stat-btn" data-group="approved" id="stat-approved">{approved} approved</button>
+            <span class="pp-stat-sep"> · </span>
+            <button class="pp-stat-btn" data-group="rejected" id="stat-rejected">{rejected} rejected</button>
+            <span class="pp-stat-sep"> · </span>
+            <button class="pp-stat-btn pp-stat-active" data-group="pending" id="stat-pending">{pending} pending</button>
+          </p>
         </div>
         <div class="header-btns">
           <!-- Always render; JS shows/hides based on approved count -->
@@ -312,11 +318,37 @@ const scraped   = selectedVideos.filter(v => v.isScraped);
       {painPoints.length === 0 ? (
         <div class="empty-state">No pain points yet. Scrape a video above to extract them from YouTube comments.</div>
       ) : (
-        <div id="pp-list">
-          {painPoints.map(pp => (
-            <BcPainPointCard pp={pp} projectId={projectId} />
-          ))}
-        </div>
+        <>
+          <div id="pp-section-approved" class="pp-group" style="display:none">
+            <div class="pp-group-label">Approved ({approved})</div>
+            <div id="pp-list-approved">
+              {painPoints.filter(p => p.status === 'approved').map(pp => (
+                <BcPainPointCard pp={pp} projectId={projectId} />
+              ))}
+            </div>
+          </div>
+
+          <div id="pp-section-rejected" class="pp-group" style="display:none">
+            <div class="pp-group-label">Rejected ({rejected})</div>
+            <div id="pp-list-rejected">
+              {painPoints.filter(p => p.status === 'rejected').map(pp => (
+                <BcPainPointCard pp={pp} projectId={projectId} />
+              ))}
+            </div>
+          </div>
+
+          <div id="pp-section-pending" class="pp-group">
+            <div id="pp-list-pending">
+              {painPoints.filter(p => p.status === 'pending').length === 0 ? (
+                <div class="empty-state small">Brak oczekujących — wszystkie przejrzane ✓</div>
+              ) : (
+                painPoints.filter(p => p.status === 'pending').map(pp => (
+                  <BcPainPointCard pp={pp} projectId={projectId} />
+                ))
+              )}
+            </div>
+          </div>
+        </>
       )}
     </section>
   </main>
@@ -570,6 +602,38 @@ const scraped   = selectedVideos.filter(v => v.isScraped);
   });
 
   // ── Pain point actions ─────────────────────────────────────
+
+  function updateStatCounts() {
+    const counts = {
+      approved: document.getElementById('pp-list-approved')?.querySelectorAll('.bcpp-card').length ?? 0,
+      rejected: document.getElementById('pp-list-rejected')?.querySelectorAll('.bcpp-card').length ?? 0,
+      pending:  document.getElementById('pp-list-pending')?.querySelectorAll('.bcpp-card').length ?? 0,
+    };
+    ['approved', 'rejected', 'pending'].forEach(g => {
+      const btn = document.getElementById(`stat-${g}`);
+      if (btn) btn.textContent = `${counts[g]} ${g}`;
+    });
+    // Update group labels
+    ['approved', 'rejected'].forEach(g => {
+      const lbl = document.querySelector(`#pp-section-${g} .pp-group-label`);
+      if (lbl) lbl.textContent = `${g.charAt(0).toUpperCase() + g.slice(1)} (${counts[g]})`;
+    });
+    // Show cluster btn once 3+ approved
+    const clusterBtn = document.getElementById('cluster-btn');
+    if (clusterBtn && counts.approved >= 3) clusterBtn.style.display = '';
+  }
+
+  function checkSectionEmpty(group) {
+    const list = document.getElementById(`pp-list-${group}`);
+    if (!list) return;
+    if (list.querySelectorAll('.bcpp-card').length === 0 && !list.querySelector('.empty-state')) {
+      const el = document.createElement('div');
+      el.className = 'empty-state small';
+      el.textContent = group === 'pending' ? 'Brak oczekujących — wszystkie przejrzane ✓' : `Brak ${group}`;
+      list.appendChild(el);
+    }
+  }
+
   async function bcppSetStatus(ppId, projId, status) {
     const res = await fetch(`/api/brand-clarity/${projId}/pain-points/${ppId}`, {
       method: 'PUT', headers: { 'Content-Type': 'application/json' },
@@ -580,30 +644,28 @@ const scraped   = selectedVideos.filter(v => v.isScraped);
     const card = document.getElementById(`bcpp-${ppId}`);
     if (!card) return;
 
-    if (status === 'approved' || status === 'rejected') {
-      // Fade out and remove
-      card.style.transition = 'opacity 0.25s, transform 0.25s';
-      card.style.opacity = '0';
-      card.style.transform = 'translateX(12px)';
-      setTimeout(() => card.remove(), 260);
-      // Update subtitle counter + show cluster button if threshold reached
-      const subtitle = document.querySelector('.admin-section:last-child .section-subtitle');
-      if (subtitle) {
-        const approvedNow = document.querySelectorAll('#pp-list .bcpp-card[data-status="approved"]').length + (status === 'approved' ? 1 : 0);
-        const rejected = document.querySelectorAll('#pp-list .bcpp-card[data-status="rejected"]').length + (status === 'rejected' ? 1 : 0);
-        const pending  = Math.max(0, document.querySelectorAll('#pp-list .bcpp-card[data-status="pending"]').length - 1);
-        subtitle.textContent = `${approvedNow} approved · ${rejected} rejected · ${pending} pending`;
-        // Show cluster button once 3+ approved
-        const clusterBtn = document.getElementById('cluster-btn');
-        if (clusterBtn && approvedNow >= 3) clusterBtn.style.display = '';
-      }
-    } else {
-      // Reset to pending — restore in place
-      card.dataset.status = status;
-      card.querySelector('.bcpp-status').textContent = status;
-      card.style.borderColor = '';
+    card.style.transition = 'opacity 0.25s, transform 0.25s';
+    card.style.opacity = '0';
+    card.style.transform = 'translateX(12px)';
+
+    setTimeout(() => {
+      card.style.transition = '';
       card.style.opacity = '';
-    }
+      card.style.transform = '';
+      card.dataset.status = status;
+      const statusEl = card.querySelector('.bcpp-status');
+      if (statusEl) statusEl.textContent = status;
+
+      const targetListId = status === 'pending' ? 'pp-list-pending' : `pp-list-${status}`;
+      const targetList = document.getElementById(targetListId);
+      if (targetList) {
+        targetList.querySelector('.empty-state')?.remove();
+        targetList.insertBefore(card, targetList.firstChild);
+      }
+
+      updateStatCounts();
+      checkSectionEmpty('pending');
+    }, 260);
   }
 
   function bcppToggle(ppId) {
@@ -613,6 +675,18 @@ const scraped   = selectedVideos.filter(v => v.isScraped);
 
   window.bcppSetStatus = bcppSetStatus;
   window.bcppToggle = bcppToggle;
+
+  // ── Stat button toggles ─────────────────────────────────────
+  document.querySelectorAll('.pp-stat-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const group = btn.dataset.group;
+      const section = document.getElementById(`pp-section-${group}`);
+      if (!section) return;
+      const isVisible = section.style.display !== 'none';
+      section.style.display = isVisible ? 'none' : '';
+      btn.classList.toggle('pp-stat-active', !isVisible);
+    });
+  });
 
   // ── Cluster pain points ─────────────────────────────────────
   const clusterLogPanel     = document.getElementById('cluster-log-panel');
@@ -805,6 +879,14 @@ details[open] .run-logs-toggle::before { transform: rotate(90deg); }
 .log-line--llm   { color: var(--gold); }
 .btn-download-logs { padding: 0.25rem 0.75rem; background: none; border: 1px solid var(--border); color: var(--text-muted); border-radius: 0.25rem; font-family: var(--font-mono); font-size: 0.65rem; cursor: pointer; }
 .btn-download-logs:hover { border-color: var(--teal); color: var(--teal); }
+
+/* PP stat buttons */
+.pp-stat-btn { background: none; border: 1px solid var(--border); color: var(--text-muted); border-radius: 0.9rem; padding: 0.15rem 0.6rem; font-family: var(--font-mono); font-size: var(--text-xs); cursor: pointer; transition: color 0.15s, border-color 0.15s; }
+.pp-stat-btn:hover { color: var(--text-secondary); border-color: var(--text-muted); }
+.pp-stat-btn.pp-stat-active { color: var(--gold); border-color: rgba(214,183,121,0.5); }
+.pp-stat-sep { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--border); }
+.pp-group { display: flex; flex-direction: column; gap: 0; }
+.pp-group-label { font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; padding: 0.5rem 0 0.375rem; border-top: 1px solid var(--border); margin-top: 0.25rem; }
 
 /* Iterations */
 .iterations-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 0.75rem; }
