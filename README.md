@@ -101,7 +101,7 @@ npm run dev
 |------|-------------|
 | 1. Deploy | **(Coming Soon)** Click the Railway Deploy button — template clones, build starts |
 | 2. DB Init | PostgreSQL is provisioned and migrations are executed automatically |
-| 3. Add Keys | Add your OpenAI / Anthropic API keys in the Railway Variables tab |
+| 3. Add Keys | Add your OpenAI / Anthropic / Perplexity API keys in the Railway Variables tab |
 | 4. Customize | Edit `src/config.ts` or `README.md` in your GitHub repo |
 | 5. Push | Git push triggers an automatic re-deploy on Railway |
 | 6. Done | Site is live, blazing fast, and ready to be scraped by AI |
@@ -189,6 +189,93 @@ The output is a structured article built to be cited by ChatGPT, Perplexity, and
 
 ---
 
+## Brand Clarity
+
+**Brand Clarity** is an additional module built into FrinterHero's admin panel. It converts any landing page into **3 conversion-optimised LP variants** grounded in real customer language (Voice of Customer from YouTube).
+
+> The core insight: LPs fail because they use **founder language, not customer language.** Brand Clarity sources copy directly from YouTube comments, clusters recurring pain themes, and generates variants that mirror exactly what customers already say to themselves.
+
+### Brand Clarity Pipeline — 5 Stages
+
+```
+  BRAND CLARITY PIPELINE v2
+  ┌──────────────────────────────────────────────────────────────────────────┐
+  │                                                                          │
+  │  INPUT: LP Content (YAML from AI agent) + Project Name                   │
+  │                                                                          │
+  │  STAGE 1 — LP INGESTION & KEYWORD EXTRACTION        [Sonnet × 1]        │
+  │  · Admin downloads AI agent prompt (.md)                                 │
+  │  · Agent (Claude/ChatGPT) visits LP, returns structured YAML             │
+  │  · Sonnet parses: product name, niche, unique value prop                 │
+  │  · Sonnet generates: nicheKeywords (up to 6 search terms)                │
+  │  · Sonnet extracts: featureMap { featureName, whatItDoes, userBenefit }  │
+  │                                │                                          │
+  │  STAGE 2 — CHANNEL DISCOVERY                        [No LLM]            │
+  │  · YouTube Data API v3 → top 15 channel candidates                       │
+  │  · Manual add: paste URL / @handle / UCxxxx                              │
+  │  · Admin confirms channels                                               │
+  │                                │                                          │
+  │  STAGE 3 — VIDEO DISCOVERY                          [No LLM]            │
+  │  · keyword search per channel → top 3 videos by rankScore + engageScore  │
+  │  · Fallback: channel's most popular videos if keyword search = 0         │
+  │                                │                                          │
+  │  STAGE 4 — COMMENT SCRAPING + PAIN EXTRACTION       [Haiku × ~75]       │
+  │  · YouTube commentThreads API → up to 100 comments per video             │
+  │  · Chunks of 20 → 1 Haiku call per chunk                                 │
+  │  · Extracts: pain point, emotionalIntensity, vocabularyQuotes, vocData   │
+  │  · Admin approves / rejects each pain point (min 3 approved)             │
+  │                                │                                          │
+  │  STAGE 4.5 — PAIN POINT CLUSTERING                  [Sonnet × 1]        │
+  │  · Synthesizes all approved pain points into 2-3 thematic clusters       │
+  │  · Each cluster: theme, dominantEmotion, bestQuotes, failedSolutions     │
+  │                                │                                          │
+  │  STAGE 5 — LP VARIANT GENERATION                    [Sonnet × 3]        │
+  │  · VARIANT A — curiosity_hook  : counterintuitive contradiction          │
+  │  · VARIANT B — pain_mirror     : exact user frustration reflected back   │
+  │  · VARIANT C — outcome_promise : success stated in user's own words      │
+  │  · Grade 6 reading level · banned buzzwords · "Give me X. Get Y." CTA   │
+  │                                │                                          │
+  │  OUTPUT: 3 LP Variants — reviewed at /admin/brand-clarity/[id]           │
+  │                                                                          │
+  └──────────────────────────────────────────────────────────────────────────┘
+```
+
+### LLM Budget per Full Pipeline Run
+
+| Stage | Model | Calls | Purpose |
+|-------|-------|-------|---------|
+| Stage 1 | Sonnet | 1 | LP parsing + keyword generation |
+| Stage 4 | Haiku | ~75–105 | Bulk comment pain-point extraction |
+| Stage 4.5 | Sonnet | 1 | Pain point clustering (synthesis) |
+| Stage 5 | Sonnet | 3 (×2 calls each) | LP variant generation (A, B, C) |
+
+> **Total: 5 Sonnet + ~75–105 Haiku calls per project run.**
+
+### LLM Provider — Configurable via Admin UI
+
+Brand Clarity supports two LLM providers, switchable without touching `.env`:
+
+| Provider | Notes |
+|----------|-------|
+| **OpenRouter** *(default)* | Routes via `openrouter.ai/api/v1` using OpenAI SDK |
+| **Anthropic Direct** | Routes via `@anthropic-ai/sdk` directly to `api.anthropic.com` |
+
+Extended Thinking (Anthropic only) is configurable per pipeline stage with token budgets set in the admin settings panel at `/admin/brand-clarity/settings`.
+
+### Brand Clarity Scripts
+
+| Script | Stage | LLM | Trigger |
+|--------|-------|-----|---------|
+| `bc-lp-parser.ts` | 1 | Sonnet × 1 | `POST /api/bc/parse` |
+| `bc-channel-discovery.ts` | 2 | none | `POST /[projectId]/discover-channels` |
+| `resolve-channel.ts` | 2 | none | `POST /[projectId]/resolve-channel` |
+| `bc-video-discovery.ts` | 3 | none | `POST /[projectId]/discover-videos` |
+| `bc-scraper.ts` | 4 | Haiku × ~75 | `POST /[projectId]/scrape/start` |
+| `bc-pain-clusterer.ts` | 4.5 | Sonnet × 1 | `POST /[projectId]/cluster-pain-points` |
+| `bc-lp-generator.ts` | 5 | Sonnet × 3 | `POST /[projectId]/generate-variants` |
+
+---
+
 ## Usage
 
 Start the local development server from any terminal:
@@ -217,28 +304,34 @@ DATABASE_URL=postgresql://user:pass@host/dbname
 OPENAI_API_KEY=sk-placeholder
 ANTHROPIC_API_KEY=sk-ant-placeholder
 PERPLEXITY_API_KEY=pplx-placeholder
+OPENROUTER_API_KEY=sk-or-placeholder
 NODE_ENV=development
 
 # Stage 0 — Reddit + YouTube scraping
 APIFY_API_TOKEN=apify_api_placeholder
-OPENROUTER_API_KEY=sk-or-placeholder
 REDDIT_MAX_ITEMS_PER_TARGET=3       # posts per scrape target
 REDDIT_CHUNK_SIZE=10                # posts per LLM analysis batch
 REDDIT_ANALYSIS_MODEL=anthropic/claude-sonnet-4-6
 YT_MAX_COMMENTS_PER_TARGET=300      # comments per YouTube video
 YT_CHUNK_SIZE=80                    # comments per LLM analysis batch
 YT_ANALYSIS_MODEL=anthropic/claude-sonnet-4-6
+
+# Brand Clarity — YouTube Data API
+YOUTUBE_API_KEY=your-yt-data-api-key
 ```
+
+> **Note:** Brand Clarity LLM provider, models, and Extended Thinking budgets are configured via the **admin panel** at `/admin/brand-clarity/settings` — not in `.env`.
 
 ### AI Integration
 
 | Provider | Key | Used For |
 |-------|-----|------------|
 | `OpenAI` | `OPENAI_API_KEY` | GEO monitor queries, gap detection |
-| `Anthropic` | `ANTHROPIC_API_KEY` | Deep context analysis |
+| `Anthropic` | `ANTHROPIC_API_KEY` | Deep context analysis, Brand Clarity (direct API) |
 | `Perplexity` | `PERPLEXITY_API_KEY` | Live web search integration |
-| `OpenRouter` | `OPENROUTER_API_KEY` | Reddit pain-point extraction + draft generation |
+| `OpenRouter` | `OPENROUTER_API_KEY` | Reddit/YT pain-point extraction, draft generation, Brand Clarity (default) |
 | `Apify` | `APIFY_API_TOKEN` | Reddit (`trudax/reddit-scraper-lite`) + YouTube (`streamers/youtube-comments-scraper`) |
+| `YouTube Data API` | `YOUTUBE_API_KEY` | Brand Clarity channel + video discovery |
 
 ---
 
@@ -249,6 +342,8 @@ YT_ANALYSIS_MODEL=anthropic/claude-sonnet-4-6
 | Built for AI indexing / LLM presence | YES | NO | Rarely |
 | Reddit pain-point intelligence (Apify) | YES | NO | NO |
 | LLM gap extraction + admin review queue | YES | NO | NO |
+| **Brand Clarity — VoC LP generator** | **YES** | NO | NO |
+| **Anthropic Direct API + Extended Thinking** | **YES** | NO | NO |
 | Perfect semantic HTML & Schema.org | YES | Varies | Varies |
 | Railway 1-Click deploy with DB | YES | NO | NO |
 | Retro pixel-art aesthetics | YES | NO | NO |
@@ -280,6 +375,7 @@ YT_ANALYSIS_MODEL=anthropic/claude-sonnet-4-6
 | Database | `PostgreSQL` | Reliable, relational data storage. |
 | Deployment | `Railway` | Built-in Nixpacks support, 1-click template with DB provisioning. |
 | Pixel Art | `DOM / CSS` | Custom typewriter effects and bot animations without heavy libs. |
+| Brand Clarity LLM | `@anthropic-ai/sdk` + `OpenRouter` | Dual-provider unified client with Extended Thinking support. |
 
 ---
 
@@ -295,6 +391,9 @@ YT_ANALYSIS_MODEL=anthropic/claude-sonnet-4-6
 - [x] GEO monitor — gap detection across OpenAI / Claude / Gemini
 - [x] Admin draft generator — mega-prompt → full article
 - [x] Internal linking from Knowledge Base hints
+- [x] **Brand Clarity v2** — 5-stage VoC pipeline (LP → 3 LP variants)
+- [x] **Brand Clarity — Anthropic Direct API + Extended Thinking**
+- [x] **Brand Clarity — LLM settings panel** (`/admin/brand-clarity/settings`)
 - [ ] Blog markdown pipeline
 - [ ] Frint_bot interactive AI chat window
 - [ ] RSS Feed generation
@@ -324,6 +423,14 @@ Out of the box, we use PostgreSQL optimized for Railway and Drizzle. You can swi
 **Q: What's Frint_bot?**
 
 Frint_bot is Frinter's pixel-art mascot. Built from the three Frinter brand colors: teal body (`#4a8d83`), violet eyes (`#8a4e64`), gold antenna (`#d6b779`), it acts as your personal AI avatar.
+
+**Q: What is Brand Clarity and who is it for?**
+
+Brand Clarity is a built-in admin tool for anyone who wants to A/B test landing page copy. It automatically discovers YouTube channels in your niche, scrapes comments, extracts the sharpest pain points, and generates 3 LP variants grounded in real customer language — not founder assumptions.
+
+**Q: Which LLM provider should I use for Brand Clarity?**
+
+Start with **OpenRouter** (default) — lower friction, no additional setup. Switch to **Anthropic Direct** if you want Extended Thinking for higher-quality variant generation, especially for Cluster and Generator stages. Configure everything in `/admin/brand-clarity/settings`.
 
 ---
 
