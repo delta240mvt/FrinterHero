@@ -11,11 +11,15 @@ function auth(cookies: any) {
 
 const JSON_HEADERS = { 'Content-Type': 'application/json' };
 
-export const POST: APIRoute = async ({ params, cookies }) => {
+export const POST: APIRoute = async ({ params, cookies, request }) => {
   if (!auth(cookies)) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: JSON_HEADERS });
 
   const projectId = parseInt(params.projectId || '0', 10);
   if (!projectId) return new Response(JSON.stringify({ error: 'Invalid projectId' }), { status: 400, headers: JSON_HEADERS });
+
+  let body: { iterationId?: number } = {};
+  try { body = await request.json(); } catch { /* empty body ok */ }
+  const iterationId = body.iterationId ? parseInt(String(body.iterationId), 10) : undefined;
 
   if (bcLpGenJob.isRunning()) {
     return new Response(JSON.stringify({ error: 'Generation already running', status: 'running' }), { status: 409, headers: JSON_HEADERS });
@@ -43,10 +47,11 @@ export const POST: APIRoute = async ({ params, cookies }) => {
     .where(eq(bcProjects.id, projectId));
 
   const llmSettings = await getBcSettings();
-  const result = bcLpGenJob.start(projectId, buildLlmEnv(llmSettings));
+  const extraEnv = iterationId ? { BC_ITERATION_ID: String(iterationId), ...buildLlmEnv(llmSettings) } : buildLlmEnv(llmSettings);
+  const result = bcLpGenJob.start(projectId, extraEnv);
   if (!result.ok) {
     return new Response(JSON.stringify({ error: result.reason }), { status: 409, headers: JSON_HEADERS });
   }
 
-  return new Response(JSON.stringify({ started: true, projectId }), { status: 202, headers: JSON_HEADERS });
+  return new Response(JSON.stringify({ started: true, projectId, iterationId: iterationId ?? null }), { status: 202, headers: JSON_HEADERS });
 };

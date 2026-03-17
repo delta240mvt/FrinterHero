@@ -2,8 +2,8 @@
 import Base from '@/components/layouts/Base.astro';
 import BcPainPointCard from '@/components/admin/BcPainPointCard.astro';
 import { db } from '@/db/client';
-import { bcProjects, bcExtractedPainPoints, bcPainClusters, bcTargetVideos, bcTargetChannels } from '@/db/schema';
-import { eq, and, desc } from 'drizzle-orm';
+import { bcProjects, bcExtractedPainPoints, bcPainClusters, bcTargetVideos, bcTargetChannels, bcIterations, bcIterationSelections } from '@/db/schema';
+import { eq, and, desc, isNull } from 'drizzle-orm';
 
 const { id } = Astro.params;
 const projectId = parseInt(id || '0', 10);
@@ -12,6 +12,7 @@ let project: any = null;
 let painPoints: any[] = [];
 let clusters: any[] = [];
 let selectedVideos: any[] = [];
+let iterations: any[] = [];
 
 try {
   const [p] = await db.select().from(bcProjects).where(eq(bcProjects.id, projectId));
@@ -21,7 +22,17 @@ try {
       .where(eq(bcExtractedPainPoints.projectId, projectId))
       .orderBy(desc(bcExtractedPainPoints.emotionalIntensity));
     clusters = await db.select().from(bcPainClusters)
-      .where(eq(bcPainClusters.projectId, projectId));
+      .where(and(eq(bcPainClusters.projectId, projectId), isNull(bcPainClusters.iterationId)));
+    iterations = await (async () => {
+      const its = await db.select().from(bcIterations)
+        .where(eq(bcIterations.projectId, projectId))
+        .orderBy(desc(bcIterations.createdAt));
+      return await Promise.all(its.map(async (it) => {
+        const sels = await db.select({ id: bcIterationSelections.id })
+          .from(bcIterationSelections).where(eq(bcIterationSelections.iterationId, it.id));
+        return { ...it, selectionCount: sels.length };
+      }));
+    })();
     selectedVideos = await db
       .select({
         id: bcTargetVideos.id,
@@ -51,7 +62,7 @@ const toScrape  = selectedVideos.filter(v => !v.isScraped);
 const scraped   = selectedVideos.filter(v => v.isScraped);
 ---
 
-<Base title={`Scrape & Review — ${project.name}`} description="Brand Clarity scrape console and pain point review">
+<Base title={`Pain Points Base — ${project.name}`} description="Brand Clarity pain points base and iteration management">
 <div class="admin-layout">
   <header class="admin-header">
     <a href="/admin" class="admin-logo">P·F</a>
@@ -60,7 +71,7 @@ const scraped   = selectedVideos.filter(v => v.isScraped);
       <span class="bc-sep">›</span>
       <a href={`/admin/brand-clarity/${projectId}/channels`} class="bc-link">{project.name}</a>
       <span class="bc-sep">›</span>
-      <span class="bc-current">Scrape & Review</span>
+      <span class="bc-current">Pain Points Base</span>
     </nav>
     <div class="header-actions">
       <span class="project-status">{project.status}</span>
@@ -76,7 +87,7 @@ const scraped   = selectedVideos.filter(v => v.isScraped);
       <span class="stage-arrow">→</span>
       <a href={`/admin/brand-clarity/${projectId}/videos`} class="stage done stage-link">3. Videos</a>
       <span class="stage-arrow">→</span>
-      <span class="stage active">4–5. Scrape & Review</span>
+      <span class="stage active">4–5. Pain Points Base</span>
       <span class="stage-arrow">→</span>
       <a href={`/admin/brand-clarity/${projectId}/variants`} class="stage stage-link">6. LP Variants</a>
     </div>
@@ -173,11 +184,59 @@ const scraped   = selectedVideos.filter(v => v.isScraped);
       </div>
     </section>
 
-    <!-- Pain points review -->
+    <!-- Iterations -->
     <section class="admin-section">
       <div class="section-header-row">
         <div class="section-title-block">
-          <h2 class="section-title">Pain Points</h2>
+          <h2 class="section-title">Iteracje LP</h2>
+          <p class="section-subtitle">Każda iteracja = intencja + top 30 pain pointów z bazy → clustering → LP</p>
+        </div>
+        <button id="btn-new-iteration" class="btn-primary">+ Nowa iteracja</button>
+      </div>
+
+      {iterations.length === 0 ? (
+        <div class="empty-state">Brak iteracji. Utwórz pierwszą, żeby wygenerować LP pod konkretną grupę docelową.</div>
+      ) : (
+        <div class="iterations-grid">
+          {iterations.map((it: any) => {
+            const statusColors: Record<string, string> = {
+              draft: 'var(--text-muted)',
+              selecting: 'var(--gold)',
+              selected: 'var(--teal)',
+              clustering: 'var(--gold)',
+              clustered: 'var(--teal)',
+              generating: 'var(--gold)',
+              done: 'var(--teal)',
+            };
+            const statusColor = statusColors[it.status] || 'var(--text-muted)';
+            return (
+              <a href={`/admin/brand-clarity/${projectId}/iterations/${it.id}`} class="iteration-card">
+                <div class="iteration-card-header">
+                  <span class="iteration-name">{it.name}</span>
+                  <span class="iteration-status" style={`color: ${statusColor}`}>{it.status}</span>
+                </div>
+                {it.intention ? (
+                  <div class="iteration-intention">"{it.intention.substring(0, 100)}{it.intention.length > 100 ? '…' : ''}"</div>
+                ) : (
+                  <div class="iteration-intention muted">Brak intencji</div>
+                )}
+                <div class="iteration-meta">
+                  <span>{it.selectionCount} PP wybranych</span>
+                  <span>·</span>
+                  <span>{new Date(it.createdAt).toLocaleDateString('pl-PL')}</span>
+                </div>
+              </a>
+            );
+          })}
+        </div>
+      )}
+    </section>
+
+    <!-- Pain Points Base -->
+    <section class="admin-section">
+      <div class="section-header-row">
+        <div class="section-title-block">
+          <h2 class="section-title">Pain Points Base</h2>
           <p class="section-subtitle">{approved} approved · {rejected} rejected · {pending} pending</p>
         </div>
         <div class="header-btns">
@@ -593,6 +652,24 @@ const scraped   = selectedVideos.filter(v => v.isScraped);
       btn.textContent = 'Cluster Pain Points';
     }
   });
+
+  // ── New iteration ────────────────────────────────────────────
+  document.getElementById('btn-new-iteration')?.addEventListener('click', async () => {
+    const name = prompt('Nazwa iteracji:', `Iteracja ${new Date().toLocaleDateString('pl-PL')}`);
+    if (name === null) return; // cancelled
+    try {
+      const res = await fetch(`/api/brand-clarity/${PROJECT_ID}/iterations`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name.trim() || `Iteracja ${new Date().toLocaleDateString('pl-PL')}` }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed');
+      window.location.href = `/admin/brand-clarity/${PROJECT_ID}/iterations/${data.iteration.id}`;
+    } catch (e) {
+      alert(`Błąd: ${e.message}`);
+    }
+  });
 </script>
 
 <style>
@@ -712,5 +789,16 @@ details[open] .run-logs-toggle::before { transform: rotate(90deg); }
 .log-line--llm   { color: var(--gold); }
 .btn-download-logs { padding: 0.25rem 0.75rem; background: none; border: 1px solid var(--border); color: var(--text-muted); border-radius: 0.25rem; font-family: var(--font-mono); font-size: 0.65rem; cursor: pointer; }
 .btn-download-logs:hover { border-color: var(--teal); color: var(--teal); }
+
+/* Iterations */
+.iterations-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 0.75rem; }
+.iteration-card { display: flex; flex-direction: column; gap: 0.5rem; padding: 1rem; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 0.5rem; text-decoration: none; transition: border-color 0.15s; }
+.iteration-card:hover { border-color: var(--teal); }
+.iteration-card-header { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.iteration-name { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-primary); font-weight: 600; }
+.iteration-status { font-family: var(--font-mono); font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.05em; }
+.iteration-intention { font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-secondary); font-style: italic; line-height: 1.4; }
+.iteration-intention.muted { color: var(--text-muted); }
+.iteration-meta { display: flex; gap: 0.375rem; font-family: var(--font-mono); font-size: 0.6rem; color: var(--text-muted); }
 </style>
 </Base>

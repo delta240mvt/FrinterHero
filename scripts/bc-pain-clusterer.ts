@@ -9,13 +9,14 @@
 import * as dotenv from 'dotenv';
 import * as path from 'path';
 import { db } from '../src/db/client';
-import { bcProjects, bcExtractedPainPoints, bcPainClusters } from '../src/db/schema';
-import { eq, and, desc } from 'drizzle-orm';
+import { bcProjects, bcExtractedPainPoints, bcPainClusters, bcIterations, bcIterationSelections } from '../src/db/schema';
+import { eq, and, desc, asc, isNull } from 'drizzle-orm';
 import { callBcLlm, getBcClusterModel, getBcClusterMaxTokens, getBcThinkingBudget } from '../src/lib/bc-llm-client';
 
 dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
 
-const BC_PROJECT_ID = parseInt(process.env.BC_PROJECT_ID || '0', 10);
+const BC_PROJECT_ID   = parseInt(process.env.BC_PROJECT_ID   || '0', 10);
+const BC_ITERATION_ID = parseInt(process.env.BC_ITERATION_ID || '0', 10) || null;
 const MODEL = getBcClusterModel();
 const MAX_TOKENS = getBcClusterMaxTokens();
 const THINKING_BUDGET = getBcThinkingBudget('cluster');
@@ -34,13 +35,27 @@ async function run() {
     ? (project.nicheKeywords as string[]).join(', ')
     : 'high performance, focus';
 
-  // Load approved pain points
-  const painPoints = await db.select().from(bcExtractedPainPoints)
-    .where(and(
-      eq(bcExtractedPainPoints.projectId, BC_PROJECT_ID),
-      eq(bcExtractedPainPoints.status, 'approved'),
-    ))
-    .orderBy(desc(bcExtractedPainPoints.emotionalIntensity));
+  // Load pain points — from iteration selection if BC_ITERATION_ID provided, else all approved
+  let painPoints: any[];
+  if (BC_ITERATION_ID) {
+    const [iteration] = await db.select().from(bcIterations).where(eq(bcIterations.id, BC_ITERATION_ID));
+    if (!iteration) { console.error(`[ERROR] Iteration ${BC_ITERATION_ID} not found`); process.exit(1); }
+    log(`Clustering iteration ${BC_ITERATION_ID}: "${iteration.name}"`);
+    const rows = await db
+      .select({ pp: bcExtractedPainPoints })
+      .from(bcIterationSelections)
+      .innerJoin(bcExtractedPainPoints, eq(bcIterationSelections.painPointId, bcExtractedPainPoints.id))
+      .where(eq(bcIterationSelections.iterationId, BC_ITERATION_ID))
+      .orderBy(asc(bcIterationSelections.rank));
+    painPoints = rows.map(r => r.pp);
+  } else {
+    painPoints = await db.select().from(bcExtractedPainPoints)
+      .where(and(
+        eq(bcExtractedPainPoints.projectId, BC_PROJECT_ID),
+        eq(bcExtractedPainPoints.status, 'approved'),
+      ))
+      .orderBy(desc(bcExtractedPainPoints.emotionalIntensity));
+  }
 
   if (painPoints.length < 2) {
     console.error('[ERROR] Need at least 2 approved pain points to cluster');
@@ -118,13 +133,22 @@ Return ONLY valid JSON array. No markdown.`;
     process.exit(1);
   }
 
-  // Delete existing clusters for this project
-  await db.delete(bcPainClusters).where(eq(bcPainClusters.projectId, BC_PROJECT_ID));
+  // Delete existing clusters (scoped to iteration if provided, else project-global)
+  if (BC_ITERATION_ID) {
+    await db.delete(bcPainClusters).where(eq(bcPainClusters.iterationId, BC_ITERATION_ID));
+    // Update iteration status
+    await db.update(bcIterations).set({ status: 'clustering' }).where(eq(bcIterations.id, BC_ITERATION_ID));
+  } else {
+    await db.delete(bcPainClusters).where(
+      and(eq(bcPainClusters.projectId, BC_PROJECT_ID), isNull(bcPainClusters.iterationId))
+    );
+  }
 
   let created = 0;
   for (const cluster of clusters.slice(0, 3)) {
     await db.insert(bcPainClusters).values({
       projectId: BC_PROJECT_ID,
+      iterationId: BC_ITERATION_ID ?? null,
       clusterTheme: String(cluster.clusterTheme || '').substring(0, 255),
       dominantEmotion: String(cluster.dominantEmotion || 'frustration').substring(0, 100),
       aggregateIntensity: parseFloat(String(cluster.aggregateIntensity || 7)),
@@ -137,6 +161,11 @@ Return ONLY valid JSON array. No markdown.`;
     });
     created++;
     log(`  Created cluster: "${cluster.clusterTheme}"`);
+  }
+
+  // Mark iteration as clustered
+  if (BC_ITERATION_ID) {
+    await db.update(bcIterations).set({ status: 'clustered' }).where(eq(bcIterations.id, BC_ITERATION_ID));
   }
 
   log(`Done. ${created} clusters created.`);

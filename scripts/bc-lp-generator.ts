@@ -21,13 +21,14 @@
 import * as dotenv from 'dotenv';
 import * as path from 'path';
 import { db } from '../src/db/client';
-import { bcProjects, bcExtractedPainPoints, bcLandingPageVariants, bcPainClusters } from '../src/db/schema';
-import { eq, and, desc } from 'drizzle-orm';
+import { bcProjects, bcExtractedPainPoints, bcLandingPageVariants, bcPainClusters, bcIterations } from '../src/db/schema';
+import { eq, and, desc, isNull } from 'drizzle-orm';
 import { callBcLlm, getBcGeneratorModel, getBcGeneratorMaxTokens, getBcThinkingBudget } from '../src/lib/bc-llm-client';
 
 dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
 
-const BC_PROJECT_ID = parseInt(process.env.BC_PROJECT_ID || '0', 10);
+const BC_PROJECT_ID   = parseInt(process.env.BC_PROJECT_ID   || '0', 10);
+const BC_ITERATION_ID = parseInt(process.env.BC_ITERATION_ID || '0', 10) || null;
 const MODEL = getBcGeneratorModel();
 const MAX_TOKENS = getBcGeneratorMaxTokens();
 const THINKING_BUDGET = getBcThinkingBudget('generator');
@@ -278,9 +279,18 @@ async function run() {
     : [];
   log(`Feature map: ${featureMap.length} items`);
 
-  // Load pain clusters (preferred) or fall back to top pain points
+  // Load pain clusters — scoped to iteration if BC_ITERATION_ID provided
+  if (BC_ITERATION_ID) {
+    const [iteration] = await db.select().from(bcIterations).where(eq(bcIterations.id, BC_ITERATION_ID));
+    if (iteration) log(`Using iteration ${BC_ITERATION_ID}: "${iteration.name}"`);
+    // Update iteration status
+    await db.update(bcIterations).set({ status: 'generating' }).where(eq(bcIterations.id, BC_ITERATION_ID));
+  }
+
   const clusters = await db.select().from(bcPainClusters)
-    .where(eq(bcPainClusters.projectId, BC_PROJECT_ID));
+    .where(BC_ITERATION_ID
+      ? eq(bcPainClusters.iterationId, BC_ITERATION_ID)
+      : and(eq(bcPainClusters.projectId, BC_PROJECT_ID), isNull(bcPainClusters.iterationId)));
 
   let cluster1: PainCluster | null = null;
   let cluster2: PainCluster | null = null;
@@ -335,7 +345,7 @@ async function run() {
     }
   }
 
-  const founderVision = project.founderVision || project.founderDescription.substring(0, 500);
+  const founderVision = project.founderVision || project.founderDescription?.substring(0, 500) || '';
 
   const variants: Array<{
     type: 'curiosity_hook' | 'pain_mirror' | 'outcome_promise';
@@ -365,6 +375,7 @@ async function run() {
 
       await db.insert(bcLandingPageVariants).values({
         projectId: BC_PROJECT_ID,
+        iterationId: BC_ITERATION_ID ?? null,
         variantType: variant.type,
         variantLabel: variant.label,
         htmlContent: html,
@@ -385,6 +396,10 @@ async function run() {
 
   await db.update(bcProjects).set({ status: 'done', updatedAt: new Date() })
     .where(eq(bcProjects.id, BC_PROJECT_ID));
+
+  if (BC_ITERATION_ID) {
+    await db.update(bcIterations).set({ status: 'done' }).where(eq(bcIterations.id, BC_ITERATION_ID));
+  }
 
   log(`Done. Generated ${generatedCount}/3 variants.`);
   process.stdout.write(`VARIANTS_GENERATED:${generatedCount}\n`);

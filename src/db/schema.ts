@@ -399,26 +399,6 @@ export const bcExtractedPainPoints = pgTable('bc_extracted_pain_points', {
   intensityIdx: index('idx_bc_pp_intensity').on(table.emotionalIntensity),
 }));
 
-// Generated landing page variants (3 per project run)
-export const bcLandingPageVariants = pgTable('bc_landing_page_variants', {
-  id: serial('id').primaryKey(),
-  projectId: integer('project_id').notNull().references(() => bcProjects.id, { onDelete: 'cascade' }),
-  variantType: varchar('variant_type', { length: 50 }).notNull(), // founder_vision | pain_point_1 | pain_point_2
-  variantLabel: varchar('variant_label', { length: 255 }).notNull(),
-  htmlContent: text('html_content').notNull(),
-  improvementSuggestions: jsonb('improvement_suggestions')
-    .$type<Record<string, string>>().default({}), // { hero: "...", problem: "...", ... }
-  featurePainMap: jsonb('feature_pain_map').$type<{feature:string;painItSolves:string;vocQuote:string;section:string}[]>().default([]),
-  primaryPainPointId: integer('primary_pain_point_id')
-    .references(() => bcExtractedPainPoints.id), // null for founder_vision
-  generationPromptUsed: text('generation_prompt_used'),
-  generationModel: varchar('generation_model', { length: 100 }),
-  isSelected: boolean('is_selected').notNull().default(false),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-}, (table) => ({
-  projectIdx: index('idx_bc_variants_project').on(table.projectId),
-}));
-
 // Global LLM settings for Brand Clarity pipeline (single row, JSONB config)
 export const bcSettings = pgTable('bc_settings', {
   id: serial('id').primaryKey(),
@@ -437,10 +417,61 @@ export const bcSettings = pgTable('bc_settings', {
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
 
+// ── Iterations: Named LP generation runs with AI-selected pain point subsets ──
+// Defined BEFORE bcLandingPageVariants and bcPainClusters to avoid forward references.
+
+// Each iteration is a "folder" targeting a specific audience intent
+export const bcIterations = pgTable('bc_iterations', {
+  id: serial('id').primaryKey(),
+  projectId: integer('project_id').notNull().references(() => bcProjects.id, { onDelete: 'cascade' }),
+  name: varchar('name', { length: 255 }).notNull(),
+  intention: text('intention'),                              // free-text intent written by user
+  status: varchar('status', { length: 30 }).notNull().default('draft'),
+  // draft → selecting → selected → clustering → clustered → generating → done
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => ({
+  projectIdx: index('idx_bc_iter_project').on(table.projectId),
+}));
+
+// Top-30 pain points chosen by AI for a given iteration
+export const bcIterationSelections = pgTable('bc_iteration_selections', {
+  id: serial('id').primaryKey(),
+  iterationId: integer('iteration_id').notNull().references(() => bcIterations.id, { onDelete: 'cascade' }),
+  painPointId: integer('pain_point_id').notNull().references(() => bcExtractedPainPoints.id, { onDelete: 'cascade' }),
+  rank: integer('rank').notNull(),                           // 1–30, AI-assigned
+  selectionReason: text('selection_reason'),                 // why AI picked this PP
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => ({
+  iterationIdx: index('idx_bc_iter_sel_iteration').on(table.iterationId),
+}));
+
+// Generated landing page variants (3 per project run)
+export const bcLandingPageVariants = pgTable('bc_landing_page_variants', {
+  id: serial('id').primaryKey(),
+  projectId: integer('project_id').notNull().references(() => bcProjects.id, { onDelete: 'cascade' }),
+  iterationId: integer('iteration_id').references(() => bcIterations.id, { onDelete: 'set null' }),
+  variantType: varchar('variant_type', { length: 50 }).notNull(), // founder_vision | pain_point_1 | pain_point_2
+  variantLabel: varchar('variant_label', { length: 255 }).notNull(),
+  htmlContent: text('html_content').notNull(),
+  improvementSuggestions: jsonb('improvement_suggestions')
+    .$type<Record<string, string>>().default({}), // { hero: "...", problem: "...", ... }
+  featurePainMap: jsonb('feature_pain_map').$type<{feature:string;painItSolves:string;vocQuote:string;section:string}[]>().default([]),
+  primaryPainPointId: integer('primary_pain_point_id')
+    .references(() => bcExtractedPainPoints.id), // null for founder_vision
+  generationPromptUsed: text('generation_prompt_used'),
+  generationModel: varchar('generation_model', { length: 100 }),
+  isSelected: boolean('is_selected').notNull().default(false),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => ({
+  projectIdx: index('idx_bc_variants_project').on(table.projectId),
+  iterationIdx: index('idx_bc_variants_iteration').on(table.iterationId),
+}));
+
 // Pain point clusters synthesized by Sonnet before LP generation
 export const bcPainClusters = pgTable('bc_pain_clusters', {
   id: serial('id').primaryKey(),
   projectId: integer('project_id').notNull().references(() => bcProjects.id, { onDelete: 'cascade' }),
+  iterationId: integer('iteration_id').references(() => bcIterations.id, { onDelete: 'set null' }),
   clusterTheme: varchar('cluster_theme', { length: 255 }).notNull(),
   dominantEmotion: varchar('dominant_emotion', { length: 100 }),
   aggregateIntensity: real('aggregate_intensity'),
@@ -453,4 +484,5 @@ export const bcPainClusters = pgTable('bc_pain_clusters', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
 }, (table) => ({
   projectIdx: index('idx_bc_clusters_project').on(table.projectId),
+  iterationIdx: index('idx_bc_clusters_iteration').on(table.iterationId),
 }));
