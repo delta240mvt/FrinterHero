@@ -539,6 +539,7 @@ export const shContentBriefs = pgTable('sh_content_briefs', {
   repurposeGroupId: integer('repurpose_group_id'),
   status: varchar('status', { length: 30 }).notNull().default('draft'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (t) => ({
   statusIdx: index('idx_sh_briefs_status').on(t.status),
   sourceIdx: index('idx_sh_briefs_source').on(t.sourceType, t.sourceId),
