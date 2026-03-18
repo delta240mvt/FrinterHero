@@ -57,13 +57,13 @@ const templates = await db.select().from(shTemplates).where(eq(shTemplates.isAct
         <div class="source-type-wrap">
           <label class="field-label" for="source-type">Source Type</label>
           <select id="source-type" class="field-select">
-            <option value="articles">Articles</option>
-            <option value="pain_points">Pain Points</option>
-            <option value="pain_clusters">Pain Clusters</option>
-            <option value="content_gaps">Content Gaps</option>
-            <option value="kb_entries">KB Entries</option>
-            <option value="reddit_gaps">Reddit Gaps</option>
-            <option value="yt_gaps">YouTube Gaps</option>
+            <option value="article">Articles</option>
+            <option value="pain_point">Pain Points</option>
+            <option value="pain_cluster">Pain Clusters</option>
+            <option value="content_gap">Content Gaps</option>
+            <option value="kb_entry">KB Entries</option>
+            <option value="reddit_gap">Reddit Gaps</option>
+            <option value="yt_gap">YouTube Gaps</option>
           </select>
         </div>
         <div class="source-search-wrap">
@@ -255,7 +255,7 @@ const templates = await db.select().from(shTemplates).where(eq(shTemplates.isAct
   const TOTAL_STEPS = 5;
 
   const state = {
-    sourceType: 'articles',
+    sourceType: 'article',
     selectedSource: null,   // { id, title, preview, meta }
     suggestionPrompt: '',
     outputFormat: null,     // 'image' | 'video' | 'text'
@@ -316,19 +316,20 @@ const templates = await db.select().from(shTemplates).where(eq(shTemplates.isAct
 
       sourceLoading.style.display = 'none';
 
-      if (!data.items || data.items.length === 0) {
+      const items = Array.isArray(data) ? data : (data.items ?? []);
+      if (items.length === 0) {
         sourceEmpty.style.display = 'flex';
         sourceEmpty.querySelector('span:last-child').textContent = 'No results found.';
         return;
       }
 
-      data.items.forEach((item) => {
+      items.forEach((item) => {
         const card = document.createElement('div');
         card.className = 'source-card';
-        card.dataset.id = item.id;
+        card.dataset.id = item.sourceId ?? item.id;
         card.dataset.title = item.title;
         card.dataset.preview = item.preview || '';
-        card.dataset.meta = item.meta || '';
+        card.dataset.meta = item.meta || JSON.stringify(item.metadata ?? {});
         card.innerHTML = `
           <div class="source-card-top">
             <span class="source-card-title">${escapeHtml(item.title)}</span>
@@ -369,13 +370,13 @@ const templates = await db.select().from(shTemplates).where(eq(shTemplates.isAct
 
   function formatSourceType(type) {
     const map = {
-      articles: 'Article',
-      pain_points: 'Pain Point',
-      pain_clusters: 'Pain Cluster',
-      content_gaps: 'Content Gap',
-      kb_entries: 'KB Entry',
-      reddit_gaps: 'Reddit Gap',
-      yt_gaps: 'YT Gap',
+      article: 'Article',
+      pain_point: 'Pain Point',
+      pain_cluster: 'Pain Cluster',
+      content_gap: 'Content Gap',
+      kb_entry: 'KB Entry',
+      reddit_gap: 'Reddit Gap',
+      yt_gap: 'YT Gap',
     };
     return map[type] || type;
   }
@@ -471,6 +472,13 @@ const templates = await db.select().from(shTemplates).where(eq(shTemplates.isAct
     submitBtn.textContent = 'Generating…';
     statusEl.style.display = 'none';
 
+    // Derive targetPlatforms from selected account IDs using accountsData passed from server
+    const selectedPlatforms = [...new Set(
+      state.selectedAccountIds
+        .map(id => (accountsData.find(a => a.id === id) || {}).platform)
+        .filter(Boolean)
+    )];
+
     const payload = {
       sourceType: state.sourceType,
       sourceId: state.selectedSource.id,
@@ -480,6 +488,7 @@ const templates = await db.select().from(shTemplates).where(eq(shTemplates.isAct
       outputFormat: state.outputFormat,
       templateId: state.outputFormat === 'image' ? state.templateId : null,
       videoModel: state.outputFormat === 'video' ? state.videoModel : null,
+      targetPlatforms: selectedPlatforms,
       targetAccountIds: state.selectedAccountIds,
     };
 

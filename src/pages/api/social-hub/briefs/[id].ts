@@ -105,3 +105,50 @@ export const GET: APIRoute = async ({ params, cookies }) => {
     return new Response(JSON.stringify({ error: 'Server error' }), { status: 500, headers: JSON_HEADERS });
   }
 };
+
+export const DELETE: APIRoute = async ({ params, cookies }) => {
+  if (!auth(cookies)) {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: JSON_HEADERS });
+  }
+
+  const id = parseInt(params.id || '0', 10);
+  if (isNaN(id) || id <= 0) {
+    return new Response(JSON.stringify({ error: 'Invalid brief id' }), { status: 400, headers: JSON_HEADERS });
+  }
+
+  try {
+    // Verify brief exists first
+    const [existing] = await db
+      .select({ id: shContentBriefs.id })
+      .from(shContentBriefs)
+      .where(eq(shContentBriefs.id, id))
+      .limit(1);
+
+    if (!existing) {
+      return new Response(JSON.stringify({ error: 'Brief not found' }), { status: 404, headers: JSON_HEADERS });
+    }
+
+    // Cascade delete: metrics → publish_log → media_assets → generated_copy → brief
+    const publishLogRows = await db
+      .select({ id: shPublishLog.id })
+      .from(shPublishLog)
+      .where(eq(shPublishLog.briefId, id));
+
+    if (publishLogRows.length > 0) {
+      await db
+        .delete(shPostMetrics)
+        .where(inArray(shPostMetrics.publishLogId, publishLogRows.map(r => r.id)));
+    }
+
+    await db.delete(shPublishLog).where(eq(shPublishLog.briefId, id));
+    await db.delete(shMediaAssets).where(eq(shMediaAssets.briefId, id));
+    await db.delete(shGeneratedCopy).where(eq(shGeneratedCopy.briefId, id));
+    await db.delete(shContentBriefs).where(eq(shContentBriefs.id, id));
+
+    return new Response(JSON.stringify({ ok: true, id }), { headers: JSON_HEADERS });
+  } catch (err) {
+    console.error('[SocialHub Brief DELETE]', err);
+    return new Response(JSON.stringify({ error: 'Server error' }), { status: 500, headers: JSON_HEADERS });
+  }
+};
+
