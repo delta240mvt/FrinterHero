@@ -42,6 +42,7 @@ type SourceRow = {
   sourceId: number;
   title: string;
   preview: string;
+  fullText?: string;
   meta?: string;
   metadata: Record<string, any>;
 };
@@ -66,23 +67,23 @@ async function queryArticles(search: string): Promise<SourceRow[]> {
     .orderBy(desc(articles.publishedAt))
     .limit(100);
 
-  return rows.map(r => ({
-    sourceType: 'article',
-    sourceId: r.id,
-    title: r.title,
-    preview: makePreview(r.description
-      ? `${r.description}\n\n${r.content ?? ''}`
-      : (r.content ?? ''),
-      600,
-    ),
-    metadata: {
-      status: r.status,
-      tags: r.tags,
-      author: r.author,
-      publishedAt: r.publishedAt,
-    },
-    meta: formatMeta({ status: r.status, tags: r.tags, author: r.author, publishedAt: r.publishedAt }),
-  }));
+  return rows.map(r => {
+    const full = r.description ? `${r.description}\n\n${r.content ?? ''}` : (r.content ?? '');
+    return {
+      sourceType: 'article',
+      sourceId: r.id,
+      title: r.title,
+      preview: makePreview(full, 600),
+      fullText: makePreview(full, 12000), // very long limit
+      metadata: {
+        status: r.status,
+        tags: r.tags,
+        author: r.author,
+        publishedAt: r.publishedAt,
+      },
+      meta: formatMeta({ status: r.status, tags: r.tags, author: r.author, publishedAt: r.publishedAt }),
+    };
+  });
 }
 
 async function queryPainPoints(search: string): Promise<SourceRow[]> {
@@ -108,6 +109,7 @@ async function queryPainPoints(search: string): Promise<SourceRow[]> {
     sourceId: r.id,
     title: r.painPointTitle,
     preview: makePreview(r.painPointDescription),
+    fullText: r.painPointDescription || '',
     metadata: {
       category: r.category,
       emotionalIntensity: r.emotionalIntensity,
@@ -144,6 +146,7 @@ async function queryPainClusters(search: string): Promise<SourceRow[]> {
     sourceId: r.id,
     title: r.clusterTheme,
     preview: makePreview(r.synthesizedProblemLabel ?? r.clusterTheme),
+    fullText: `${r.synthesizedProblemLabel ?? r.clusterTheme}\n\n${r.bestQuotes ?? ''}`,
     metadata: {
       dominantEmotion: r.dominantEmotion,
       bestQuotes: r.bestQuotes,
@@ -178,6 +181,7 @@ async function queryContentGaps(search: string): Promise<SourceRow[]> {
     sourceId: r.id,
     title: r.gapTitle,
     preview: makePreview(r.gapDescription),
+    fullText: `${r.gapDescription || ''}\n\n${r.suggestedAngle ? `Suggested Angle:\n${r.suggestedAngle}` : ''}`,
     metadata: {
       confidenceScore: r.confidenceScore,
       status: r.status,
@@ -211,6 +215,7 @@ async function queryKbEntries(search: string): Promise<SourceRow[]> {
     sourceId: r.id,
     title: r.title,
     preview: makePreview(r.content),
+    fullText: r.content || '',
     metadata: {
       type: r.type,
       importanceScore: r.importanceScore,
@@ -246,6 +251,7 @@ async function queryRedditGaps(search: string): Promise<SourceRow[]> {
     sourceId: r.id,
     title: r.painPointTitle,
     preview: makePreview(r.painPointDescription),
+    fullText: `${r.painPointDescription || ''}\n\n${r.vocabularyQuotes ? `Quotes:\n${r.vocabularyQuotes}` : ''}`,
     metadata: {
       vocabularyQuotes: r.vocabularyQuotes,
       category: r.category,
@@ -284,6 +290,7 @@ async function queryYtGaps(search: string): Promise<SourceRow[]> {
     sourceId: r.id,
     title: r.painPointTitle,
     preview: makePreview(r.painPointDescription),
+    fullText: `${r.painPointDescription || ''}\n\n${r.vocabularyQuotes ? `Quotes:\n${r.vocabularyQuotes}` : ''}`,
     metadata: {
       vocabularyQuotes: r.vocabularyQuotes,
       category: r.category,

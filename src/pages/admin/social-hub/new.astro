@@ -355,6 +355,7 @@ const templates = await db.select().from(shTemplates).where(eq(shTemplates.isAct
         card.dataset.id = item.sourceId ?? item.id;
         card.dataset.title = item.title;
         card.dataset.preview = item.preview || '';
+        card.dataset.fullText = item.fullText || '';
         // TASK-05: extract readable badge text from metadata instead of raw JSON
         const meta = item.metadata ?? {};
         const metaBadge = item.meta ?? meta.status ?? meta.category ?? meta.emotionalIntensity ?? meta.type ?? '';
@@ -386,6 +387,7 @@ const templates = await db.select().from(shTemplates).where(eq(shTemplates.isAct
       id: parseInt(card.dataset.id, 10),
       title: card.dataset.title,
       preview: card.dataset.preview,
+      fullText: card.dataset.fullText,
       meta: card.dataset.meta,    // human-readable tag string
     };
 
@@ -393,7 +395,10 @@ const templates = await db.select().from(shTemplates).where(eq(shTemplates.isAct
     document.getElementById('preview-badge').textContent = formatSourceType(state.sourceType);
     document.getElementById('preview-meta').textContent  = state.selectedSource.meta || '';
     document.getElementById('preview-title').textContent = state.selectedSource.title;
-    document.getElementById('preview-text').textContent  = state.selectedSource.preview || '(no preview available)';
+    
+    // Zmiana: Pokaż pełny tekst w kroku 2 zamiast uciętego preview
+    const fullContent = state.selectedSource.fullText || state.selectedSource.preview || '(no source content available)';
+    document.getElementById('preview-text').textContent  = fullContent;
 
     setTimeout(() => showStep(2), 150);
   }
