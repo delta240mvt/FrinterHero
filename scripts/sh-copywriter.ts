@@ -13,7 +13,6 @@ import { readFileSync } from 'fs';
 import { db } from '../src/db/client';
 import { shContentBriefs, shGeneratedCopy } from '../src/db/schema';
 import { eq } from 'drizzle-orm';
-import { getBcSettings } from '../src/lib/bc-settings';
 
 dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
 
@@ -48,16 +47,12 @@ async function run() {
   if (isNaN(briefId) || briefId <= 0) shError(`Invalid SH_BRIEF_ID: ${briefIdRaw}`);
 
   // ── 1. Load brief ────────────────────────────────────────────────────────────
-  log('Loading brief and global LLM config...');
+  log('Loading brief and forcing Anthropic LLM provider...');
   const [brief] = await db.select().from(shContentBriefs).where(eq(shContentBriefs.id, briefId));
   if (!brief) shError(`Brief ${briefId} not found`);
 
-  // Load Brand Clarity settings to get the preferred provider/config (user's "ściągnij ustawienia")
-  const bcSettings = await getBcSettings();
-  if (bcSettings.provider) {
-    process.env.BC_LLM_PROVIDER = bcSettings.provider;
-    log(`Using LLM provider from Brand Clarity settings: ${bcSettings.provider}`);
-  }
+  // FORCE Anthropic provider specifically for Social Hub Copywriter as requested
+  process.env.BC_LLM_PROVIDER = 'anthropic';
 
   const targetPlatforms = Array.isArray(brief.targetPlatforms) ? brief.targetPlatforms : [];
 
@@ -94,22 +89,14 @@ Generate 3 copy variants (aggressive, empathetic, humorous). For EACH variant re
 Return ONLY a valid JSON array of 3 objects. No markdown, no explanation.`;
 
   // ── 4. Call AI ───────────────────────────────────────────────────────────────
-  const provider = process.env.BC_LLM_PROVIDER || 'openrouter';
-  let finalModel = model;
-  
-  // OpenRouter requires provider prefix (e.g. anthropic/claude-sonnet-4-6). 
-  if (provider === 'openrouter' && !finalModel.includes('/')) {
-    finalModel = `anthropic/${finalModel}`;
-  }
-
   // Dynamic import ensures `bc-llm-client` evaluates process.env.BC_LLM_PROVIDER *after* we set it
   const { callBcLlm } = await import('../src/lib/bc-llm-client');
 
-  log(`Calling AI copywriter using model: ${finalModel} (provider: ${provider}) ...`);
+  log(`Calling AI copywriter using model: ${model} (provider: anthropic) ...`);
   let responseText = '';
   try {
     const llmResp = await callBcLlm({
-      model: finalModel,
+      model: model,
       maxTokens: 4096,
       messages: [{ role: 'user', content: userPrompt }],
       systemPrompt,
