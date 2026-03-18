@@ -211,7 +211,7 @@ function buildIgTipList(opts: SocialImageOptions, w: number, h: number): string 
     : `<div style="font-size:30px;color:#94a3b8;line-height:1.6;">${opts.bodyText.slice(0, 300)}</div>`;
 
   return `<div style="width:${w}px;height:${h}px;background:${c.bg};display:flex;flex-direction:column;padding:80px;font-family:'Poppins', sans-serif;">
-    <div style="margin-bottom:56px;">
+    <div style="display:flex;flex-direction:column;margin-bottom:56px;">
       <div style="font-size:20px;font-weight:500;color:${c.gold};letter-spacing:4px;margin-bottom:20px;">QUICK WINS</div>
       <div style="font-size:54px;font-weight:700;color:white;line-height:1.15;">${opts.hookLine.slice(0, 60)}</div>
     </div>
