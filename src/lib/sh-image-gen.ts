@@ -48,6 +48,33 @@ async function loadDeps(): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
+// Font loader (Satori requires TTF/OTF/WOFF, does not support WOFF2)
+// ---------------------------------------------------------------------------
+
+let font400: Buffer | null = null;
+let font500: Buffer | null = null;
+let font600: Buffer | null = null;
+let font700: Buffer | null = null;
+
+async function loadFontsAsync() {
+  if (font400 && font500 && font600 && font700) return;
+  try {
+    const [r400, r500, r600, r700] = await Promise.all([
+      fetch('https://raw.githubusercontent.com/google/fonts/main/ofl/poppins/Poppins-Regular.ttf'),
+      fetch('https://raw.githubusercontent.com/google/fonts/main/ofl/poppins/Poppins-Medium.ttf'),
+      fetch('https://raw.githubusercontent.com/google/fonts/main/ofl/poppins/Poppins-SemiBold.ttf'),
+      fetch('https://raw.githubusercontent.com/google/fonts/main/ofl/poppins/Poppins-Bold.ttf'),
+    ]);
+    if (r400.ok) font400 = Buffer.from(await r400.arrayBuffer());
+    if (r500.ok) font500 = Buffer.from(await r500.arrayBuffer());
+    if (r600.ok) font600 = Buffer.from(await r600.arrayBuffer());
+    if (r700.ok) font700 = Buffer.from(await r700.arrayBuffer());
+  } catch (err) {
+    console.error('[sh-image-gen] Failed to fetch TTF fonts:', err);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Public interfaces
 // ---------------------------------------------------------------------------
 
@@ -199,6 +226,7 @@ function buildIgTipList(opts: SocialImageOptions, w: number, h: number): string 
 
 export async function renderSocialImage(opts: SocialImageOptions): Promise<SocialImageResult> {
   await loadDeps();
+  await loadFontsAsync();
 
   const { w, h } = DIMENSIONS[opts.aspectRatio] ?? DIMENSIONS['1:1'];
 
@@ -215,40 +243,10 @@ export async function renderSocialImage(opts: SocialImageOptions): Promise<Socia
   const vdom = htmlFn!(htmlContent);
 
   const fontOptions: SatoriOptions['fonts'] = [];
-  try {
-    fontOptions.push({
-      name: 'Poppins',
-      data: readFileSync(resolve(process.cwd(), 'public/fonts/Poppins-400.woff2')),
-      weight: 400,
-      style: 'normal',
-    });
-  } catch (e) {
-    // fallback or fail gracefully
-  }
-  try {
-    fontOptions.push({
-      name: 'Poppins',
-      data: readFileSync(resolve(process.cwd(), 'public/fonts/Poppins-500.woff2')),
-      weight: 500,
-      style: 'normal',
-    });
-  } catch(e) {}
-  try {
-    fontOptions.push({
-      name: 'Poppins',
-      data: readFileSync(resolve(process.cwd(), 'public/fonts/Poppins-600.woff2')),
-      weight: 600,
-      style: 'normal',
-    });
-  } catch(e) {}
-  try {
-    fontOptions.push({
-      name: 'Poppins',
-      data: readFileSync(resolve(process.cwd(), 'public/fonts/Poppins-700.woff2')),
-      weight: 700,
-      style: 'normal',
-    });
-  } catch(e) {}
+  if (font400) fontOptions.push({ name: 'Poppins', data: font400, weight: 400, style: 'normal' });
+  if (font500) fontOptions.push({ name: 'Poppins', data: font500, weight: 500, style: 'normal' });
+  if (font600) fontOptions.push({ name: 'Poppins', data: font600, weight: 600, style: 'normal' });
+  if (font700) fontOptions.push({ name: 'Poppins', data: font700, weight: 700, style: 'normal' });
 
   const svg = await satoriFn!(vdom, {
     width: w,
