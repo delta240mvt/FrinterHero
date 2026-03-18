@@ -265,19 +265,10 @@ async function queryYtGaps(search: string): Promise<SourceRow[]> {
   }));
 }
 
-// ── valid source types ───────────────────────────────────────────────────────
+// ── valid source types (imported from shared module) ────────────────────────
+import { SOURCE_TYPES, isValidSourceType } from '@/lib/sh-source-types';
 
-const VALID_TYPES = [
-  'article',
-  'pain_point',
-  'pain_cluster',
-  'content_gap',
-  'kb_entry',
-  'reddit_gap',
-  'yt_gap',
-] as const;
-
-type ValidType = (typeof VALID_TYPES)[number];
+type ValidType = typeof SOURCE_TYPES[number];
 
 const queryMap: Record<ValidType, (search: string) => Promise<SourceRow[]>> = {
   article: queryArticles,
@@ -302,9 +293,9 @@ export const GET: APIRoute = async ({ request, cookies }) => {
   const search = url.searchParams.get('search') || '';
 
   // Validate type param if provided
-  if (typeParam && !(VALID_TYPES as readonly string[]).includes(typeParam)) {
+  if (typeParam && !isValidSourceType(typeParam)) {
     return new Response(
-      JSON.stringify({ error: `Invalid type. Must be one of: ${VALID_TYPES.join(', ')}` }),
+      JSON.stringify({ error: `Invalid type. Must be one of: ${SOURCE_TYPES.join(', ')}` }),
       { status: 400 },
     );
   }
@@ -317,7 +308,7 @@ export const GET: APIRoute = async ({ request, cookies }) => {
       results = await queryMap[typeParam as ValidType](search);
     } else {
       // All types in parallel, then flatten + limit to 100 total
-      const all = await Promise.all(VALID_TYPES.map(t => queryMap[t](search)));
+      const all = await Promise.all(SOURCE_TYPES.map(t => queryMap[t](search)));
       results = all.flat().slice(0, 100);
     }
 

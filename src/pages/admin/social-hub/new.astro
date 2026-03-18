@@ -194,47 +194,62 @@ const templates = await db.select().from(shTemplates).where(eq(shTemplates.isAct
         <p class="step-subtitle">Select which accounts should receive this post.</p>
       </div>
 
-      {accounts.length === 0 ? (
-        <div class="accounts-empty">
-          <p>No active social accounts found. Add accounts in Social Hub settings first.</p>
-          <a href="/admin/social-hub/settings" class="btn-ghost-sm">Open Settings</a>
+      <div id="accounts-grid" class="accounts-grid">
+        <!-- TASK-11: Dry-run / test mode card (always visible) -->
+        <div class="platform-group">
+          <div class="platform-group-header">
+            <span class="platform-name">Test Mode</span>
+          </div>
+          <div class="platform-accounts">
+            <label class="account-card account-card--dryrun" id="dryrun-card">
+              <input
+                type="checkbox"
+                class="account-checkbox"
+                value="__dry_run__"
+                data-platform="dry_run"
+                id="dryrun-checkbox"
+              />
+              <div class="account-info">
+                <span class="account-name">🧪 Tryb testowy</span>
+                <span class="account-handle">Bez publikowania — tylko podgląd pipeline'u</span>
+              </div>
+            </label>
+          </div>
         </div>
-      ) : (
-        <div id="accounts-grid" class="accounts-grid">
-          {(() => {
-            const platforms = [...new Set(accounts.map(a => a.platform))].sort();
-            return platforms.map((platform) => {
-              const platformAccounts = accounts.filter(a => a.platform === platform);
-              return (
-                <div class="platform-group" key={platform}>
-                  <div class="platform-group-header">
-                    <span class="platform-icon" data-platform={platform}></span>
-                    <span class="platform-name">{platform}</span>
-                  </div>
-                  <div class="platform-accounts">
-                    {platformAccounts.map((acc) => (
-                      <label class="account-card" key={acc.id}>
-                        <input
-                          type="checkbox"
-                          class="account-checkbox"
-                          value={acc.id}
-                          data-platform={acc.platform}
-                        />
-                        <div class="account-info">
-                          <span class="account-name">{acc.accountName}</span>
-                          {acc.accountHandle && (
-                            <span class="account-handle">@{acc.accountHandle}</span>
-                          )}
-                        </div>
-                      </label>
-                    ))}
-                  </div>
+
+        {accounts.length > 0 && (() => {
+          const platforms = [...new Set(accounts.map(a => a.platform))].sort();
+          return platforms.map((platform) => {
+            const platformAccounts = accounts.filter(a => a.platform === platform);
+            return (
+              <div class="platform-group" key={platform}>
+                <div class="platform-group-header">
+                  <span class="platform-icon" data-platform={platform}></span>
+                  <span class="platform-name">{platform}</span>
                 </div>
-              );
-            });
-          })()}
-        </div>
-      )}
+                <div class="platform-accounts">
+                  {platformAccounts.map((acc) => (
+                    <label class="account-card" key={acc.id}>
+                      <input
+                        type="checkbox"
+                        class="account-checkbox"
+                        value={acc.id}
+                        data-platform={acc.platform}
+                      />
+                      <div class="account-info">
+                        <span class="account-name">{acc.accountName}</span>
+                        {acc.accountHandle && (
+                          <span class="account-handle">@{acc.accountHandle}</span>
+                        )}
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            );
+          });
+        })()}
+      </div>
 
       <div class="step-actions step-actions--submit">
         <button type="button" class="btn-back" id="back-5">← Back</button>
@@ -299,7 +314,15 @@ const templates = await db.select().from(shTemplates).where(eq(shTemplates.isAct
     };
   }
 
+  // AbortController for cancelling in-flight source requests (TASK-07)
+  let fetchAbortController = null;
+
   async function fetchSources() {
+    // Cancel any pending request
+    if (fetchAbortController) fetchAbortController.abort();
+    fetchAbortController = new AbortController();
+    const { signal } = fetchAbortController;
+
     const type = sourceTypeEl.value;
     const search = sourceSearchEl.value.trim();
 
@@ -310,7 +333,7 @@ const templates = await db.select().from(shTemplates).where(eq(shTemplates.isAct
     try {
       const params = new URLSearchParams({ type });
       if (search) params.set('search', search);
-      const res = await fetch('/api/social-hub/sources?' + params.toString());
+      const res = await fetch('/api/social-hub/sources?' + params.toString(), { signal });
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const data = await res.json();
 
@@ -329,11 +352,14 @@ const templates = await db.select().from(shTemplates).where(eq(shTemplates.isAct
         card.dataset.id = item.sourceId ?? item.id;
         card.dataset.title = item.title;
         card.dataset.preview = item.preview || '';
-        card.dataset.meta = item.meta || JSON.stringify(item.metadata ?? {});
+        // TASK-05: extract readable badge text from metadata instead of raw JSON
+        const meta = item.metadata ?? {};
+        const metaBadge = item.meta ?? meta.status ?? meta.category ?? meta.emotionalIntensity ?? meta.type ?? '';
+        card.dataset.meta = String(metaBadge);
         card.innerHTML = `
           <div class="source-card-top">
             <span class="source-card-title">${escapeHtml(item.title)}</span>
-            ${item.meta ? `<span class="source-card-badge">${escapeHtml(item.meta)}</span>` : ''}
+            ${metaBadge ? `<span class="source-card-badge">${escapeHtml(String(metaBadge))}</span>` : ''}
           </div>
           ${item.preview ? `<p class="source-card-preview">${escapeHtml(item.preview)}</p>` : ''}
         `;
@@ -341,6 +367,7 @@ const templates = await db.select().from(shTemplates).where(eq(shTemplates.isAct
         sourceList.appendChild(card);
       });
     } catch (err) {
+      if (err.name === 'AbortError') return; // cancelled — ignore
       sourceLoading.style.display = 'none';
       sourceEmpty.style.display = 'flex';
       sourceEmpty.querySelector('span:last-child').textContent = 'Error loading sources: ' + err.message;

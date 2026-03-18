@@ -1,7 +1,7 @@
 ---
 import Base from '@/components/layouts/Base.astro';
 import { db } from '@/db/client';
-import { shContentBriefs, shGeneratedCopy, shMediaAssets, shPublishLog, shSocialAccounts } from '@/db/schema';
+import { shContentBriefs, shGeneratedCopy, shMediaAssets, shPublishLog, shSocialAccounts, shTemplates } from '@/db/schema';
 import { eq, desc } from 'drizzle-orm';
 
 const { briefId } = Astro.params;
@@ -16,6 +16,7 @@ const copies = await db.select().from(shGeneratedCopy).where(eq(shGeneratedCopy.
 const assets = await db.select().from(shMediaAssets).where(eq(shMediaAssets.briefId, id));
 const publishLogs = await db.select().from(shPublishLog).where(eq(shPublishLog.briefId, id));
 const accounts = await db.select().from(shSocialAccounts);
+const activeTemplates = await db.select().from(shTemplates).where(eq(shTemplates.isActive, true)).orderBy(shTemplates.id);
 
 const targetAccountIds: number[] = Array.isArray(brief.targetAccountIds) ? brief.targetAccountIds : [];
 const targetAccounts = accounts.filter(a => targetAccountIds.includes(a.id));
@@ -177,6 +178,7 @@ const canGenerate = brief.status === 'draft' || brief.status === 'copy_review';
                 class={`tab-panel ${idx === 0 ? 'active' : ''}`}
                 id={`copy-${copy.id}`}
                 data-copy-id={copy.id}
+                data-status={copy.status}
               >
                 <div class="copy-card">
                   <div class="copy-card-header">
@@ -276,10 +278,13 @@ const canGenerate = brief.status === 'draft' || brief.status === 'copy_review';
           <div class="header-btns">
             <select id="render-template-select" class="select-input">
               <option value="">— select template —</option>
-              <option value="square_1x1">Square 1:1</option>
-              <option value="portrait_9x16">Portrait 9:16</option>
-              <option value="landscape_16x9">Landscape 16:9</option>
-              <option value="story_4x5">Story 4:5</option>
+              {activeTemplates.length === 0 ? (
+                <option value="retro-quote-card" selected>Default (retro-quote-card)</option>
+              ) : (
+                activeTemplates.map(t => (
+                  <option value={t.slug}>{t.name} — {t.aspectRatio}</option>
+                ))
+              )}
             </select>
             <button id="btn-render" class="btn-teal">🎬 Render</button>
           </div>
@@ -753,17 +758,26 @@ const canGenerate = brief.status === 'draft' || brief.status === 'copy_review';
   // ── Media: Re-render ─────────────────────────────────────────
   document.querySelectorAll('.btn-rerender').forEach(btn => {
     btn.addEventListener('click', async () => {
-      const assetId = parseInt(btn.dataset.assetId);
       const templateSelect = document.getElementById('render-template-select');
-      const format = templateSelect ? templateSelect.value : '';
+      const templateSlug = templateSelect ? templateSelect.value : '';
+      if (!templateSlug) { alert('Please select a template first.'); return; }
       if (!confirm('Re-render this asset?')) return;
+
+      // Re-render uses the approved copy
+      const approvedPanel = document.querySelector('.tab-panel[data-status="approved"]');
+      const approvedCopyId = approvedPanel ? parseInt(approvedPanel.dataset.copyId, 10) : null;
+      if (!approvedCopyId) {
+        alert('No approved copy variant found. Approve a copy first.');
+        return;
+      }
+
       btn.disabled = true;
       btn.textContent = '🔄 Rendering…';
       try {
         const res = await fetch(`/api/social-hub/briefs/${BRIEF_ID}/render`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ assetId, format }),
+          body: JSON.stringify({ copyId: approvedCopyId, templateSlug, format: 'image' }),
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         window.location.reload();
@@ -778,8 +792,17 @@ const canGenerate = brief.status === 'draft' || brief.status === 'copy_review';
   // ── Render new asset ────────────────────────────────────────
   document.getElementById('btn-render')?.addEventListener('click', async () => {
     const templateSelect = document.getElementById('render-template-select');
-    const format = templateSelect ? templateSelect.value : '';
-    if (!format) { alert('Please select a template/format first.'); return; }
+    const templateSlug = templateSelect ? templateSelect.value : '';
+    if (!templateSlug) { alert('Please select a template first.'); return; }
+
+    // Find approved copyId from data-status attribute
+    const approvedPanel = document.querySelector('.tab-panel[data-status="approved"]');
+    const approvedCopyId = approvedPanel ? parseInt(approvedPanel.dataset.copyId, 10) : null;
+    if (!approvedCopyId) {
+      alert('No approved copy variant found. Please approve a copy variant first.');
+      return;
+    }
+
     const btn = document.getElementById('btn-render');
     btn.disabled = true;
     btn.textContent = '🎬 Rendering…';
@@ -787,7 +810,7 @@ const canGenerate = brief.status === 'draft' || brief.status === 'copy_review';
       const res = await fetch(`/api/social-hub/briefs/${BRIEF_ID}/render`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ format }),
+        body: JSON.stringify({ copyId: approvedCopyId, templateSlug, format: 'image' }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       window.location.reload();

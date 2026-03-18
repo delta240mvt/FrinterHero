@@ -71,5 +71,21 @@ export const PUT: APIRoute = async ({ params, cookies, request }) => {
       .where(eq(shContentBriefs.id, briefId));
   }
 
+  // If rejected, check if any approved variant remains; if none, revert brief to copy_review
+  if (body.status === 'rejected') {
+    const remainingApproved = await db
+      .select({ id: shGeneratedCopy.id })
+      .from(shGeneratedCopy)
+      .where(and(eq(shGeneratedCopy.briefId, briefId), eq(shGeneratedCopy.status, 'approved')))
+      .limit(1);
+
+    if (remainingApproved.length === 0) {
+      await db
+        .update(shContentBriefs)
+        .set({ status: 'copy_review' })
+        .where(eq(shContentBriefs.id, briefId));
+    }
+  }
+
   return new Response(JSON.stringify(updated), { headers: JSON_HEADERS });
 };

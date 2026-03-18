@@ -3,7 +3,7 @@ export const prerender = false;
 import type { APIRoute } from 'astro';
 import { db } from '@/db/client';
 import { shContentBriefs, shGeneratedCopy, shMediaAssets, shTemplates } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { renderSocialImage } from '@/lib/sh-image-gen';
 import { getShSettings, buildShEnv } from '@/lib/sh-settings';
 import { shVideoJob } from '@/lib/sh-video-job';
@@ -183,3 +183,49 @@ export const POST: APIRoute = async ({ params, request, cookies }) => {
     return new Response(JSON.stringify({ error: 'Server error' }), { status: 500, headers: JSON_HEADERS });
   }
 };
+
+// ── PUT: approve a rendered media asset ──────────────────────────────────────
+export const PUT: APIRoute = async ({ params, request, cookies }) => {
+  if (!auth(cookies)) {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: JSON_HEADERS });
+  }
+
+  const briefId = parseInt(params.id || '0', 10);
+  if (!briefId) {
+    return new Response(JSON.stringify({ error: 'Invalid brief id' }), { status: 400, headers: JSON_HEADERS });
+  }
+
+  let body: { assetId?: number; action?: string } = {};
+  try {
+    body = await request.json();
+  } catch {
+    return new Response(JSON.stringify({ error: 'Invalid JSON body' }), { status: 400, headers: JSON_HEADERS });
+  }
+
+  const { assetId, action } = body;
+
+  if (action === 'approve' && assetId) {
+    try {
+      await db
+        .update(shMediaAssets)
+        .set({ status: 'completed' })
+        .where(and(eq(shMediaAssets.id, assetId), eq(shMediaAssets.briefId, briefId)));
+
+      await db
+        .update(shContentBriefs)
+        .set({ status: 'done' })
+        .where(eq(shContentBriefs.id, briefId));
+
+      return new Response(JSON.stringify({ ok: true }), { headers: JSON_HEADERS });
+    } catch (err) {
+      console.error('[SocialHub Render PUT]', err);
+      return new Response(JSON.stringify({ error: 'Server error' }), { status: 500, headers: JSON_HEADERS });
+    }
+  }
+
+  return new Response(
+    JSON.stringify({ error: 'Unknown action or missing assetId. Use: { assetId, action: "approve" }' }),
+    { status: 400, headers: JSON_HEADERS },
+  );
+};
+

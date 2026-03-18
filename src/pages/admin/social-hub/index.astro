@@ -6,21 +6,25 @@ import { desc, eq, sql } from 'drizzle-orm';
 
 let briefs: any[] = [];
 let statsRaw: any[] = [];
+let totalPostsCount = 0;
 try {
-  briefs = await db.select().from(shContentBriefs).orderBy(desc(shContentBriefs.createdAt)).limit(50);
-  statsRaw = await db
-    .select({ status: shContentBriefs.status, count: sql<number>`count(*)::int` })
-    .from(shContentBriefs)
-    .groupBy(shContentBriefs.status);
+  [briefs, statsRaw] = await Promise.all([
+    db.select().from(shContentBriefs).orderBy(desc(shContentBriefs.createdAt)).limit(50),
+    db.select({ status: shContentBriefs.status, count: sql<number>`count(*)::int` })
+      .from(shContentBriefs)
+      .groupBy(shContentBriefs.status),
+  ]);
+  const [countRow] = await db.select({ total: sql<number>`count(*)::int` }).from(shContentBriefs);
+  totalPostsCount = countRow?.total ?? briefs.length;
 } catch (e) {
   console.error('[SH] Failed to load briefs:', e);
 }
 
 const statusCount = (s: string) => statsRaw.find(r => r.status === s)?.count ?? 0;
-const totalPosts   = briefs.length;
+const totalPosts   = totalPostsCount;
 const published    = statusCount('published') + statusCount('done');
 const pendingReview = statusCount('copy_review') + statusCount('render_review');
-const inQueue      = statusCount('generating') + statusCount('rendering') + statusCount('draft');
+const inQueue      = statusCount('generating') + statusCount('rendering') + statusCount('scheduled');
 
 const statusColors: Record<string, string> = {
   draft:         'var(--text-muted)',

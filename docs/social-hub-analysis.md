@@ -1076,17 +1076,135 @@ Pliki do zaktualizowania: `copy.ts`, `render.ts`, `publish.ts`, `briefs/index.ts
 
 ---
 
+### TASK-11 — Tryb Testowy: generowanie i usuwanie postów bez podpiętego konta social
+
+**Priorytet:** 🔴 Krytyczny  
+**Pliki docelowe:**
+- `src/pages/admin/social-hub/new.astro` (wizard — krok wyboru konta)
+- `src/pages/api/social-hub/briefs/index.ts` (walidacja POST)
+- `src/pages/api/social-hub/briefs/[id]/publish.ts` (logika "dry-run")
+- `src/pages/admin/social-hub/[briefId].astro` (UI — przycisk testowy)
+
+**Zależności:** brak
+
+**Kontekst:**  
+Aktualnie cały flow jest zablokowany jeśli nie masz podpiętego konta social media:
+1. `new.astro` krok 4 wymaga wybrania konta — bez konta nie można przejść dalej
+2. `POST /briefs` waliduje `targetAccountIds` jako wymagany niepusty array
+3. Nie ma sposobu żeby przetestować cały pipeline (copy → render → "publish") bez prawdziwego konta
+
+Użytkownik nie może zobaczyć, jak wygląda finalny post, zanim podłączy konto.
+
+**Implementacja — krok 1: odblokowanie kroku 4 w `new.astro`**
+
+Dodać opcję "Test / No account" w liście kont:
+```astro
+<!-- W sekcji wyboru kont, przed listą accountsData.map(...) -->
+<div class="account-card" data-account-id="__dry_run__" data-platform="dry_run">
+  <div class="account-card-avatar">🧪</div>
+  <div class="account-card-info">
+    <span class="account-card-name">Tryb testowy</span>
+    <span class="account-card-platform">Bez publikowania — tylko podgląd</span>
+  </div>
+</div>
+```
+
+Zmienić walidację w `canProceedStep4()`:
+```js
+// PRZED — wymagało conajmniej 1 konta
+function canProceedStep4() {
+  return state.selectedAccountIds.length > 0;
+}
+
+// PO — dry_run liczy się jako wybór
+function canProceedStep4() {
+  return state.selectedAccountIds.length > 0; // __dry_run__ jest w liście, więc walidacja przechodzi
+}
+// Upewnić się że __dry_run__ jest dodawany do state.selectedAccountIds przy kliknięciu
+```
+
+**Implementacja — krok 2: luźna walidacja w `POST /briefs`**
+
+```ts
+// briefs/index.ts — zmienić walidację targetAccountIds
+// PRZED
+if (!Array.isArray(targetPlatforms) || !Array.isArray(targetAccountIds)) {
+  return new Response(..., { status: 400 });
+}
+
+// PO — pozwolić na dry_run
+const isDryRun = targetAccountIds.length === 1 && targetAccountIds[0] === '__dry_run__';
+if (!Array.isArray(targetPlatforms) || !Array.isArray(targetAccountIds)) {
+  return new Response(..., { status: 400 });
+}
+// Zapisz isDryRun w briefie (potrzebna kolumna lub status 'test')
+// Wstawić brief z dodatkowym polem: isDryRun lub status: 'draft_test'
+```
+
+**Implementacja — krok 3: pominięcie publikacji w `publish.ts`**
+
+```ts
+// publish.ts — sprawdź czy to dry_run
+const isDryRun = brief.targetAccountIds?.includes('__dry_run__') 
+  || accountIds?.includes('__dry_run__');
+
+if (isDryRun) {
+  // Nie wysyłaj nic do API social media
+  // Tylko zaktualizuj status briefa na 'done' i zwróć sukces
+  await db.update(shContentBriefs)
+    .set({ status: 'done' })
+    .where(eq(shContentBriefs.id, briefId));
+  return new Response(JSON.stringify({ ok: true, dryRun: true, message: 'Test mode — not published' }), { headers: JSON_HEADERS });
+}
+// ... reszta normalnej logiki publikacji
+```
+
+**Implementacja — krok 4: UI w `[briefId].astro`**
+
+Dodać widoczny badge "🧪 Tryb testowy" jeśli brief ma `isDryRun`:
+```astro
+{brief.targetAccountIds?.includes('__dry_run__') && (
+  <div class="dry-run-badge">
+    🧪 Tryb testowy — post nie zostanie opublikowany
+  </div>
+)}
+```
+
+Zmienić etykietę przycisku publish:
+```js
+// Jeśli dry_run — przycisk mówi "Zakończ test" zamiast "Publish"
+const isDryRun = BRIEF_TARGET_ACCOUNTS?.includes('__dry_run__');
+const publishBtn = document.getElementById('btn-publish');
+if (publishBtn && isDryRun) {
+  publishBtn.textContent = '🧪 Zakończ test';
+}
+```
+
+**Usuwanie testowych postów:**  
+Nic do zmiany — `DELETE /api/social-hub/briefs/[id]` (zaimplementowany w tej sesji) już działa dla wszystkich briefów. Opcjonalnie można dodać filtr "Pokaż tylko testowe" w `index.astro`.
+
+**Warunek akceptacji:**
+- Można przejść przez cały wizard (5 kroków) bez podpiętego konta social, wybierając "Tryb testowy"
+- Brief jest tworzony i przechodzi przez etapy: copy → render → "publish"
+- Kliknięcie "Zakończ test" na `[briefId].astro` zmienia status na `done` bez callowania żadnego social media API
+- Na liście briefów (`index.astro`) brief testowy ma widoczny badge 🧪
+- Testowy brief można usunąć przyciskiem "Delete" (działa przez istniejący `DELETE /briefs/[id]`)
+- Prawdziwe konta social nie są w żaden sposób dotykane podczas dry-run
+
+---
+
 ### Tabela priorytetów tasków
 
-| Task | Opis | Priorytet | Estimated LOC | Niezależny? |
-|------|------|-----------|---------------|-------------|
-| TASK-01 | PUT /render — approve media | 🔴 | ~35 | ✅ |
-| TASK-02 | data-status + copyId w render | 🔴 | ~30 | ✅ |
-| TASK-03 | Dynamiczne szablony w briefId.astro | 🔴 | ~15 | depends TASK-02 |
-| TASK-04 | Logika reject copy → status briefa | 🟡 | ~20 | ✅ |
-| TASK-05 | data-meta badge w kartach źródeł | 🟡 | ~10 | ✅ |
-| TASK-06 | totalPosts COUNT + inQueue fix | 🟡 | ~10 | ✅ |
-| TASK-07 | AbortController w fetchSources | 🟢 | ~15 | ✅ |
-| TASK-08 | sh-source-types.ts — centralne typy | 🟢 | ~50 | ✅ |
-| TASK-09 | sh-api-utils.ts — auth + json helpers | 🟢 | ~80 | ✅ |
-| TASK-10 | updatedAt w shContentBriefs | 🟢 | ~25 | ✅ |
+| Task | Opis | Priorytet | Estimated LOC | Status |
+|------|------|-----------|---------------|--------|
+| TASK-01 | PUT /render — approve media | 🔴 | ~35 | ✅ Zrobione |
+| TASK-02 | data-status + copyId w render | 🔴 | ~30 | ✅ Zrobione |
+| TASK-03 | Dynamiczne szablony w briefId.astro | 🔴 | ~15 | ✅ Zrobione |
+| TASK-04 | Logika reject copy → status briefa | 🟡 | ~20 | ✅ Zrobione |
+| TASK-05 | data-meta badge w kartach źródeł | 🟡 | ~10 | ✅ Zrobione |
+| TASK-06 | totalPosts COUNT + inQueue fix | 🟡 | ~10 | ✅ Zrobione |
+| TASK-07 | AbortController w fetchSources | 🟢 | ~15 | ✅ Zrobione |
+| TASK-08 | sh-source-types.ts — centralne typy | 🟢 | ~50 | ✅ Zrobione |
+| TASK-09 | sh-api-utils.ts — auth + json helpers | 🟢 | ~80 | ✅ Zrobione (plik stworzony, gotowy do użycia) |
+| TASK-10 | updatedAt w shContentBriefs | 🟢 | ~25 | ⏳ Pominięty (wymaga migracji DB — do zrobienia ręcznie) |
+| TASK-11 | Tryb testowy (dry-run bez konta social) | 🔴 | ~60 | ✅ Zrobione |

@@ -1,6 +1,9 @@
 export const prerender = false;
 
 import type { APIRoute } from 'astro';
+import { db } from '@/db/client';
+import { shContentBriefs } from '@/db/schema';
+import { eq } from 'drizzle-orm';
 import { publishBrief } from '@/lib/sh-distributor';
 
 function auth(cookies: any) {
@@ -19,17 +22,41 @@ export const POST: APIRoute = async ({ params, cookies, request }) => {
     return new Response(JSON.stringify({ error: 'Invalid brief id' }), { status: 400, headers: JSON_HEADERS });
   }
 
-  let body: { accountIds?: number[]; scheduledFor?: string } = {};
+  let body: { accountIds?: (number | string)[]; scheduledFor?: string } = {};
   try {
     body = await request.json();
   } catch {
     // body is optional — ignore parse errors
   }
 
+  // ── TASK-11: Dry-run detection ─────────────────────────────────────────────
+  const rawAccountIds = Array.isArray(body.accountIds) ? body.accountIds : [];
+  const isDryRun = rawAccountIds.includes('__dry_run__');
+
+  if (isDryRun) {
+    try {
+      await db
+        .update(shContentBriefs)
+        .set({ status: 'done' })
+        .where(eq(shContentBriefs.id, briefId));
+
+      return new Response(
+        JSON.stringify({ ok: true, dryRun: true, message: 'Test mode — brief completed without publishing.' }),
+        { headers: JSON_HEADERS },
+      );
+    } catch (err) {
+      console.error('[SocialHub Publish POST] dry-run error', err);
+      return new Response(JSON.stringify({ error: 'Server error' }), { status: 500, headers: JSON_HEADERS });
+    }
+  }
+  // ───────────────────────────────────────────────────────────────────────────
+
   const overrides: { accountIds?: number[]; scheduledFor?: Date } = {};
 
   if (Array.isArray(body.accountIds) && body.accountIds.length > 0) {
-    overrides.accountIds = body.accountIds.map((id) => parseInt(String(id), 10)).filter(Boolean);
+    overrides.accountIds = (body.accountIds as any[])
+      .map((id) => parseInt(String(id), 10))
+      .filter((n) => !isNaN(n) && n > 0);
   }
 
   if (body.scheduledFor) {
