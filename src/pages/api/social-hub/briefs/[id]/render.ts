@@ -126,7 +126,7 @@ export const POST: APIRoute = async ({ params, request, cookies }) => {
       // Update brief status to render_review
       await db
         .update(shContentBriefs)
-        .set({ status: 'render_review' })
+        .set({ status: 'render_review', updatedAt: new Date() })
         .where(eq(shContentBriefs.id, briefId));
 
       return new Response(
@@ -213,7 +213,7 @@ export const PUT: APIRoute = async ({ params, request, cookies }) => {
 
       await db
         .update(shContentBriefs)
-        .set({ status: 'done' })
+        .set({ status: 'done', updatedAt: new Date() })
         .where(eq(shContentBriefs.id, briefId));
 
       return new Response(JSON.stringify({ ok: true }), { headers: JSON_HEADERS });

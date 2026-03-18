@@ -67,7 +67,7 @@ export const PUT: APIRoute = async ({ params, cookies, request }) => {
   if (body.status === 'approved') {
     await db
       .update(shContentBriefs)
-      .set({ status: 'rendering' })
+      .set({ status: 'rendering', updatedAt: new Date() })
       .where(eq(shContentBriefs.id, briefId));
   }
 
@@ -82,7 +82,7 @@ export const PUT: APIRoute = async ({ params, cookies, request }) => {
     if (remainingApproved.length === 0) {
       await db
         .update(shContentBriefs)
-        .set({ status: 'copy_review' })
+        .set({ status: 'copy_review', updatedAt: new Date() })
         .where(eq(shContentBriefs.id, briefId));
     }
   }

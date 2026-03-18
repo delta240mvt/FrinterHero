@@ -7,15 +7,16 @@ import { desc, eq, sql } from 'drizzle-orm';
 let briefs: any[] = [];
 let statsRaw: any[] = [];
 let totalPostsCount = 0;
+let countResult: { total: number }[] = [];
 try {
-  [briefs, statsRaw] = await Promise.all([
+  [briefs, statsRaw, countResult] = await Promise.all([
     db.select().from(shContentBriefs).orderBy(desc(shContentBriefs.createdAt)).limit(50),
     db.select({ status: shContentBriefs.status, count: sql<number>`count(*)::int` })
       .from(shContentBriefs)
       .groupBy(shContentBriefs.status),
+    db.select({ total: sql<number>`count(*)::int` }).from(shContentBriefs),
   ]);
-  const [countRow] = await db.select({ total: sql<number>`count(*)::int` }).from(shContentBriefs);
-  totalPostsCount = countRow?.total ?? briefs.length;
+  totalPostsCount = countResult[0]?.total ?? briefs.length;
 } catch (e) {
   console.error('[SH] Failed to load briefs:', e);
 }
