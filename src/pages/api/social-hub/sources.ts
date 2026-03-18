@@ -25,8 +25,13 @@ function formatMeta(obj: Record<string, any>): string {
   const parts: string[] = [];
   if (obj.status) parts.push(obj.status);
   if (obj.category) parts.push(obj.category);
+  if (obj.dominantEmotion) parts.push(obj.dominantEmotion);
   if (obj.emotionalIntensity) parts.push(`intensity: ${obj.emotionalIntensity}/10`);
+  if (obj.aggregateIntensity) parts.push(`intensity: ${obj.aggregateIntensity}/10`);
+  if (obj.confidenceScore) parts.push(`score: ${obj.confidenceScore}%`);
+  if (obj.frequency) parts.push(`mentions: ${obj.frequency}`);
   if (obj.author) parts.push(`by ${obj.author}`);
+  if (obj.sourceVideoTitle) parts.push(`vid: ${obj.sourceVideoTitle.slice(0, 30)}…`);
   if (Array.isArray(obj.tags) && obj.tags.length > 0) parts.push(obj.tags.slice(0, 4).join(', '));
   if (obj.publishedAt) parts.push(new Date(obj.publishedAt).toLocaleDateString('pl-PL', { day:'2-digit', month:'short', year:'numeric' }));
   return parts.filter(Boolean).join(' · ');
@@ -111,6 +116,7 @@ async function queryPainPoints(search: string): Promise<SourceRow[]> {
       status: r.status,
       projectId: r.projectId,
     },
+    meta: formatMeta({ category: r.category, emotionalIntensity: r.emotionalIntensity, status: r.status }),
   }));
 }
 
@@ -146,6 +152,7 @@ async function queryPainClusters(search: string): Promise<SourceRow[]> {
       projectId: r.projectId,
       iterationId: r.iterationId,
     },
+    meta: formatMeta({ dominantEmotion: r.dominantEmotion, aggregateIntensity: r.aggregateIntensity }),
   }));
 }
 
@@ -178,6 +185,7 @@ async function queryContentGaps(search: string): Promise<SourceRow[]> {
       relatedQueries: r.relatedQueries,
       sourceModels: r.sourceModels,
     },
+    meta: formatMeta({ status: r.status, confidenceScore: r.confidenceScore }),
   }));
 }
 
@@ -210,6 +218,7 @@ async function queryKbEntries(search: string): Promise<SourceRow[]> {
       projectName: r.projectName,
       sourceUrl: r.sourceUrl,
     },
+    meta: formatMeta({ type: r.type, tags: r.tags, importanceScore: r.importanceScore }),
   }));
 }
 
@@ -245,6 +254,7 @@ async function queryRedditGaps(search: string): Promise<SourceRow[]> {
       status: r.status,
       scrapeRunId: r.scrapeRunId,
     },
+    meta: formatMeta({ category: r.category, emotionalIntensity: r.emotionalIntensity, frequency: r.frequency, status: r.status }),
   }));
 }
 
@@ -284,6 +294,7 @@ async function queryYtGaps(search: string): Promise<SourceRow[]> {
       sourceVideoTitle: r.sourceVideoTitle,
       scrapeRunId: r.scrapeRunId,
     },
+    meta: formatMeta({ category: r.category, emotionalIntensity: r.emotionalIntensity, frequency: r.frequency, status: r.status, sourceVideoTitle: r.sourceVideoTitle }),
   }));
 }
 
