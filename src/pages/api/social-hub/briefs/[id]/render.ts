@@ -14,6 +14,147 @@ function auth(cookies: any) {
 
 const JSON_HEADERS = { 'Content-Type': 'application/json' };
 
+const VIDEO_FORMAT_SLUGS = [
+  'talking_head_authority',
+  'problem_agitation_solution',
+  'storytime_confession',
+  'contrarian_hot_take',
+  'listicle_fast_cuts',
+  'myth_vs_reality',
+  'screen_demo_explainer',
+  'ugc_testimonial_style',
+] as const;
+
+type VideoFormatSlug = typeof VIDEO_FORMAT_SLUGS[number];
+type ShViralEngineConfig = Record<string, any>;
+
+type ViralEngineMarkerShape = {
+  enabled?: boolean;
+  mode?: string;
+  allowPersonalization?: boolean;
+  personalizationLabel?: string;
+  personalizationNotes?: string;
+  written?: {
+    enabled?: boolean;
+    pcmProfileMode?: string;
+    defaultPcmProfile?: string;
+    enforceFivePoints?: boolean;
+    hookIntensity?: string;
+    ctaIntensity?: string;
+    additionalRules?: string;
+  };
+  video?: {
+    enabled?: boolean;
+    formatMode?: string;
+    allowedFormats?: string[];
+    defaultFormats?: string[];
+    preferredPrimaryFormat?: string;
+    selectedFormat?: string;
+    pacing?: string;
+    visualDensity?: string;
+    additionalRules?: string;
+  };
+};
+
+function parseViralEngineMarker(suggestionPrompt?: string | null): ViralEngineMarkerShape | null {
+  if (!suggestionPrompt) return null;
+  const markerStart = '[[VIRAL_ENGINE_META_V1]]';
+  const markerEnd = '[[/VIRAL_ENGINE_META_V1]]';
+  const start = suggestionPrompt.lastIndexOf(markerStart);
+  const end = suggestionPrompt.lastIndexOf(markerEnd);
+  if (start === -1 || end === -1 || end <= start) return null;
+
+  const rawJson = suggestionPrompt.slice(start + markerStart.length, end).trim();
+  if (!rawJson) return null;
+  try {
+    return JSON.parse(rawJson) as ViralEngineMarkerShape;
+  } catch {
+    return null;
+  }
+}
+
+function toStringArray(value: unknown): string[] {
+  return Array.isArray(value) ? value.map((item) => String(item).trim()).filter(Boolean) : [];
+}
+
+function isValidVideoFormatSlug(value?: string | null): value is VideoFormatSlug {
+  return !!value && (VIDEO_FORMAT_SLUGS as readonly string[]).includes(value);
+}
+
+function buildViralEngineConfigFromBrief(brief: any, outputFormat: 'image' | 'video', videoFormatSlug?: string | null): ShViralEngineConfig | null {
+  const fromColumns = brief?.viralEngineProfile ?? null;
+  const fromMarker = parseViralEngineMarker(brief?.suggestionPrompt);
+
+  if (fromColumns) {
+    return {
+      ...fromColumns,
+      enabled: brief?.viralEngineEnabled ?? fromColumns.enabled,
+      mode: brief?.viralEngineMode ?? fromColumns.mode,
+      personalizationNotes: brief?.viralEnginePrompt ?? fromColumns.personalizationNotes ?? '',
+      written: {
+        ...(fromColumns.written ?? {}),
+        enabled: outputFormat === 'video' ? false : (fromColumns.written?.enabled ?? true),
+      },
+      video: {
+        ...(fromColumns.video ?? {}),
+        enabled: outputFormat === 'video' ? (fromColumns.video?.enabled ?? true) : false,
+        preferredPrimaryFormat: (videoFormatSlug ?? fromColumns.video?.preferredPrimaryFormat ?? 'talking_head_authority') as VideoFormatSlug,
+        defaultFormats: videoFormatSlug
+          ? Array.from(new Set([videoFormatSlug, ...(fromColumns.video?.defaultFormats ?? [])]))
+          : (fromColumns.video?.defaultFormats ?? []),
+      },
+    };
+  }
+
+  if (!fromMarker && !brief?.viralEngineEnabled && !brief?.viralEnginePrompt && !brief?.videoFormatSlug) {
+    return null;
+  }
+
+  const fallbackVideoFormat =
+    (isValidVideoFormatSlug(videoFormatSlug) && videoFormatSlug)
+    || (isValidVideoFormatSlug(fromMarker?.video?.selectedFormat) && fromMarker?.video?.selectedFormat)
+    || (isValidVideoFormatSlug(fromMarker?.video?.preferredPrimaryFormat) && fromMarker?.video?.preferredPrimaryFormat)
+    || 'talking_head_authority';
+  const config: ShViralEngineConfig = {
+    enabled: brief?.viralEngineEnabled ?? fromMarker?.enabled ?? false,
+    mode: brief?.viralEngineMode ?? fromMarker?.mode ?? 'default',
+    allowPersonalization: fromMarker?.allowPersonalization ?? false,
+    personalizationLabel: fromMarker?.personalizationLabel ?? '',
+    personalizationNotes: brief?.viralEnginePrompt ?? fromMarker?.personalizationNotes ?? '',
+    written: {
+      enabled: outputFormat !== 'video',
+      pcmProfileMode: (fromMarker?.written?.pcmProfileMode as 'manual' | 'auto') ?? 'manual',
+      defaultPcmProfile: (fromMarker?.written?.defaultPcmProfile as any) ?? 'harmonizer',
+      enforceFivePoints: fromMarker?.written?.enforceFivePoints ?? true,
+      hookIntensity: (fromMarker?.written?.hookIntensity as any) ?? 'medium',
+      ctaIntensity: (fromMarker?.written?.ctaIntensity as any) ?? 'medium',
+      additionalRules: fromMarker?.written?.additionalRules ?? brief?.viralEnginePrompt ?? '',
+    },
+    video: {
+      enabled: outputFormat === 'video',
+      formatMode: (fromMarker?.video?.formatMode as 'manual' | 'auto') ?? 'manual',
+      defaultFormats: (() => {
+        const formats = toStringArray(fromMarker?.video?.defaultFormats ?? fromMarker?.video?.allowedFormats).filter(isValidVideoFormatSlug);
+        if (formats.length > 0) return formats;
+        return isValidVideoFormatSlug(videoFormatSlug) ? [videoFormatSlug] : [];
+      })(),
+      preferredPrimaryFormat: fallbackVideoFormat,
+      pacing: (fromMarker?.video?.pacing as any) ?? 'medium',
+      visualDensity: (fromMarker?.video?.visualDensity as any) ?? 'medium',
+      additionalRules: fromMarker?.video?.additionalRules ?? brief?.viralEnginePrompt ?? '',
+    },
+  };
+
+  return {
+    ...config,
+    video: {
+      ...config.video,
+      preferredPrimaryFormat: fallbackVideoFormat,
+      defaultFormats: Array.from(new Set([fallbackVideoFormat, ...config.video.defaultFormats])),
+    },
+  };
+}
+
 export const POST: APIRoute = async ({ params, request, cookies }) => {
   if (!auth(cookies)) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: JSON_HEADERS });
@@ -70,6 +211,11 @@ export const POST: APIRoute = async ({ params, request, cookies }) => {
       return new Response(JSON.stringify({ error: 'Copy record not found' }), { status: 404, headers: JSON_HEADERS });
     }
 
+    const resolvedVideoFormatSlug = format === 'video'
+      ? ((isValidVideoFormatSlug(brief.videoFormatSlug) && brief.videoFormatSlug) || (isValidVideoFormatSlug(body.templateSlug) && body.templateSlug) || null)
+      : ((isValidVideoFormatSlug(brief.videoFormatSlug) && brief.videoFormatSlug) || null);
+    const viralEngineSnapshot = buildViralEngineConfigFromBrief(brief, format, resolvedVideoFormatSlug);
+
     // ── IMAGE path ───────────────────────────────────────────────────────────
     if (format === 'image') {
       const resolvedSlug = templateSlug ?? 'retro-quote-card';
@@ -119,6 +265,8 @@ export const POST: APIRoute = async ({ params, request, cookies }) => {
           mediaUrl,
           width: result.width,
           height: result.height,
+          videoFormatSlug: brief.videoFormatSlug ?? null,
+          viralEngineSnapshot: viralEngineSnapshot as any,
           status: 'completed',
         })
         .returning();
@@ -136,6 +284,8 @@ export const POST: APIRoute = async ({ params, request, cookies }) => {
           mediaUrl,
           width: result.width,
           height: result.height,
+          videoFormatSlug: brief.videoFormatSlug ?? null,
+          viralEngineSnapshot,
         }),
         { headers: JSON_HEADERS },
       );
@@ -151,6 +301,7 @@ export const POST: APIRoute = async ({ params, request, cookies }) => {
       SH_AVATAR_URL: settings.avatarImageUrl,
       SH_VIDEO_MODEL: settings.videoModel,
       SH_TTS_PROVIDER: settings.ttsProvider,
+      SH_VIDEO_FORMAT_SLUG: String(resolvedVideoFormatSlug ?? ''),
     };
 
     const startResult = shVideoJob.start(briefId, copyId, extraEnv);
@@ -171,11 +322,19 @@ export const POST: APIRoute = async ({ params, request, cookies }) => {
         status: 'rendering',
         renderProvider: settings.videoProvider,
         renderModel: settings.videoModel,
+        videoFormatSlug: resolvedVideoFormatSlug,
+        viralEngineSnapshot: viralEngineSnapshot as any,
       })
       .returning();
 
     return new Response(
-      JSON.stringify({ ok: true, status: 'rendering', assetId: asset.id }),
+      JSON.stringify({
+        ok: true,
+        status: 'rendering',
+        assetId: asset.id,
+        videoFormatSlug: resolvedVideoFormatSlug,
+        viralEngineSnapshot,
+      }),
       { headers: JSON_HEADERS },
     );
   } catch (err) {

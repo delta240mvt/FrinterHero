@@ -52,6 +52,32 @@ const publishStatusColors: Record<string, string> = {
 
 const approvedCopy = copies.find(c => c.status === 'approved');
 const canGenerate = brief.status === 'draft' || brief.status === 'copy_review';
+
+const viralEngineEnabled = Boolean((brief as any).viralEngineEnabled ?? (brief as any).viral_engine_enabled ?? false);
+const viralEngineMode = String((brief as any).viralEngineMode ?? (brief as any).viral_engine_mode ?? 'default');
+const viralEnginePrompt = String((brief as any).viralEnginePrompt ?? (brief as any).viral_engine_prompt ?? '');
+const viralEngineProfile = (brief as any).viralEngineProfile ?? (brief as any).viral_engine_profile ?? null;
+const pcmProfile = viralEngineProfile?.pcmSnapshot ?? viralEngineProfile?.pcm_snapshot ?? (viralEngineProfile?.written?.pcmSnapshot ?? viralEngineProfile?.written?.pcm_snapshot ?? null);
+const selectedVideoFormat = String((brief as any).videoFormatSlug ?? (brief as any).video_format_slug ?? viralEngineProfile?.video?.selectedVideoFormat?.slug ?? viralEngineProfile?.video?.selected_video_format?.slug ?? '');
+const personalization = viralEngineProfile?.personalization ?? viralEngineProfile?.personalizationSummary ?? viralEngineProfile?.personalization_summary ?? null;
+const pcmProfileData = pcmProfile && typeof pcmProfile === 'object' ? pcmProfile as Record<string, any> : null;
+
+function asText(value: unknown, fallback = '—'): string {
+  if (value === null || value === undefined) return fallback;
+  if (typeof value === 'string') return value.trim() || fallback;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  return fallback;
+}
+
+function formatJson(value: unknown): string {
+  if (value === null || value === undefined) return '—';
+  if (typeof value === 'string') return value;
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return '—';
+  }
+}
 ---
 
 <Base title={`Brief #${id} — Social Hub`} description="SocialHub content brief detail: copy, media, and publish">
@@ -126,6 +152,96 @@ const canGenerate = brief.status === 'draft' || brief.status === 'copy_review';
           <p class="suggestion-text">{brief.suggestionPrompt}</p>
         </div>
       )}
+
+      <div class="viral-engine-card">
+        <div class="viral-engine-card__header">
+          <div class="viral-engine-title-wrap">
+            <span class="meta-label">VIRAL ENGINE</span>
+            <h3 class="viral-engine-title">Strategy audit</h3>
+          </div>
+          <span
+            class={`viral-engine-badge ${viralEngineEnabled ? 'viral-engine-badge--on' : 'viral-engine-badge--off'}`}
+          >
+            {viralEngineEnabled ? 'Enabled' : 'Disabled'}
+          </span>
+        </div>
+
+        <div class="viral-engine-grid">
+          <div class="viral-engine-item">
+            <span class="viral-engine-item-label">Mode</span>
+            <span class="viral-engine-item-value">{asText(viralEngineMode)}</span>
+          </div>
+          <div class="viral-engine-item">
+            <span class="viral-engine-item-label">Output Focus</span>
+            <span class="viral-engine-item-value">
+              {brief.outputFormat === 'video' ? 'Video format selection' : 'Process Communication Model'}
+            </span>
+          </div>
+          <div class="viral-engine-item">
+            <span class="viral-engine-item-label">Video Format</span>
+            <span class="viral-engine-item-value">{selectedVideoFormat ? asText(selectedVideoFormat) : '—'}</span>
+          </div>
+          <div class="viral-engine-item">
+            <span class="viral-engine-item-label">Personalization</span>
+            <span class="viral-engine-item-value">
+              {personalization ? 'Applied' : viralEngineEnabled ? 'Default only' : 'Disabled'}
+            </span>
+          </div>
+        </div>
+
+        {pcmProfileData && (
+          <div class="viral-engine-panel">
+            <div class="viral-engine-panel__top">
+              <span class="viral-engine-panel__label">PCM Snapshot</span>
+              <span class="viral-engine-panel__hint">5-point summary used before generation</span>
+            </div>
+            <div class="viral-engine-pcm-grid">
+              <div class="viral-engine-pcm-item">
+                <span class="viral-engine-pcm-key">Core audience state</span>
+                <span class="viral-engine-pcm-value">{asText(pcmProfileData.coreAudienceState ?? pcmProfileData.core_audience_state)}</span>
+              </div>
+              <div class="viral-engine-pcm-item">
+                <span class="viral-engine-pcm-key">Dominant need</span>
+                <span class="viral-engine-pcm-value">{asText(pcmProfileData.dominantPsychologicalNeed ?? pcmProfileData.dominant_psychological_need)}</span>
+              </div>
+              <div class="viral-engine-pcm-item">
+                <span class="viral-engine-pcm-key">Communication channel</span>
+                <span class="viral-engine-pcm-value">{asText(pcmProfileData.channelOfCommunication ?? pcmProfileData.channel_of_communication)}</span>
+              </div>
+              <div class="viral-engine-pcm-item">
+                <span class="viral-engine-pcm-key">Tone and language</span>
+                <span class="viral-engine-pcm-value">{asText(pcmProfileData.preferredToneAndLanguage ?? pcmProfileData.preferred_tone_and_language)}</span>
+              </div>
+              <div class="viral-engine-pcm-item">
+                <span class="viral-engine-pcm-key">CTA style</span>
+                <span class="viral-engine-pcm-value">{asText(pcmProfileData.callToActionStyle ?? pcmProfileData.call_to_action_style)}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div class="viral-engine-panel">
+          <div class="viral-engine-panel__top">
+            <span class="viral-engine-panel__label">Personalization</span>
+            <span class="viral-engine-panel__hint">Merged runtime context used by the engine</span>
+          </div>
+          <p class="viral-engine-copy">
+            {personalization
+              ? formatJson(personalization)
+              : viralEngineEnabled
+                ? 'No brief-specific personalization was provided. Global defaults were used.'
+                : 'VIRAL ENGINE is disabled for this brief.'}
+          </p>
+        </div>
+
+        <div class="viral-engine-panel">
+          <div class="viral-engine-panel__top">
+            <span class="viral-engine-panel__label">Prompt Audit</span>
+            <span class="viral-engine-panel__hint">Final prompt block persisted for traceability</span>
+          </div>
+          <pre class="viral-engine-prompt">{viralEnginePrompt || 'No persisted VIRAL ENGINE prompt block found for this brief.'}</pre>
+        </div>
+      </div>
 
       <!-- SSE console for real-time copy generation logs -->
       <div id="generate-panel" class="generate-panel" style="display:none">
@@ -942,6 +1058,29 @@ const canGenerate = brief.status === 'draft' || brief.status === 'copy_review';
 .source-title-text { font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-primary); margin: 0; line-height: 1.5; }
 .suggestion-block { display: flex; flex-direction: column; gap: 0.25rem; padding: 0.75rem 1rem; background: rgba(214,183,121,0.06); border: 1px solid rgba(214,183,121,0.2); border-radius: 0.375rem; }
 .suggestion-text { font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-secondary); margin: 0; line-height: 1.6; }
+
+/* ── VIRAL ENGINE audit ────────────────────────────────────── */
+.viral-engine-card { display: flex; flex-direction: column; gap: 0.85rem; padding: 1rem 1.1rem; background: linear-gradient(180deg, rgba(214,183,121,0.08), rgba(74,141,131,0.04)); border: 1px solid rgba(214,183,121,0.22); border-radius: 0.5rem; }
+.viral-engine-card__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.75rem; }
+.viral-engine-title-wrap { display: flex; flex-direction: column; gap: 0.15rem; }
+.viral-engine-title { margin: 0; font-family: var(--font-mono); font-size: 0.92rem; color: var(--text-primary); font-weight: 700; }
+.viral-engine-badge { font-family: var(--font-mono); font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.06em; padding: 0.2rem 0.45rem; border-radius: 999px; border: 1px solid; white-space: nowrap; }
+.viral-engine-badge--on { color: var(--teal); border-color: rgba(74,141,131,0.35); background: rgba(74,141,131,0.12); }
+.viral-engine-badge--off { color: #ef4444; border-color: rgba(239,68,68,0.35); background: rgba(239,68,68,0.1); }
+.viral-engine-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 0.6rem; }
+.viral-engine-item { display: flex; flex-direction: column; gap: 0.18rem; padding: 0.65rem 0.75rem; background: rgba(0,0,0,0.12); border: 1px solid rgba(255,255,255,0.06); border-radius: 0.375rem; }
+.viral-engine-item-label { font-family: var(--font-mono); font-size: 0.6rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.viral-engine-item-value { font-family: var(--font-mono); font-size: 0.74rem; color: var(--text-primary); line-height: 1.45; }
+.viral-engine-panel { display: flex; flex-direction: column; gap: 0.5rem; padding-top: 0.25rem; }
+.viral-engine-panel__top { display: flex; align-items: baseline; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; }
+.viral-engine-panel__label { font-family: var(--font-mono); font-size: 0.6rem; color: var(--gold); text-transform: uppercase; letter-spacing: 0.06em; }
+.viral-engine-panel__hint { font-family: var(--font-mono); font-size: 0.62rem; color: var(--text-muted); }
+.viral-engine-pcm-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.5rem; }
+.viral-engine-pcm-item { display: flex; flex-direction: column; gap: 0.18rem; padding: 0.6rem 0.7rem; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 0.35rem; }
+.viral-engine-pcm-key { font-family: var(--font-mono); font-size: 0.6rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+.viral-engine-pcm-value { font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-primary); line-height: 1.45; }
+.viral-engine-copy { margin: 0; font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-secondary); line-height: 1.7; white-space: pre-wrap; }
+.viral-engine-prompt { margin: 0; padding: 0.8rem 0.9rem; background: #0b1220; border: 1px solid rgba(148,163,184,0.2); border-radius: 0.4rem; color: #dbe4f0; font-family: var(--font-mono); font-size: 0.68rem; line-height: 1.7; white-space: pre-wrap; overflow-x: auto; }
 
 /* ── Generate panel (SSE console) ────────────────────────────── */
 .generate-panel { background: var(--bg-elevated); border: 1px solid rgba(74,141,131,0.3); border-radius: 0.5rem; overflow: hidden; }

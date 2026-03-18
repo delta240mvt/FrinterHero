@@ -1,4 +1,7 @@
 import { pgTable, serial, text, timestamp, boolean, integer, varchar, real, jsonb, index, uniqueIndex } from 'drizzle-orm/pg-core';
+import type {
+  ViralEngineConfig as ShViralEngineConfig,
+} from '@/lib/sh-viral-engine-types';
 
 // ========================================
 // EXISTING TABLES (preserved + enhanced)
@@ -508,6 +511,7 @@ export const shSettings = pgTable('sh_settings', {
     toneOverrides: string;
     avatarImageUrl: string;
     elevenlabsVoiceId: string;
+    viralEngine: ShViralEngineConfig;
   }>(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
@@ -537,6 +541,11 @@ export const shContentBriefs = pgTable('sh_content_briefs', {
   kbEntriesUsed: jsonb('kb_entries_used').$type<number[]>().default([]),
   brandVoiceUsed: boolean('brand_voice_used').notNull().default(true),
   repurposeGroupId: integer('repurpose_group_id'),
+  viralEngineEnabled: boolean('viral_engine_enabled').notNull().default(true),
+  viralEngineMode: varchar('viral_engine_mode', { length: 30 }).notNull().default('default'),
+  viralEngineProfile: jsonb('viral_engine_profile').$type<ShViralEngineConfig | null>(),
+  viralEnginePrompt: text('viral_engine_prompt'),
+  videoFormatSlug: varchar('video_format_slug', { length: 100 }),
   status: varchar('status', { length: 30 }).notNull().default('draft'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
@@ -557,6 +566,10 @@ export const shGeneratedCopy = pgTable('sh_generated_copy', {
   variantIndex: integer('variant_index').notNull().default(0),
   generationModel: varchar('generation_model', { length: 100 }),
   promptUsed: text('prompt_used'),
+  viralEngineSnapshot: jsonb('viral_engine_snapshot').$type<ShViralEngineConfig | null>(),
+  pcmProfile: jsonb('pcm_profile').$type<Record<string, string> | null>(),
+  contentAngle: varchar('content_angle', { length: 100 }),
+  videoFormatSlug: varchar('video_format_slug', { length: 100 }),
   isEdited: boolean('is_edited').notNull().default(false),
   editedAt: timestamp('edited_at'),
   status: varchar('status', { length: 20 }).notNull().default('draft'),
@@ -593,6 +606,8 @@ export const shMediaAssets = pgTable('sh_media_assets', {
   renderProvider: varchar('render_provider', { length: 30 }),
   renderModel: varchar('render_model', { length: 50 }),
   renderCostUsd: real('render_cost_usd'),
+  videoFormatSlug: varchar('video_format_slug', { length: 100 }),
+  viralEngineSnapshot: jsonb('viral_engine_snapshot').$type<ShViralEngineConfig | null>(),
   status: varchar('status', { length: 20 }).notNull().default('pending'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 }, (t) => ({

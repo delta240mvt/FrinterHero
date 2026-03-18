@@ -184,6 +184,74 @@ const templates = await db.select().from(shTemplates).where(eq(shTemplates.isAct
         </select>
       </div>
 
+      <!-- VIRAL ENGINE overrides -->
+      <div class="viral-engine-panel">
+        <div class="viral-engine-panel__header">
+          <div>
+            <h3 class="viral-engine-title">VIRAL ENGINE Override</h3>
+            <p class="viral-engine-subtitle">Optional per-brief strategy layer. Defaults can be inherited from Social Hub settings.</p>
+          </div>
+        </div>
+
+        <div class="viral-engine-grid">
+          <label class="viral-toggle-row">
+            <input type="checkbox" id="viral-engine-enabled" />
+            <span class="viral-toggle-copy">
+              <span class="viral-toggle-label">Enable for this brief</span>
+              <span class="viral-toggle-hint">When off, the brief uses the normal SocialHub flow.</span>
+            </span>
+          </label>
+
+          <div class="viral-field-group">
+            <label class="field-label" for="viral-engine-mode">Override Mode</label>
+            <select id="viral-engine-mode" class="field-select">
+              <option value="default">Inherit default settings</option>
+              <option value="personalized">Personalized for this brief</option>
+            </select>
+          </div>
+
+          <div class="viral-field-group">
+            <label class="field-label" for="pcm-profile-select">PCM Override</label>
+            <select id="pcm-profile-select" class="field-select">
+              <option value="">Inherit PCM profile</option>
+              <option value="harmonizer">Harmonizer</option>
+              <option value="thinker">Thinker</option>
+              <option value="persister">Persister</option>
+              <option value="rebel">Rebel</option>
+              <option value="promoter">Promoter</option>
+              <option value="imaginer">Imaginer</option>
+            </select>
+          </div>
+
+          <div class="viral-field-group viral-field-group--wide" id="viral-personalization-group">
+            <label class="field-label" for="viral-engine-personalization">Personalization Input</label>
+            <textarea
+              id="viral-engine-personalization"
+              class="field-textarea"
+              rows={4}
+              placeholder="Describe the desired viral angle, audience nuance, risk level, tone, or forbidden patterns for this brief."
+            ></textarea>
+            <span class="field-hint">Used only when VIRAL ENGINE is enabled. Leave blank to keep default behavior.</span>
+          </div>
+
+          <div class="viral-field-group viral-field-group--wide" id="viral-video-format-group" style="display:none">
+            <label class="field-label" for="viral-video-format-select">Video Format Selection</label>
+            <select id="viral-video-format-select" class="field-select">
+              <option value="">Inherit video format</option>
+              <option value="talking_head_authority">Talking head authority</option>
+              <option value="problem_agitation_solution">Problem agitation solution</option>
+              <option value="storytime_confession">Storytime confession</option>
+              <option value="contrarian_hot_take">Contrarian hot take</option>
+              <option value="listicle_fast_cuts">Listicle fast cuts</option>
+              <option value="myth_vs_reality">Myth vs reality</option>
+              <option value="screen_demo_explainer">Screen demo explainer</option>
+              <option value="ugc_testimonial_style">UGC testimonial style</option>
+            </select>
+            <span class="field-hint">Applied only when output format is video.</span>
+          </div>
+        </div>
+      </div>
+
       <div class="step-actions">
         <button type="button" class="btn-back" id="back-4">← Back</button>
         <button type="button" class="btn-next" id="continue-4">Continue →</button>
@@ -280,6 +348,11 @@ const templates = await db.select().from(shTemplates).where(eq(shTemplates.isAct
     templateId: null,
     videoModel: null,
     selectedAccountIds: [],
+    viralEngineEnabled: false,
+    viralEngineMode: 'default',
+    viralEnginePersonalization: '',
+    pcmProfileOverride: '',
+    videoFormatSlug: '',
   };
 
   // ── Step navigation ──────────────────────────────────────────────────────
@@ -454,11 +527,19 @@ const templates = await db.select().from(shTemplates).where(eq(shTemplates.isAct
   const formatRadios = document.querySelectorAll('input[name="output-format"]');
   const imageOptions = document.getElementById('image-options');
   const videoOptions = document.getElementById('video-options');
+  const viralEngineEnabledEl = document.getElementById('viral-engine-enabled');
+  const viralEngineModeEl = document.getElementById('viral-engine-mode');
+  const pcmProfileSelectEl = document.getElementById('pcm-profile-select');
+  const viralPersonalizationEl = document.getElementById('viral-engine-personalization');
+  const viralPersonalizationGroupEl = document.getElementById('viral-personalization-group');
+  const viralVideoFormatGroupEl = document.getElementById('viral-video-format-group');
+  const viralVideoFormatSelectEl = document.getElementById('viral-video-format-select');
 
   function updateFormatOptions() {
     const selected = [...formatRadios].find(r => r.checked)?.value;
     imageOptions.style.display = selected === 'image' ? 'block' : 'none';
     videoOptions.style.display = selected === 'video' ? 'block' : 'none';
+    viralVideoFormatGroupEl.style.display = selected === 'video' ? 'block' : 'none';
 
     // Update card highlight
     document.querySelectorAll('.format-card').forEach(card => {
@@ -467,7 +548,43 @@ const templates = await db.select().from(shTemplates).where(eq(shTemplates.isAct
     });
   }
 
+  function updateViralEngineOptions() {
+    const enabled = viralEngineEnabledEl?.checked ?? false;
+    const mode = viralEngineModeEl?.value ?? 'default';
+    const selectedFormat = [...formatRadios].find(r => r.checked)?.value;
+
+    if (viralPersonalizationGroupEl) {
+      viralPersonalizationGroupEl.style.opacity = enabled && mode === 'personalized' ? '1' : '0.55';
+    }
+    if (viralPersonalizationEl) {
+      viralPersonalizationEl.disabled = !enabled || mode !== 'personalized';
+    }
+    if (pcmProfileSelectEl) {
+      pcmProfileSelectEl.disabled = !enabled;
+    }
+    if (viralVideoFormatSelectEl) {
+      viralVideoFormatSelectEl.disabled = !enabled || selectedFormat !== 'video';
+    }
+  }
+
   formatRadios.forEach(r => r.addEventListener('change', updateFormatOptions));
+  viralEngineEnabledEl?.addEventListener('change', () => {
+    state.viralEngineEnabled = viralEngineEnabledEl.checked;
+    updateViralEngineOptions();
+  });
+  viralEngineModeEl?.addEventListener('change', () => {
+    state.viralEngineMode = viralEngineModeEl.value;
+    updateViralEngineOptions();
+  });
+  pcmProfileSelectEl?.addEventListener('change', () => {
+    state.pcmProfileOverride = pcmProfileSelectEl.value;
+  });
+  viralPersonalizationEl?.addEventListener('input', () => {
+    state.viralEnginePersonalization = viralPersonalizationEl.value;
+  });
+  viralVideoFormatSelectEl?.addEventListener('change', () => {
+    state.videoFormatSlug = viralVideoFormatSelectEl.value;
+  });
 
   document.getElementById('back-4').addEventListener('click', () => showStep(3));
   document.getElementById('continue-4').addEventListener('click', () => {
@@ -483,6 +600,11 @@ const templates = await db.select().from(shTemplates).where(eq(shTemplates.isAct
     const videoModelEl = document.getElementById('video-model-select');
     state.templateId = templateEl ? parseInt(templateEl.value, 10) || null : null;
     state.videoModel = videoModelEl ? videoModelEl.value || null : null;
+    state.viralEngineEnabled = viralEngineEnabledEl?.checked ?? false;
+    state.viralEngineMode = viralEngineModeEl?.value || 'default';
+    state.viralEnginePersonalization = viralPersonalizationEl?.value.trim() || '';
+    state.pcmProfileOverride = pcmProfileSelectEl?.value || '';
+    state.videoFormatSlug = viralVideoFormatSelectEl?.value || '';
     showStep(5);
   });
 
@@ -535,6 +657,11 @@ const templates = await db.select().from(shTemplates).where(eq(shTemplates.isAct
       videoModel:      state.outputFormat === 'video' ? state.videoModel : null,
       targetPlatforms,
       targetAccountIds,
+      viralEngineEnabled: state.viralEngineEnabled,
+      viralEngineMode: state.viralEngineMode,
+      viralEnginePersonalization: state.viralEnginePersonalization,
+      pcmProfileOverride: state.pcmProfileOverride,
+      videoFormatSlug: state.outputFormat === 'video' ? state.videoFormatSlug : null,
     };
 
     try {
@@ -561,6 +688,41 @@ const templates = await db.select().from(shTemplates).where(eq(shTemplates.isAct
   });
 
   // Initialize first step
+  async function loadViralEngineDefaults() {
+    try {
+      const res = await fetch('/api/social-hub/settings');
+      if (!res.ok) return;
+      const data = await res.json();
+      const viralEngine = data?.viralEngine ?? {};
+
+      const enabled = Boolean(viralEngine.enabled);
+      const mode = viralEngine.mode || 'default';
+      const personalization =
+        viralEngine.personalizationNotes ||
+        viralEngine.personalization ||
+        '';
+      const pcmProfile = viralEngine.written?.defaultPcmProfile || viralEngine.defaultPcmProfile || '';
+      const videoFormat = viralEngine.video?.preferredPrimaryFormat || viralEngine.preferredPrimaryFormat || '';
+
+      if (viralEngineEnabledEl) viralEngineEnabledEl.checked = enabled;
+      if (viralEngineModeEl) viralEngineModeEl.value = mode;
+      if (viralPersonalizationEl) viralPersonalizationEl.value = personalization;
+      if (pcmProfileSelectEl && pcmProfile) pcmProfileSelectEl.value = pcmProfile;
+      if (viralVideoFormatSelectEl && videoFormat) viralVideoFormatSelectEl.value = videoFormat;
+
+      state.viralEngineEnabled = enabled;
+      state.viralEngineMode = mode;
+      state.viralEnginePersonalization = personalization;
+      state.pcmProfileOverride = pcmProfile;
+      state.videoFormatSlug = videoFormat;
+    } catch (_) {
+      // leave defaults
+    } finally {
+      updateViralEngineOptions();
+    }
+  }
+
+  loadViralEngineDefaults();
   showStep(1);
 </script>
 
@@ -707,6 +869,20 @@ const templates = await db.select().from(shTemplates).where(eq(shTemplates.isAct
 
 .format-suboptions { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 0.375rem; padding: 1rem; margin-bottom: 0.75rem; }
 
+/* ── VIRAL ENGINE panel ───────────────────────────────────────────────── */
+.viral-engine-panel { background: linear-gradient(180deg, rgba(214,183,121,0.08), rgba(74,141,131,0.05)); border: 1px solid rgba(214,183,121,0.22); border-radius: 0.625rem; padding: 1rem; display: flex; flex-direction: column; gap: 0.9rem; }
+.viral-engine-panel__header { display: flex; justify-content: space-between; gap: 0.75rem; align-items: flex-start; }
+.viral-engine-title { font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-primary); margin: 0; }
+.viral-engine-subtitle { font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-muted); margin: 0.25rem 0 0; line-height: 1.5; }
+.viral-engine-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem 1rem; }
+.viral-field-group { display: flex; flex-direction: column; gap: 0.35rem; }
+.viral-field-group--wide { grid-column: 1 / -1; }
+.viral-toggle-row { grid-column: 1 / -1; display: flex; align-items: flex-start; gap: 0.75rem; padding: 0.75rem; border: 1px solid rgba(214,183,121,0.14); border-radius: 0.5rem; background: rgba(0,0,0,0.08); cursor: pointer; }
+.viral-toggle-row input { margin-top: 0.2rem; accent-color: var(--gold); }
+.viral-toggle-copy { display: flex; flex-direction: column; gap: 0.15rem; }
+.viral-toggle-label { font-family: var(--font-mono); font-size: 0.72rem; font-weight: 700; color: var(--text-primary); }
+.viral-toggle-hint { font-family: var(--font-mono); font-size: 0.62rem; color: var(--text-muted); line-height: 1.5; }
+
 /* ── Step 5: accounts ────────────────────────────────────────────────────── */
 .accounts-empty { padding: 2rem; text-align: center; font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); display: flex; flex-direction: column; gap: 1rem; align-items: center; }
 .accounts-grid  { display: flex; flex-direction: column; gap: 1rem; }
@@ -750,6 +926,7 @@ const templates = await db.select().from(shTemplates).where(eq(shTemplates.isAct
 @media (max-width: 600px) {
   .source-controls { grid-template-columns: 1fr; }
   .format-grid { grid-template-columns: 1fr; }
+  .viral-engine-grid { grid-template-columns: 1fr; }
   .step-actions--submit { flex-direction: column-reverse; align-items: stretch; }
   .btn-submit, .btn-back { text-align: center; width: 100%; }
 }

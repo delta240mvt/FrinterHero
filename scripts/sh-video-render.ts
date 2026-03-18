@@ -24,9 +24,11 @@ import { shContentBriefs, shGeneratedCopy, shMediaAssets } from '../src/db/schem
 import { eq } from 'drizzle-orm';
 import {
   generateTtsAudio,
+  buildVideoRenderLogLines,
   uploadAudioBuffer,
   submitToWaveSpeed,
   pollWaveSpeedStatus,
+  type VideoRenderContext,
 } from '../src/lib/sh-video-gen';
 import { getShSettings } from '../src/lib/sh-settings';
 
@@ -38,6 +40,52 @@ const SH_AVATAR_URL    = process.env.SH_AVATAR_URL || '';
 const SH_VIDEO_MODEL   = process.env.SH_VIDEO_MODEL || 'wan-2.2-ultra-fast';
 const SH_TTS_PROVIDER  = (process.env.SH_TTS_PROVIDER || 'elevenlabs') as 'elevenlabs' | 'kokoro';
 const SH_VOICE_ID      = process.env.SH_ELEVENLABS_VOICE_ID || 'EXAVITQu4vr4xnSDxMaL';
+
+const VIDEO_FORMAT_META: Record<string, { label: string; description: string }> = {
+  talking_head_authority: {
+    label: 'Talking Head Authority',
+    description: 'Ekspercki monolog z wysoką klarownością i jedną mocną tezą.',
+  },
+  problem_agitation_solution: {
+    label: 'Problem Agitation Solution',
+    description: 'Najpierw problem i koszt jego ignorowania, potem rozwiązanie.',
+  },
+  storytime_confession: {
+    label: 'Storytime Confession',
+    description: 'Osobisty lub founder-led case z wyraźną zmianą perspektywy.',
+  },
+  contrarian_hot_take: {
+    label: 'Contrarian Hot Take',
+    description: 'Kontrariański punkt widzenia z szybkim uzasadnieniem.',
+  },
+  listicle_fast_cuts: {
+    label: 'Listicle Fast Cuts',
+    description: 'Lista krótkich punktów z szybkim montażem rytmicznym.',
+  },
+  myth_vs_reality: {
+    label: 'Myth vs Reality',
+    description: 'Obalenie mitu i podmiana na trafniejszy model.',
+  },
+  screen_demo_explainer: {
+    label: 'Screen Demo Explainer',
+    description: 'Demo lub walkthrough pokazujące mechanikę działania.',
+  },
+  ugc_testimonial_style: {
+    label: 'UGC Testimonial Style',
+    description: 'Naturalna rekomendacja lub observed use-case w stylu UGC.',
+  },
+};
+
+function describeVideoFormat(slug: string | null | undefined): { slug: string; label: string; description: string } | null {
+  if (!slug) return null;
+  const meta = VIDEO_FORMAT_META[slug];
+  if (meta) return { slug, ...meta };
+  return {
+    slug,
+    label: slug.replace(/_/g, ' '),
+    description: 'Custom or unknown format slug from brief settings.',
+  };
+}
 
 function log(msg: string) {
   process.stdout.write(`[SH] ${msg}\n`);
@@ -65,11 +113,45 @@ async function run() {
   const videoScript = copyRow.videoScript ?? `${copyRow.hookLine}\n\n${copyRow.bodyText}`;
   if (!videoScript.trim()) fatal('videoScript is empty — cannot generate TTS');
 
+  const [briefRow] = await db
+    .select()
+    .from(shContentBriefs)
+    .where(eq(shContentBriefs.id, SH_BRIEF_ID));
+
+  if (!briefRow) fatal(`shContentBriefs id=${SH_BRIEF_ID} not found`);
+
   // 2. Resolve avatar image URL (env override or from ShSettings)
+  const settings = await getShSettings();
+
+  const selectedVideoFormatSlug =
+    copyRow.videoFormatSlug ??
+    briefRow.videoFormatSlug ??
+    settings.viralEngine?.video?.preferredPrimaryFormat ??
+    null;
+
+  const selectedVideoFormat = describeVideoFormat(selectedVideoFormatSlug);
+
+  const renderContext: VideoRenderContext = {
+    briefId: SH_BRIEF_ID,
+    copyId: SH_COPY_ID,
+    outputFormat: briefRow.outputFormat,
+    videoFormatSlug: selectedVideoFormat?.slug ?? selectedVideoFormatSlug,
+    videoFormatLabel: selectedVideoFormat?.label ?? selectedVideoFormatSlug ?? null,
+    videoFormatDescription: selectedVideoFormat?.description ?? null,
+    viralEngineEnabled: Boolean(briefRow.viralEngineEnabled ?? settings.viralEngine.enabled),
+    viralEngineMode: String(briefRow.viralEngineMode ?? settings.viralEngine.mode),
+    promptLabel: briefRow.viralEngineEnabled ? String(briefRow.viralEngineMode ?? 'default') : 'disabled',
+    pacing: settings.viralEngine.video.pacing,
+    visualDensity: settings.viralEngine.video.visualDensity,
+  };
+
+  for (const line of buildVideoRenderLogLines(renderContext)) {
+    log(line.replace(/^\[SH\]\s?/, ''));
+  }
+
   let avatarImageUrl = SH_AVATAR_URL;
   if (!avatarImageUrl) {
     log('SH_AVATAR_URL not set — loading from ShSettings');
-    const settings = await getShSettings();
     avatarImageUrl = settings.avatarImageUrl;
   }
   if (!avatarImageUrl) fatal('avatarImageUrl is required — set SH_AVATAR_URL or configure it in Social Hub settings');
@@ -119,13 +201,19 @@ async function run() {
     mediaUrl: videoUrl,
     renderProvider: 'wavespeed',
     renderModel: SH_VIDEO_MODEL,
-    status: 'ready',
+    videoFormatSlug: selectedVideoFormat?.slug ?? selectedVideoFormatSlug,
+    viralEngineSnapshot: (briefRow.viralEngineProfile as any) ?? settings.viralEngine,
+    status: 'completed',
   });
 
   // 8. Update brief status to 'render_review'
   await db
     .update(shContentBriefs)
-    .set({ status: 'render_review' })
+    .set({
+      status: 'render_review',
+      videoFormatSlug: selectedVideoFormat?.slug ?? selectedVideoFormatSlug,
+      updatedAt: new Date(),
+    })
     .where(eq(shContentBriefs.id, SH_BRIEF_ID));
 
   // 9. Done

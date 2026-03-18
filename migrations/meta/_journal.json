@@ -22,6 +22,27 @@
       "when": 1742205600000,
       "tag": "0002_bc_video_is_scraped",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1773786445000,
+      "tag": "0003_bc_iterations",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1773786813000,
+      "tag": "0004_social_hub",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1773835163000,
+      "tag": "0005_social_hub_viral_engine",
+      "breakpoints": true
     }
   ]
 }

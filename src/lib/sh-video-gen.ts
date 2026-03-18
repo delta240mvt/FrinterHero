@@ -15,6 +15,41 @@ export interface VideoRenderOptions {
   model: string;            // 'wan-2.2-ultra-fast' | 'InfiniteTalk'
   voiceId?: string;         // ElevenLabs voice ID
   ttsProvider: 'elevenlabs' | 'kokoro';
+  renderContext?: VideoRenderContext;
+}
+
+export interface VideoRenderContext {
+  briefId?: number | null;
+  copyId?: number | null;
+  outputFormat?: string | null;
+  videoFormatSlug?: string | null;
+  videoFormatLabel?: string | null;
+  videoFormatDescription?: string | null;
+  viralEngineEnabled?: boolean;
+  viralEngineMode?: string | null;
+  promptLabel?: string | null;
+  pacing?: string | null;
+  visualDensity?: string | null;
+}
+
+export function buildVideoRenderLogLines(context: VideoRenderContext): string[] {
+  const lines: string[] = ['[SH] Video render context'];
+
+  if (context.briefId != null) lines.push(`[SH] briefId: ${context.briefId}`);
+  if (context.copyId != null) lines.push(`[SH] copyId: ${context.copyId}`);
+  if (context.outputFormat) lines.push(`[SH] outputFormat: ${context.outputFormat}`);
+  if (context.videoFormatSlug) lines.push(`[SH] videoFormatSlug: ${context.videoFormatSlug}`);
+  if (context.videoFormatLabel) lines.push(`[SH] videoFormatLabel: ${context.videoFormatLabel}`);
+  if (context.videoFormatDescription) lines.push(`[SH] videoFormatDescription: ${context.videoFormatDescription}`);
+  if (context.viralEngineEnabled != null) {
+    lines.push(`[SH] viralEngineEnabled: ${context.viralEngineEnabled ? 'true' : 'false'}`);
+  }
+  if (context.viralEngineMode) lines.push(`[SH] viralEngineMode: ${context.viralEngineMode}`);
+  if (context.promptLabel) lines.push(`[SH] viralEnginePromptLabel: ${context.promptLabel}`);
+  if (context.pacing) lines.push(`[SH] videoPacing: ${context.pacing}`);
+  if (context.visualDensity) lines.push(`[SH] videoVisualDensity: ${context.visualDensity}`);
+
+  return lines;
 }
 
 // ─── ElevenLabs TTS ───────────────────────────────────────────────────────────
