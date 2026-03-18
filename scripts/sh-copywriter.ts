@@ -13,7 +13,6 @@ import { readFileSync } from 'fs';
 import { db } from '../src/db/client';
 import { shContentBriefs, shGeneratedCopy } from '../src/db/schema';
 import { eq } from 'drizzle-orm';
-import { callBcLlm } from '../src/lib/bc-llm-client';
 import { getBcSettings } from '../src/lib/bc-settings';
 
 dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
@@ -95,11 +94,22 @@ Generate 3 copy variants (aggressive, empathetic, humorous). For EACH variant re
 Return ONLY a valid JSON array of 3 objects. No markdown, no explanation.`;
 
   // ── 4. Call AI ───────────────────────────────────────────────────────────────
-  log('Calling AI copywriter...');
+  const provider = process.env.BC_LLM_PROVIDER || 'openrouter';
+  let finalModel = model;
+  
+  // OpenRouter requires provider prefix (e.g. anthropic/claude-sonnet-4-6). 
+  if (provider === 'openrouter' && !finalModel.includes('/')) {
+    finalModel = `anthropic/${finalModel}`;
+  }
+
+  // Dynamic import ensures `bc-llm-client` evaluates process.env.BC_LLM_PROVIDER *after* we set it
+  const { callBcLlm } = await import('../src/lib/bc-llm-client');
+
+  log(`Calling AI copywriter using model: ${finalModel} (provider: ${provider}) ...`);
   let responseText = '';
   try {
     const llmResp = await callBcLlm({
-      model,
+      model: finalModel,
       maxTokens: 4096,
       messages: [{ role: 'user', content: userPrompt }],
       systemPrompt,
