@@ -59,18 +59,12 @@ let font700: Buffer | null = null;
 async function loadFontsAsync() {
   if (font400 && font500 && font600 && font700) return;
   try {
-    const [r400, r500, r600, r700] = await Promise.all([
-      fetch('https://raw.githubusercontent.com/google/fonts/main/ofl/poppins/Poppins-Regular.ttf'),
-      fetch('https://raw.githubusercontent.com/google/fonts/main/ofl/poppins/Poppins-Medium.ttf'),
-      fetch('https://raw.githubusercontent.com/google/fonts/main/ofl/poppins/Poppins-SemiBold.ttf'),
-      fetch('https://raw.githubusercontent.com/google/fonts/main/ofl/poppins/Poppins-Bold.ttf'),
-    ]);
-    if (r400.ok) font400 = Buffer.from(await r400.arrayBuffer());
-    if (r500.ok) font500 = Buffer.from(await r500.arrayBuffer());
-    if (r600.ok) font600 = Buffer.from(await r600.arrayBuffer());
-    if (r700.ok) font700 = Buffer.from(await r700.arrayBuffer());
+    font400 = readFileSync(resolve(process.cwd(), 'public/fonts/Poppins-400.ttf'));
+    font500 = readFileSync(resolve(process.cwd(), 'public/fonts/Poppins-500.ttf'));
+    font600 = readFileSync(resolve(process.cwd(), 'public/fonts/Poppins-600.ttf'));
+    font700 = readFileSync(resolve(process.cwd(), 'public/fonts/Poppins-700.ttf'));
   } catch (err) {
-    console.error('[sh-image-gen] Failed to fetch TTF fonts:', err);
+    console.error('[sh-image-gen] Failed to read local TTF fonts:', err);
   }
 }
 
