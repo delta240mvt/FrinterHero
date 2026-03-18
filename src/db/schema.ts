@@ -4,12 +4,61 @@ import type {
 } from '@/lib/sh-viral-engine-types';
 
 // ========================================
+// Multi-site foundation
+// ========================================
+
+export const sites = pgTable('sites', {
+  id: serial('id').primaryKey(),
+  slug: varchar('slug', { length: 100 }).notNull().unique(),
+  displayName: varchar('display_name', { length: 255 }).notNull(),
+  primaryDomain: varchar('primary_domain', { length: 255 }).notNull(),
+  status: varchar('status', { length: 30 }).notNull().default('active'),
+  brandConfig: jsonb('brand_config').notNull().$type<Record<string, unknown>>().default({}),
+  seoConfig: jsonb('seo_config').notNull().$type<Record<string, unknown>>().default({}),
+  featureFlags: jsonb('feature_flags').notNull().$type<Record<string, boolean>>().default({}),
+  llmContext: text('llm_context'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => ({
+  slugIdx: uniqueIndex('uq_sites_slug').on(table.slug),
+  domainIdx: uniqueIndex('uq_sites_primary_domain').on(table.primaryDomain),
+}));
+
+export const appJobs = pgTable('app_jobs', {
+  id: serial('id').primaryKey(),
+  siteId: integer('site_id').references(() => sites.id, { onDelete: 'set null' }),
+  type: varchar('type', { length: 50 }).notNull(),
+  topic: varchar('topic', { length: 50 }).notNull(),
+  status: varchar('status', { length: 30 }).notNull().default('pending'),
+  priority: integer('priority').notNull().default(50),
+  payload: jsonb('payload').notNull().$type<Record<string, unknown>>().default({}),
+  progress: jsonb('progress').notNull().$type<Record<string, unknown>>().default({}),
+  result: jsonb('result').$type<Record<string, unknown> | null>(),
+  error: text('error'),
+  attemptCount: integer('attempt_count').notNull().default(0),
+  maxAttempts: integer('max_attempts').notNull().default(3),
+  workerName: varchar('worker_name', { length: 100 }),
+  availableAt: timestamp('available_at').notNull().defaultNow(),
+  lockedAt: timestamp('locked_at'),
+  startedAt: timestamp('started_at'),
+  finishedAt: timestamp('finished_at'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => ({
+  statusIdx: index('idx_app_jobs_status').on(table.status),
+  topicIdx: index('idx_app_jobs_topic').on(table.topic),
+  siteIdx: index('idx_app_jobs_site').on(table.siteId),
+  availableIdx: index('idx_app_jobs_available').on(table.availableAt),
+}));
+
+// ========================================
 // EXISTING TABLES (preserved + enhanced)
 // ========================================
 
 // Articles: Main content storage. New columns added for AI generation tracking (nullable, backward compatible)
 export const articles = pgTable('articles', {
   id: serial('id').primaryKey(),
+  siteId: integer('site_id').references(() => sites.id, { onDelete: 'restrict' }),
   slug: varchar('slug', { length: 255 }).notNull().unique(),
   title: varchar('title', { length: 255 }).notNull(),
   description: text('description'),
@@ -30,6 +79,7 @@ export const articles = pgTable('articles', {
 
 export const geoQueries = pgTable('geo_queries', {
   id: serial('id').primaryKey(),
+  siteId: integer('site_id').references(() => sites.id, { onDelete: 'restrict' }),
   query: text('query').notNull(),
   model: varchar('model', { length: 50 }).notNull(),
   response: text('response'),
@@ -41,6 +91,7 @@ export const geoQueries = pgTable('geo_queries', {
 // GEO Runs: Stage 2 adds gaps_deduped column (gaps_found already existed)
 export const geoRuns = pgTable('geo_runs', {
   id: serial('id').primaryKey(),
+  siteId: integer('site_id').references(() => sites.id, { onDelete: 'restrict' }),
   runAt: timestamp('run_at').notNull().defaultNow(),
   queriesCount: integer('queries_count').notNull(),
   gapsFound: integer('gaps_found').notNull(),
@@ -51,6 +102,7 @@ export const geoRuns = pgTable('geo_runs', {
 
 export const sessions = pgTable('sessions', {
   id: serial('id').primaryKey(),
+  siteId: integer('site_id').references(() => sites.id, { onDelete: 'set null' }),
   token: varchar('token', { length: 255 }).notNull().unique(),
   expiresAt: timestamp('expires_at').notNull(),
   createdAt: timestamp('created_at').notNull().defaultNow(),
@@ -64,6 +116,7 @@ export const sessions = pgTable('sessions', {
 // Key constraints: source_type enforced, immutable audit trail
 export const knowledgeSources = pgTable('knowledge_sources', {
   id: serial('id').primaryKey(),
+  siteId: integer('site_id').references(() => sites.id, { onDelete: 'restrict' }),
   sourceType: varchar('source_type', { length: 50 }).notNull(), // 'internal_article', 'external_link', 'imported_markdown', 'api_data'
   sourceName: varchar('source_name', { length: 255 }).notNull(),
   sourceUrl: varchar('source_url', { length: 500 }),
@@ -78,6 +131,7 @@ export const knowledgeSources = pgTable('knowledge_sources', {
 // Indexes: GIN on tags, composite (type, importance_score), full-text content search via PostgreSQL tsvector in queries
 export const knowledgeEntries = pgTable('knowledge_entries', {
   id: serial('id').primaryKey(),
+  siteId: integer('site_id').references(() => sites.id, { onDelete: 'restrict' }),
   type: varchar('type', { length: 50 }).notNull(), // 'project_spec', 'published_article', 'external_research', 'personal_note'
   title: varchar('title', { length: 255 }).notNull(),
   content: text('content').notNull(),
@@ -103,6 +157,7 @@ export const knowledgeEntries = pgTable('knowledge_entries', {
 // Indexes: status (filter active), confidence_score (sort relevance), created_at (sort recency)
 export const contentGaps = pgTable('content_gaps', {
   id: serial('id').primaryKey(),
+  siteId: integer('site_id').references(() => sites.id, { onDelete: 'restrict' }),
   gapTitle: varchar('gap_title', { length: 255 }).notNull(),
   gapDescription: text('gap_description').notNull(),
   confidenceScore: integer('confidence_score').notNull().default(0), // 0-100
@@ -130,6 +185,7 @@ export const contentGaps = pgTable('content_gaps', {
 // Immutable: no retroactive edits allowed (enforced at API layer)
 export const articleGenerations = pgTable('article_generations', {
   id: serial('id').primaryKey(),
+  siteId: integer('site_id').references(() => sites.id, { onDelete: 'restrict' }),
   articleId: integer('article_id').notNull().references(() => articles.id),
   gapId: integer('gap_id').notNull().references(() => contentGaps.id),
   generatedByModel: varchar('generated_by_model', { length: 100 }).notNull(),
@@ -151,6 +207,7 @@ export const articleGenerations = pgTable('article_generations', {
 // Subreddit/keyword target configuration — admin manages this list
 export const redditTargets = pgTable('reddit_targets', {
   id: serial('id').primaryKey(),
+  siteId: integer('site_id').references(() => sites.id, { onDelete: 'restrict' }),
   type: varchar('type', { length: 20 }).notNull(), // 'subreddit' | 'keyword_search'
   value: varchar('value', { length: 255 }).notNull(),
   label: varchar('label', { length: 100 }).notNull(),
@@ -163,6 +220,7 @@ export const redditTargets = pgTable('reddit_targets', {
 // One record per scraping job execution
 export const redditScrapeRuns = pgTable('reddit_scrape_runs', {
   id: serial('id').primaryKey(),
+  siteId: integer('site_id').references(() => sites.id, { onDelete: 'restrict' }),
   runAt: timestamp('run_at').notNull().defaultNow(),
   status: varchar('status', { length: 20 }).notNull().default('running'), // 'running' | 'completed' | 'failed'
   targetsScraped: text('targets_scraped').array().notNull().default([]),
@@ -178,6 +236,7 @@ export const redditScrapeRuns = pgTable('reddit_scrape_runs', {
 // Raw posts fetched from Reddit via Apify
 export const redditPosts = pgTable('reddit_posts', {
   id: serial('id').primaryKey(),
+  siteId: integer('site_id').references(() => sites.id, { onDelete: 'restrict' }),
   scrapeRunId: integer('scrape_run_id').notNull().references(() => redditScrapeRuns.id, { onDelete: 'cascade' }),
   redditId: varchar('reddit_id', { length: 20 }).notNull(),
   subreddit: varchar('subreddit', { length: 100 }).notNull(),
@@ -198,6 +257,7 @@ export const redditPosts = pgTable('reddit_posts', {
 // Pain points extracted by LLM — awaiting admin review before becoming contentGaps
 export const redditExtractedGaps = pgTable('reddit_extracted_gaps', {
   id: serial('id').primaryKey(),
+  siteId: integer('site_id').references(() => sites.id, { onDelete: 'restrict' }),
   scrapeRunId: integer('scrape_run_id').notNull().references(() => redditScrapeRuns.id, { onDelete: 'cascade' }),
   painPointTitle: varchar('pain_point_title', { length: 255 }).notNull(),
   painPointDescription: text('pain_point_description').notNull(),
@@ -225,6 +285,7 @@ export const redditExtractedGaps = pgTable('reddit_extracted_gaps', {
 // YouTube video targets — admin manages this list
 export const ytTargets = pgTable('yt_targets', {
   id: serial('id').primaryKey(),
+  siteId: integer('site_id').references(() => sites.id, { onDelete: 'restrict' }),
   type: varchar('type', { length: 20 }).notNull().default('video'), // 'video' | 'channel'
   url: varchar('url', { length: 500 }).notNull(),                   // Full YouTube URL (video or channel)
   label: varchar('label', { length: 100 }).notNull(),              // Human display name
@@ -241,6 +302,7 @@ export const ytTargets = pgTable('yt_targets', {
 // One record per YouTube scraping job execution
 export const ytScrapeRuns = pgTable('yt_scrape_runs', {
   id: serial('id').primaryKey(),
+  siteId: integer('site_id').references(() => sites.id, { onDelete: 'restrict' }),
   runAt: timestamp('run_at').notNull().defaultNow(),
   status: varchar('status', { length: 20 }).notNull().default('running'), // 'running' | 'completed' | 'failed'
   targetsScraped: text('targets_scraped').array().notNull().default([]),
@@ -256,6 +318,7 @@ export const ytScrapeRuns = pgTable('yt_scrape_runs', {
 // Raw comments fetched from YouTube via Apify
 export const ytComments = pgTable('yt_comments', {
   id: serial('id').primaryKey(),
+  siteId: integer('site_id').references(() => sites.id, { onDelete: 'restrict' }),
   scrapeRunId: integer('scrape_run_id').notNull().references(() => ytScrapeRuns.id, { onDelete: 'cascade' }),
   commentId: varchar('comment_id', { length: 50 }).notNull(),      // Apify 'cid' field — globally unique
   videoId: varchar('video_id', { length: 20 }).notNull(),
@@ -279,6 +342,7 @@ export const ytComments = pgTable('yt_comments', {
 // Pain points extracted by LLM — awaiting admin review before becoming contentGaps
 export const ytExtractedGaps = pgTable('yt_extracted_gaps', {
   id: serial('id').primaryKey(),
+  siteId: integer('site_id').references(() => sites.id, { onDelete: 'restrict' }),
   scrapeRunId: integer('scrape_run_id').notNull().references(() => ytScrapeRuns.id, { onDelete: 'cascade' }),
   painPointTitle: varchar('pain_point_title', { length: 255 }).notNull(),
   painPointDescription: text('pain_point_description').notNull(),
@@ -308,6 +372,7 @@ export const ytExtractedGaps = pgTable('yt_extracted_gaps', {
 // One record per brand analysis project
 export const bcProjects = pgTable('bc_projects', {
   id: serial('id').primaryKey(),
+  siteId: integer('site_id').references(() => sites.id, { onDelete: 'restrict' }),
   name: varchar('name', { length: 255 }).notNull(),
   founderDescription: text('founder_description').notNull(),
   founderVision: text('founder_vision'),
@@ -322,11 +387,16 @@ export const bcProjects = pgTable('bc_projects', {
   // draft → docs_pending → channels_pending → videos_pending → scraping → pain_points_pending → generating → done
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
-});
+}, (table) => ({
+  siteIdx: index('idx_bc_projects_site').on(table.siteId),
+  statusIdx: index('idx_bc_projects_status').on(table.status),
+  createdAtIdx: index('idx_bc_projects_created_at').on(table.createdAt),
+}));
 
 // YouTube channels discovered/confirmed for a project
 export const bcTargetChannels = pgTable('bc_target_channels', {
   id: serial('id').primaryKey(),
+  siteId: integer('site_id').references(() => sites.id, { onDelete: 'restrict' }),
   projectId: integer('project_id').notNull().references(() => bcProjects.id, { onDelete: 'cascade' }),
   channelId: varchar('channel_id', { length: 100 }).notNull(),
   channelHandle: varchar('channel_handle', { length: 100 }),
@@ -339,12 +409,14 @@ export const bcTargetChannels = pgTable('bc_target_channels', {
   sortOrder: integer('sort_order').notNull().default(0),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 }, (table) => ({
+  siteIdx: index('idx_bc_channels_site').on(table.siteId),
   projectIdx: index('idx_bc_channels_project').on(table.projectId),
 }));
 
 // Top videos selected per channel (3 per channel)
 export const bcTargetVideos = pgTable('bc_target_videos', {
   id: serial('id').primaryKey(),
+  siteId: integer('site_id').references(() => sites.id, { onDelete: 'restrict' }),
   projectId: integer('project_id').notNull().references(() => bcProjects.id, { onDelete: 'cascade' }),
   channelId: integer('channel_id').notNull().references(() => bcTargetChannels.id, { onDelete: 'cascade' }),
   videoId: varchar('video_id', { length: 50 }).notNull(),
@@ -359,6 +431,7 @@ export const bcTargetVideos = pgTable('bc_target_videos', {
   isScraped: boolean('is_scraped').notNull().default(false),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 }, (table) => ({
+  siteIdx: index('idx_bc_videos_site').on(table.siteId),
   projectIdx: index('idx_bc_videos_project').on(table.projectId),
   channelIdx: index('idx_bc_videos_channel').on(table.channelId),
 }));
@@ -366,6 +439,7 @@ export const bcTargetVideos = pgTable('bc_target_videos', {
 // Raw YouTube comments scraped via commentThreads API
 export const bcComments = pgTable('bc_comments', {
   id: serial('id').primaryKey(),
+  siteId: integer('site_id').references(() => sites.id, { onDelete: 'restrict' }),
   projectId: integer('project_id').notNull().references(() => bcProjects.id, { onDelete: 'cascade' }),
   videoId: integer('video_id').notNull().references(() => bcTargetVideos.id, { onDelete: 'cascade' }),
   commentId: varchar('comment_id', { length: 100 }).notNull(),  // YouTube comment ID
@@ -375,6 +449,7 @@ export const bcComments = pgTable('bc_comments', {
   publishedAt: timestamp('published_at'),
   scrapedAt: timestamp('scraped_at').notNull().defaultNow(),
 }, (table) => ({
+  siteIdx: index('idx_bc_comments_site').on(table.siteId),
   projectIdx: index('idx_bc_comments_project').on(table.projectId),
   videoIdx: index('idx_bc_comments_video').on(table.videoId),
   commentIdIdx: index('idx_bc_comments_cid').on(table.commentId),
@@ -383,6 +458,7 @@ export const bcComments = pgTable('bc_comments', {
 // Pain points extracted by LLM from comments — awaiting review
 export const bcExtractedPainPoints = pgTable('bc_extracted_pain_points', {
   id: serial('id').primaryKey(),
+  siteId: integer('site_id').references(() => sites.id, { onDelete: 'restrict' }),
   projectId: integer('project_id').notNull().references(() => bcProjects.id, { onDelete: 'cascade' }),
   painPointTitle: varchar('pain_point_title', { length: 255 }).notNull(),
   painPointDescription: text('pain_point_description').notNull(),
@@ -397,6 +473,7 @@ export const bcExtractedPainPoints = pgTable('bc_extracted_pain_points', {
   sourceVideoIds: integer('source_video_ids').array().notNull().default([]),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 }, (table) => ({
+  siteIdx: index('idx_bc_pp_site').on(table.siteId),
   projectIdx: index('idx_bc_pp_project').on(table.projectId),
   statusIdx: index('idx_bc_pp_status').on(table.status),
   intensityIdx: index('idx_bc_pp_intensity').on(table.emotionalIntensity),
@@ -405,6 +482,7 @@ export const bcExtractedPainPoints = pgTable('bc_extracted_pain_points', {
 // Global LLM settings for Brand Clarity pipeline (single row, JSONB config)
 export const bcSettings = pgTable('bc_settings', {
   id: serial('id').primaryKey(),
+  siteId: integer('site_id').references(() => sites.id, { onDelete: 'restrict' }),
   config: jsonb('config').notNull().$type<{
     provider: string;
     lpModel: string;
@@ -418,7 +496,9 @@ export const bcSettings = pgTable('bc_settings', {
     generatorThinkingBudget: number;
   }>(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
-});
+}, (table) => ({
+  siteIdx: index('idx_bc_settings_site').on(table.siteId),
+}));
 
 // ── Iterations: Named LP generation runs with AI-selected pain point subsets ──
 // Defined BEFORE bcLandingPageVariants and bcPainClusters to avoid forward references.
@@ -426,6 +506,7 @@ export const bcSettings = pgTable('bc_settings', {
 // Each iteration is a "folder" targeting a specific audience intent
 export const bcIterations = pgTable('bc_iterations', {
   id: serial('id').primaryKey(),
+  siteId: integer('site_id').references(() => sites.id, { onDelete: 'restrict' }),
   projectId: integer('project_id').notNull().references(() => bcProjects.id, { onDelete: 'cascade' }),
   name: varchar('name', { length: 255 }).notNull(),
   intention: text('intention'),                              // free-text intent written by user
@@ -433,24 +514,28 @@ export const bcIterations = pgTable('bc_iterations', {
   // draft → selecting → selected → clustering → clustered → generating → done
   createdAt: timestamp('created_at').notNull().defaultNow(),
 }, (table) => ({
+  siteIdx: index('idx_bc_iter_site').on(table.siteId),
   projectIdx: index('idx_bc_iter_project').on(table.projectId),
 }));
 
 // Top-30 pain points chosen by AI for a given iteration
 export const bcIterationSelections = pgTable('bc_iteration_selections', {
   id: serial('id').primaryKey(),
+  siteId: integer('site_id').references(() => sites.id, { onDelete: 'restrict' }),
   iterationId: integer('iteration_id').notNull().references(() => bcIterations.id, { onDelete: 'cascade' }),
   painPointId: integer('pain_point_id').notNull().references(() => bcExtractedPainPoints.id, { onDelete: 'cascade' }),
   rank: integer('rank').notNull(),                           // 1–30, AI-assigned
   selectionReason: text('selection_reason'),                 // why AI picked this PP
   createdAt: timestamp('created_at').notNull().defaultNow(),
 }, (table) => ({
+  siteIdx: index('idx_bc_iter_sel_site').on(table.siteId),
   iterationIdx: index('idx_bc_iter_sel_iteration').on(table.iterationId),
 }));
 
 // Generated landing page variants (3 per project run)
 export const bcLandingPageVariants = pgTable('bc_landing_page_variants', {
   id: serial('id').primaryKey(),
+  siteId: integer('site_id').references(() => sites.id, { onDelete: 'restrict' }),
   projectId: integer('project_id').notNull().references(() => bcProjects.id, { onDelete: 'cascade' }),
   iterationId: integer('iteration_id').references(() => bcIterations.id, { onDelete: 'set null' }),
   variantType: varchar('variant_type', { length: 50 }).notNull(), // founder_vision | pain_point_1 | pain_point_2
@@ -466,6 +551,7 @@ export const bcLandingPageVariants = pgTable('bc_landing_page_variants', {
   isSelected: boolean('is_selected').notNull().default(false),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 }, (table) => ({
+  siteIdx: index('idx_bc_variants_site').on(table.siteId),
   projectIdx: index('idx_bc_variants_project').on(table.projectId),
   iterationIdx: index('idx_bc_variants_iteration').on(table.iterationId),
 }));
@@ -473,6 +559,7 @@ export const bcLandingPageVariants = pgTable('bc_landing_page_variants', {
 // Pain point clusters synthesized by Sonnet before LP generation
 export const bcPainClusters = pgTable('bc_pain_clusters', {
   id: serial('id').primaryKey(),
+  siteId: integer('site_id').references(() => sites.id, { onDelete: 'restrict' }),
   projectId: integer('project_id').notNull().references(() => bcProjects.id, { onDelete: 'cascade' }),
   iterationId: integer('iteration_id').references(() => bcIterations.id, { onDelete: 'set null' }),
   clusterTheme: varchar('cluster_theme', { length: 255 }).notNull(),
@@ -486,6 +573,7 @@ export const bcPainClusters = pgTable('bc_pain_clusters', {
   triggerMoments: jsonb('trigger_moments').$type<string[]>().default([]),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 }, (table) => ({
+  siteIdx: index('idx_bc_clusters_site').on(table.siteId),
   projectIdx: index('idx_bc_clusters_project').on(table.projectId),
   iterationIdx: index('idx_bc_clusters_iteration').on(table.iterationId),
 }));

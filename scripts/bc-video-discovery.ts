@@ -47,6 +47,7 @@ async function run() {
 
   const [project] = await db.select().from(bcProjects).where(eq(bcProjects.id, BC_PROJECT_ID));
   if (!project) { console.error(`[ERROR] Project ${BC_PROJECT_ID} not found`); process.exit(1); }
+  const projectSiteId = project.siteId ?? null;
 
   const confirmedChannels = await db.select().from(bcTargetChannels)
     .where(and(
@@ -164,6 +165,7 @@ async function run() {
       for (const video of finalVideos) {
         const item = video.item;
         await db.insert(bcTargetVideos).values({
+          siteId: projectSiteId,
           projectId: BC_PROJECT_ID,
           channelId: channel.id,
           videoId: video.videoId,

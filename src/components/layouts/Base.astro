@@ -1,6 +1,7 @@
 ---
 import '@/styles/global.css';
 import '@/styles/animations.css';
+import { absoluteUrl, getSitePresentation } from '@/lib/site-config';
 
 export interface Props {
   title?: string;
@@ -13,8 +14,8 @@ export interface Props {
 }
 
 const {
-  title = 'Przemysław Filipiak — High Performer. Deep Focus Founder. Wholebeing Maximizer.',
-  description = 'Personal site of Przemysław Filipiak — High Performer and Deep Focus Founder. Optimizing life through Focus Sprints (Frints) and WholeBeing performance systems.',
+  title = undefined,
+  description = undefined,
   ogImage = '/og-image.png',
   canonical = Astro.url.href,
   ogType = 'website',
@@ -22,7 +23,42 @@ const {
   articleModifiedAt,
 } = Astro.props;
 
-const ogImageAbsolute = ogImage.startsWith('http') ? ogImage : `https://przemyslawfilipiak.com${ogImage}`;
+const site = getSitePresentation();
+const resolvedTitle = title ?? site.defaultTitle;
+const resolvedDescription = description ?? site.defaultDescription;
+const ogImageAbsolute = ogImage.startsWith('http') ? ogImage : absoluteUrl(ogImage);
+const entityGraphNode = site.entityType === 'Person'
+  ? {
+      '@type': 'Person',
+      '@id': `${site.canonicalBaseUrl}/#entity`,
+      name: site.authorName,
+      givenName: 'Przemysław',
+      familyName: 'Filipiak',
+      jobTitle: 'High Performer & Deep Focus Founder',
+      description: site.defaultDescription,
+      url: site.canonicalBaseUrl,
+      image: absoluteUrl('/og-image.png'),
+      sameAs: site.socialLinks,
+      knowsAbout: [
+        'Artificial Intelligence',
+        'Generative Engine Optimization (GEO)',
+        'Deep Work',
+        'Astro Framework',
+        'Python',
+        'React',
+        'Local-first Software',
+        'High Performance Productivity',
+      ],
+    }
+  : {
+      '@type': 'Organization',
+      '@id': `${site.canonicalBaseUrl}/#entity`,
+      name: site.displayName,
+      description: site.defaultDescription,
+      url: site.canonicalBaseUrl,
+      image: absoluteUrl('/og-image.png'),
+      sameAs: site.socialLinks,
+    };
 ---
 
 <!DOCTYPE html>
@@ -31,9 +67,9 @@ const ogImageAbsolute = ogImage.startsWith('http') ? ogImage : `https://przemysl
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#0f172a" />
-    <meta name="description" content={description} />
-    <meta name="author" content="Przemysław Filipiak" />
-    <title>{title}</title>
+    <meta name="description" content={resolvedDescription} />
+    <meta name="author" content={site.authorName} />
+    <title>{resolvedTitle}</title>
     <link rel="canonical" href={canonical} />
 
     <!-- Font Preloads -->
@@ -50,13 +86,13 @@ const ogImageAbsolute = ogImage.startsWith('http') ? ogImage : `https://przemysl
     <link rel="manifest" href="/site.webmanifest" />
 
     <!-- OpenGraph -->
-    <meta property="og:site_name" content="Przemysław Filipiak" />
-    <meta property="og:title" content={title} />
-    <meta property="og:description" content={description} />
+    <meta property="og:site_name" content={site.displayName} />
+    <meta property="og:title" content={resolvedTitle} />
+    <meta property="og:description" content={resolvedDescription} />
     <meta property="og:type" content={ogType} />
     <meta property="og:url" content={canonical} />
     <meta property="og:image" content={ogImageAbsolute} />
-    <meta property="og:image:alt" content={`${title} — Przemysław Filipiak`} />
+    <meta property="og:image:alt" content={`${resolvedTitle} — ${site.displayName}`} />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta property="og:image:type" content="image/png" />
@@ -64,23 +100,22 @@ const ogImageAbsolute = ogImage.startsWith('http') ? ogImage : `https://przemysl
 
     <!-- Twitter / X Card -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content={title} />
-    <meta name="twitter:description" content={description} />
+    <meta name="twitter:title" content={resolvedTitle} />
+    <meta name="twitter:description" content={resolvedDescription} />
     <meta name="twitter:image" content={ogImageAbsolute} />
-    <meta name="twitter:image:alt" content={`${title} — Przemysław Filipiak`} />
+    <meta name="twitter:image:alt" content={`${resolvedTitle} — ${site.displayName}`} />
 
     <!-- Article meta (only when ogType='article') -->
     {articlePublishedAt && <meta property="article:published_time" content={articlePublishedAt} />}
     {articleModifiedAt && <meta property="article:modified_time" content={articleModifiedAt} />}
-    {ogType === 'article' && <meta property="article:author" content="https://przemyslawfilipiak.com" />}
+    {ogType === 'article' && <meta property="article:author" content={site.canonicalBaseUrl} />}
 
     <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
 
     <!-- Identity & Discovery -->
-    <link rel="me" href="https://github.com/delta240mvt" />
-    <link rel="me" href="https://www.linkedin.com/in/przemyslaw-filipiak-8a9b77113/" />
+    {site.socialLinks.map((link) => <link rel="me" href={link} />)}
     <link rel="sitemap" type="application/xml" href="/sitemap.xml" />
-    <link rel="alternate" type="application/rss+xml" title="Przemysław Filipiak — Blog" href="/rss.xml" />
+    <link rel="alternate" type="application/rss+xml" title={site.blogTitle} href="/rss.xml" />
 
     <!-- Page-specific head content (JSON-LD, etc.) -->
     <slot name="head" />
@@ -90,54 +125,21 @@ const ogImageAbsolute = ogImage.startsWith('http') ? ogImage : `https://przemysl
       "@context": "https://schema.org",
       "@graph": [
         {
-          "@type": "Person",
-          "@id": "https://przemyslawfilipiak.com/#person",
-          "name": "Przemysław Filipiak",
-          "givenName": "Przemysław",
-          "familyName": "Filipiak",
-          "jobTitle": "High Performer & Deep Focus Founder",
-          "gender": "Male",
-          "description": "Polish High Performer and Deep Focus Founder. Creator of frinter.app (WholeBeing system). Specializes in Focus Sprints (Frints) and life-sphere optimization through hard data.",
-          "url": "https://przemyslawfilipiak.com",
-          "image": "https://przemyslawfilipiak.com/og-image.png",
-          "sameAs": [
-            "https://github.com/delta240mvt",
-            "https://www.linkedin.com/in/przemyslaw-filipiak-8a9b77113/"
-          ],
-          "knowsAbout": [
-            "Artificial Intelligence",
-            "Generative Engine Optimization (GEO)",
-            "Deep Work",
-            "Astro Framework",
-            "Python",
-            "React",
-            "Local-first Software",
-            "High Performance Productivity"
-          ],
-          "knowsLanguage": [
-            { "@type": "Language", "name": "Polish", "alternateName": "pl" },
-            { "@type": "Language", "name": "English", "alternateName": "en" },
-            { "@type": "Language", "name": "Norwegian", "alternateName": "no" }
-          ],
-          "nationality": { "@type": "Country", "name": "Poland" },
-          "alumniOf": [
-            { "@type": "EducationalOrganization", "name": "University in Norway (Degree 1)" },
-            { "@type": "EducationalOrganization", "name": "University in Norway (Degree 2)" }
-          ]
+          ...entityGraphNode
         },
         {
           "@type": "WebSite",
-          "@id": "https://przemyslawfilipiak.com/#website",
-          "name": "Przemysław Filipiak",
-          "url": "https://przemyslawfilipiak.com",
-          "description": "Personal site of Przemysław Filipiak — High Performer and Deep Focus Founder",
-          "author": { "@id": "https://przemyslawfilipiak.com/#person" },
+          "@id": `${site.canonicalBaseUrl}/#website`,
+          "name": site.displayName,
+          "url": site.canonicalBaseUrl,
+          "description": site.defaultDescription,
+          "author": { "@id": `${site.canonicalBaseUrl}/#entity` },
           "inLanguage": "en-US",
           "potentialAction": {
             "@type": "SearchAction",
             "target": {
               "@type": "EntryPoint",
-              "urlTemplate": "https://przemyslawfilipiak.com/blog?q={search_term_string}"
+              "urlTemplate": `${site.canonicalBaseUrl}/blog?q={search_term_string}`
             },
             "query-input": "required name=search_term_string"
           }

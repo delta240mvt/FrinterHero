@@ -1,0 +1,9 @@
+{
+  "name": "@frinter/worker-bc",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node ../../scripts/monorepo/noop-build.mjs worker-bc",
+    "start": "tsx ../runner/src/index.ts bc,bc-scrape,bc-parse,bc-generate,bc-selector"
+  }
+}

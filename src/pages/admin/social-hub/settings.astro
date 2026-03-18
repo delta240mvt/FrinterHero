@@ -309,13 +309,13 @@ import Base from '@/components/layouts/Base.astro';
         <!-- Section 4 — Brand Voice -->
         <div class="settings-card">
           <h3 class="card-title">Brand Voice</h3>
-          <p class="card-note">The LLM copywriter uses your brand voice file as system context. Edit the file directly to update tone, style, and positioning.</p>
+          <p class="card-note">The LLM copywriter uses your brand voice file as system context. The default route is served from <code>/llms-full.txt</code> so each client can expose tenant-specific brand context.</p>
 
           <div class="field-grid">
             <div class="field-row">
               <label class="field-label">Brand Voice File</label>
-              <input type="text" class="field-input-text field-input-text--readonly" value="public/llms-full.txt" readonly />
-              <span class="field-hint-inline">Edit <code>public/llms-full.txt</code> directly to update brand voice.</span>
+              <input type="text" class="field-input-text field-input-text--readonly" value="/llms-full.txt" readonly />
+              <span class="field-hint-inline">Default runtime route: <code>/llms-full.txt</code>. Long-term source of truth should move into site config or DB-backed assets.</span>
             </div>
           </div>
         </div>

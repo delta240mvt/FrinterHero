@@ -1,0 +1,9 @@
+[build]
+builder = "NIXPACKS"
+buildCommand = "npm install && npm run build:client3"
+
+[deploy]
+startCommand = "npm run start:client3"
+healthcheckPath = "/health"
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10

@@ -1,11 +1,14 @@
 ---
+import { getSitePresentation } from '@/lib/site-config';
+
 const pathname = Astro.url.pathname;
+const site = getSitePresentation();
 ---
 
 <nav class="nav" aria-label="Main navigation">
   <div class="nav-container">
-    <a href="/" class="nav-logo" aria-label="Przemysław Filipiak - Home">
-      P·F
+    <a href="/" class="nav-logo" aria-label={`${site.displayName} - Home`}>
+      {site.shortName}
     </a>
     <ul class="nav-links" role="list">
       <li><a href="/#about" class={`nav-link${pathname === '/' ? '' : ''}`}>About</a></li>

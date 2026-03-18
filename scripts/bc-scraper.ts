@@ -251,6 +251,7 @@ async function run() {
 
   const [project] = await db.select().from(bcProjects).where(eq(bcProjects.id, BC_PROJECT_ID));
   if (!project) { console.error(`[ERROR] Project ${BC_PROJECT_ID} not found`); process.exit(1); }
+  const projectSiteId = project.siteId ?? null;
 
   const projectNiche = Array.isArray(project.nicheKeywords)
     ? (project.nicheKeywords as string[]).join(', ')
@@ -301,6 +302,7 @@ async function run() {
       // Insert comments
       const inserted = await db.insert(bcComments).values(
         newItems.map(c => ({
+          siteId: projectSiteId,
           projectId: BC_PROJECT_ID,
           videoId: video.id,
           commentId: c.commentId.substring(0, 100),
@@ -350,6 +352,7 @@ async function run() {
           extractedTitles.add(titleKey);
 
           await db.insert(bcExtractedPainPoints).values({
+            siteId: projectSiteId,
             projectId: BC_PROJECT_ID,
             painPointTitle: pp.painPointTitle,
             painPointDescription: pp.painPointDescription,

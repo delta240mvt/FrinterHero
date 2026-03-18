@@ -1,0 +1,9 @@
+{
+  "name": "@frinter/worker-geo-drafts",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node ../../scripts/monorepo/noop-build.mjs worker-geo-drafts",
+    "start": "tsx ../runner/src/index.ts geo,draft"
+  }
+}

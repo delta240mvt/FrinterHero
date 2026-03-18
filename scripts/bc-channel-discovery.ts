@@ -47,6 +47,7 @@ async function run() {
 
   const [project] = await db.select().from(bcProjects).where(eq(bcProjects.id, BC_PROJECT_ID));
   if (!project) { console.error(`[ERROR] Project ${BC_PROJECT_ID} not found`); process.exit(1); }
+  const projectSiteId = project.siteId ?? null;
 
   const keywords: string[] = Array.isArray(project.nicheKeywords)
     ? (project.nicheKeywords as string[]).slice(0, 3)
@@ -135,6 +136,7 @@ async function run() {
     const snippet = ch?.snippet ?? {};
     const handle = snippet.customUrl ? snippet.customUrl.replace(/^@/, '') : null;
     await db.insert(bcTargetChannels).values({
+      siteId: projectSiteId,
       projectId: BC_PROJECT_ID,
       channelId,
       channelHandle: handle,

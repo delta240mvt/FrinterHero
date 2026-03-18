@@ -30,6 +30,7 @@ async function run() {
 
   const [project] = await db.select().from(bcProjects).where(eq(bcProjects.id, BC_PROJECT_ID));
   if (!project) { console.error(`[ERROR] Project ${BC_PROJECT_ID} not found`); process.exit(1); }
+  const projectSiteId = project.siteId ?? null;
 
   const [iteration] = await db.select().from(bcIterations).where(eq(bcIterations.id, BC_ITERATION_ID));
   if (!iteration) { console.error(`[ERROR] Iteration ${BC_ITERATION_ID} not found`); process.exit(1); }
@@ -134,6 +135,7 @@ Return ONLY valid JSON, no markdown:
   let inserted = 0;
   for (const sel of validSelections) {
     await db.insert(bcIterationSelections).values({
+      siteId: projectSiteId,
       iterationId: BC_ITERATION_ID,
       painPointId: sel.painPointId,
       rank: sel.rank,

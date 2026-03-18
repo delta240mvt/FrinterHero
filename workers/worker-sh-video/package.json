@@ -1,0 +1,9 @@
+{
+  "name": "@frinter/worker-sh-video",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node ../../scripts/monorepo/noop-build.mjs worker-sh-video",
+    "start": "tsx ../runner/src/index.ts sh-video"
+  }
+}

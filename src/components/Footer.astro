@@ -1,11 +1,14 @@
 ---
+import { getSitePresentation } from '@/lib/site-config';
+
 const year = new Date().getFullYear();
+const site = getSitePresentation();
 ---
 
 <footer class="footer">
   <div class="footer-container">
     <p class="footer-copy">
-      &copy; {year} Przemysław Filipiak
+      &copy; {year} {site.displayName}
     </p>
     <nav class="footer-links" aria-label="Footer navigation">
       <a href="/rss.xml" class="footer-link">RSS</a>

@@ -14,6 +14,7 @@ const openai = new OpenAI({
 
 const SCRAPE_TARGET_IDS  = process.env.SCRAPE_TARGET_IDS || '';
 const SCRAPE_RUN_ID      = parseInt(process.env.SCRAPE_RUN_ID || '0', 10);
+const SITE_ID            = parseInt(process.env.SITE_ID || '0', 10) || null;
 const MAX_COMMENTS       = parseInt(process.env.YT_MAX_COMMENTS_PER_TARGET || '300', 10);
 const CHUNK_SIZE         = parseInt(process.env.YT_CHUNK_SIZE || '20', 10);
 const MODEL              = process.env.YT_ANALYSIS_MODEL || 'anthropic/claude-sonnet-4-6';
@@ -280,6 +281,7 @@ async function processVideo(
   // Insert into DB
   const inserted = await db.insert(ytComments).values(
     newItems.map(c => ({
+      siteId: SITE_ID,
       scrapeRunId: SCRAPE_RUN_ID,
       commentId: c.commentId.substring(0, 50),
       videoId: c.videoId.substring(0, 20),
@@ -313,6 +315,7 @@ async function processVideo(
     if (gaps.length > 0) {
       await db.insert(ytExtractedGaps).values(
         gaps.map(gap => ({
+          siteId: SITE_ID,
           scrapeRunId: SCRAPE_RUN_ID,
           painPointTitle: gap.painPointTitle,
           painPointDescription: gap.painPointDescription,

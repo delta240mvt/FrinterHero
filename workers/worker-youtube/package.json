@@ -1,0 +1,9 @@
+{
+  "name": "@frinter/worker-youtube",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node ../../scripts/monorepo/noop-build.mjs worker-youtube",
+    "start": "tsx ../runner/src/index.ts youtube"
+  }
+}

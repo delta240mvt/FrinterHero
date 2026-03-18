@@ -1,16 +1,24 @@
 ---
 import BlogCard from './BlogCard.astro';
+import { getCurrentSiteSlug } from '@/lib/site-config';
 
 let articles: any[] = [];
 try {
   const { db } = await import('@/db/client');
-  const { articles: articlesTable } = await import('@/db/schema');
-  const { eq, desc } = await import('drizzle-orm');
+  const { articles: articlesTable, sites } = await import('@/db/schema');
+  const { and, eq, desc, or, isNull } = await import('drizzle-orm');
+  const siteSlug = getCurrentSiteSlug();
+  const [siteRow] = await db.select({ id: sites.id }).from(sites).where(eq(sites.slug, siteSlug)).limit(1);
+  const siteCondition = siteRow
+    ? (siteSlug === 'przemyslawfilipiak'
+        ? or(eq(articlesTable.siteId, siteRow.id), isNull(articlesTable.siteId))
+        : eq(articlesTable.siteId, siteRow.id))
+    : isNull(articlesTable.siteId);
 
   articles = await db
     .select()
     .from(articlesTable)
-    .where(eq(articlesTable.status, 'published'))
+    .where(and(eq(articlesTable.status, 'published'), siteCondition))
     .orderBy(desc(articlesTable.publishedAt))
     .limit(3);
 } catch {

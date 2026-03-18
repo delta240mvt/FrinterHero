@@ -1,3 +1,7 @@
+[metadata]
+# Legacy monolith default service config kept for backward compatibility.
+# Distributed split uses templates from infra/railway/*.toml
+
 [build]
 builder = "NIXPACKS"
 buildCommand = "npm install && npm run build"

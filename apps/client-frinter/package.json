@@ -1,0 +1,11 @@
+{
+  "name": "@frinter/client-frinter",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node ../../scripts/monorepo/client-bff.mjs dev frinter",
+    "build": "node ../../scripts/monorepo/noop-build.mjs client-frinter",
+    "start": "node ../../scripts/monorepo/client-bff.mjs start frinter",
+    "preview": "node ../../scripts/monorepo/client-bff.mjs preview frinter"
+  }
+}

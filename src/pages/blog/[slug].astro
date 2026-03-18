@@ -2,17 +2,25 @@
 import BlogPost from '@/components/layouts/BlogPost.astro';
 import BlogCard from '@/components/BlogCard.astro';
 import { db } from '@/db/client';
-import { articles, articleGenerations, knowledgeEntries } from '@/db/schema';
-import { eq, and, ne, sql, inArray } from 'drizzle-orm';
+import { articles, articleGenerations, knowledgeEntries, sites } from '@/db/schema';
+import { getCurrentSiteSlug } from '@/lib/site-config';
+import { eq, and, ne, sql, inArray, or, isNull } from 'drizzle-orm';
 
 export const prerender = true;
+const siteSlug = getCurrentSiteSlug();
 
 export async function getStaticPaths() {
   try {
+    const [siteRow] = await db.select({ id: sites.id }).from(sites).where(eq(sites.slug, siteSlug)).limit(1);
+    const siteCondition = siteRow
+      ? (siteSlug === 'przemyslawfilipiak'
+          ? or(eq(articles.siteId, siteRow.id), isNull(articles.siteId))
+          : eq(articles.siteId, siteRow.id))
+      : isNull(articles.siteId);
     const published = await db
       .select({ slug: articles.slug })
       .from(articles)
-      .where(eq(articles.status, 'published'));
+      .where(and(eq(articles.status, 'published'), siteCondition));
 
     return published.map(({ slug }) => ({ params: { slug } }));
   } catch {
@@ -31,10 +39,17 @@ let relatedArticles: any[] = [];
 let kbLinkedArticles: { slug: string; title: string }[] = [];
 
 try {
+  const [siteRow] = await db.select({ id: sites.id }).from(sites).where(eq(sites.slug, siteSlug)).limit(1);
+  const siteCondition = siteRow
+    ? (siteSlug === 'przemyslawfilipiak'
+        ? or(eq(articles.siteId, siteRow.id), isNull(articles.siteId))
+        : eq(articles.siteId, siteRow.id))
+    : isNull(articles.siteId);
+
   const [result] = await db
     .select()
     .from(articles)
-    .where(and(eq(articles.slug, slug), eq(articles.status, 'published')))
+    .where(and(eq(articles.slug, slug), eq(articles.status, 'published'), siteCondition))
     .limit(1);
 
   article = result;
@@ -47,6 +62,7 @@ try {
         and(
           eq(articles.status, 'published'),
           ne(articles.id, article.id),
+          siteCondition,
           sql`${articles.tags} && ARRAY[${sql.join(article.tags.map((t: string) => sql`${t}`), sql`, `)}]::text[]`
         )
       )

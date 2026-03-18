@@ -9,6 +9,7 @@
 
 import { db } from '../db/client';
 import { bcSettings } from '../db/schema';
+import { eq, isNull, or } from 'drizzle-orm';
 
 export interface BcSettingsConfig {
   provider: 'openrouter' | 'anthropic';
@@ -44,18 +45,20 @@ export const BC_SETTINGS_DEFAULTS: BcSettingsConfig = {
   generatorMaxTokens: 8192,
 };
 
-export async function getBcSettings(): Promise<BcSettingsConfig> {
-  const rows = await db.select().from(bcSettings).limit(1);
+export async function getBcSettings(siteId?: number | null): Promise<BcSettingsConfig> {
+  const whereClause = siteId ? or(eq(bcSettings.siteId, siteId), isNull(bcSettings.siteId)) : undefined;
+  const rows = await db.select().from(bcSettings).where(whereClause).limit(1);
   if (!rows.length) return { ...BC_SETTINGS_DEFAULTS };
   return { ...BC_SETTINGS_DEFAULTS, ...(rows[0].config as BcSettingsConfig) };
 }
 
-export async function saveBcSettings(config: BcSettingsConfig): Promise<void> {
-  const rows = await db.select({ id: bcSettings.id }).from(bcSettings).limit(1);
+export async function saveBcSettings(config: BcSettingsConfig, siteId?: number | null): Promise<void> {
+  const whereClause = siteId ? eq(bcSettings.siteId, siteId) : isNull(bcSettings.siteId);
+  const rows = await db.select({ id: bcSettings.id }).from(bcSettings).where(whereClause).limit(1);
   if (rows.length) {
-    await db.update(bcSettings).set({ config, updatedAt: new Date() });
+    await db.update(bcSettings).set({ config, updatedAt: new Date() }).where(eq(bcSettings.id, rows[0].id));
   } else {
-    await db.insert(bcSettings).values({ config });
+    await db.insert(bcSettings).values({ siteId: siteId ?? null, config });
   }
 }
 

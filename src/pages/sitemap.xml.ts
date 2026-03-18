@@ -1,16 +1,25 @@
 import type { APIRoute } from 'astro';
 import { db } from '@/db/client';
-import { articles } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { articles, sites } from '@/db/schema';
+import { eq, and, or, isNull } from 'drizzle-orm';
+import { absoluteUrl, getCurrentSiteSlug } from '@/lib/site-config';
 
 export const GET: APIRoute = async () => {
+  const siteSlug = getCurrentSiteSlug();
   let publishedArticles: { slug: string; updatedAt: Date }[] = [];
 
   try {
+    const [siteRow] = await db.select({ id: sites.id }).from(sites).where(eq(sites.slug, siteSlug)).limit(1);
+    const siteCondition = siteRow
+      ? (siteSlug === 'przemyslawfilipiak'
+          ? or(eq(articles.siteId, siteRow.id), isNull(articles.siteId))
+          : eq(articles.siteId, siteRow.id))
+      : isNull(articles.siteId);
+
     publishedArticles = await db
       .select({ slug: articles.slug, updatedAt: articles.updatedAt })
       .from(articles)
-      .where(eq(articles.status, 'published'));
+      .where(and(eq(articles.status, 'published'), siteCondition));
   } catch {
     // DB unavailable
   }
@@ -18,12 +27,15 @@ export const GET: APIRoute = async () => {
   const today = new Date().toISOString().split('T')[0];
 
   const staticUrls = [
-    { loc: 'https://przemyslawfilipiak.com', lastmod: today },
-    { loc: 'https://przemyslawfilipiak.com/blog', lastmod: today },
+    { loc: absoluteUrl('/'), lastmod: today },
+    { loc: absoluteUrl('/blog'), lastmod: today },
+    { loc: absoluteUrl('/rss.xml'), lastmod: today },
+    { loc: absoluteUrl('/llms.txt'), lastmod: today },
+    { loc: absoluteUrl('/llms-full.txt'), lastmod: today },
   ];
 
   const articleUrls = publishedArticles.map(a => ({
-    loc: `https://przemyslawfilipiak.com/blog/${a.slug}`,
+    loc: absoluteUrl(`/blog/${a.slug}`),
     lastmod: a.updatedAt?.toISOString().split('T')[0] || today,
   }));
 

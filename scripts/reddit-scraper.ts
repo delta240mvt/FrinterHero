@@ -16,6 +16,7 @@ const openai = new OpenAI({
 
 const SCRAPE_TARGETS = process.env.SCRAPE_TARGETS || '';
 const SCRAPE_RUN_ID  = parseInt(process.env.SCRAPE_RUN_ID || '0', 10);
+const SITE_ID        = parseInt(process.env.SITE_ID || '0', 10) || null;
 const MAX_ITEMS      = parseInt(process.env.REDDIT_MAX_ITEMS_PER_TARGET || '3', 10);
 const CHUNK_SIZE     = parseInt(process.env.REDDIT_CHUNK_SIZE || '10', 10);
 const MODEL          = process.env.REDDIT_ANALYSIS_MODEL || 'anthropic/claude-sonnet-4-6';
@@ -80,6 +81,7 @@ function mapToDbPost(runId: number, item: any) {
     });
   }
   return {
+    siteId: SITE_ID,
     scrapeRunId: runId,
     redditId: String(item.id || item.redditId || '').substring(0, 20) || `unknown_${Date.now()}`,
     subreddit: String(item.subreddit || item.community || '').substring(0, 100),
@@ -315,6 +317,7 @@ async function run() {
     await db.insert(redditExtractedGaps).values(
       unique.map(gap => ({
         scrapeRunId: SCRAPE_RUN_ID,
+        siteId: SITE_ID,
         painPointTitle: gap.painPointTitle,
         painPointDescription: gap.painPointDescription,
         emotionalIntensity: gap.emotionalIntensity,

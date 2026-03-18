@@ -1,0 +1,9 @@
+{
+  "name": "@frinter/worker-runner",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node ../../scripts/monorepo/noop-build.mjs worker-runner",
+    "start": "tsx src/index.ts"
+  }
+}

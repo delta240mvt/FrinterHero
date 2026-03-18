@@ -1,0 +1,8 @@
+{
+  "name": "@frinter/api-contract",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node ../../scripts/monorepo/noop-build.mjs api-contract"
+  }
+}

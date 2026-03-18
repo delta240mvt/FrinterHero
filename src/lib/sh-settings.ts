@@ -47,7 +47,7 @@ export const SH_SETTINGS_DEFAULTS: ShSettingsConfig = {
   distributionProvider: 'upload-post',
   autoSchedule: false,
   defaultHashtags: ['#productivity', '#deepwork', '#focus'],
-  brandVoiceFile: 'public/llms-full.txt',
+  brandVoiceFile: '/llms-full.txt',
   maxPostLength: 280,
   defaultSuggestionPrompt: '',
   toneOverrides: '',

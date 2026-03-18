@@ -30,6 +30,7 @@ async function run() {
 
   const [project] = await db.select().from(bcProjects).where(eq(bcProjects.id, BC_PROJECT_ID));
   if (!project) { console.error(`[ERROR] Project ${BC_PROJECT_ID} not found`); process.exit(1); }
+  const projectSiteId = project.siteId ?? null;
 
   const niche = Array.isArray(project.nicheKeywords)
     ? (project.nicheKeywords as string[]).join(', ')
@@ -147,6 +148,7 @@ Return ONLY valid JSON array. No markdown.`;
   let created = 0;
   for (const cluster of clusters.slice(0, 3)) {
     await db.insert(bcPainClusters).values({
+      siteId: projectSiteId,
       projectId: BC_PROJECT_ID,
       iterationId: BC_ITERATION_ID ?? null,
       clusterTheme: String(cluster.clusterTheme || '').substring(0, 255),

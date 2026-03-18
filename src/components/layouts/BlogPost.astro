@@ -2,6 +2,7 @@
 import Base from './Base.astro';
 import Nav from '@/components/Nav.astro';
 import Footer from '@/components/Footer.astro';
+import { absoluteUrl, getSitePresentation } from '@/lib/site-config';
 
 export interface Props {
   title: string;
@@ -21,19 +22,22 @@ const {
   updatedAt,
   readingTime,
   tags = [],
-  author = 'Przemysław Filipiak',
+  author = undefined,
   slug,
 } = Astro.props;
+
+const site = getSitePresentation();
+const resolvedAuthor = author ?? site.authorName;
 
 const formattedDate = publishedAt
   ? new Intl.DateTimeFormat('en-US', { year: 'numeric', month: 'long', day: 'numeric' }).format(publishedAt)
   : null;
 
-const canonicalUrl = slug ? `https://przemyslawfilipiak.com/blog/${slug}` : Astro.url.href;
+const canonicalUrl = slug ? absoluteUrl(`/blog/${slug}`) : Astro.url.href;
 ---
 
 <Base
-  title={`${title} — Przemysław Filipiak`}
+  title={`${title} — ${site.articleSuffix}`}
   description={description || undefined}
   canonical={canonicalUrl}
   ogType="article"
@@ -68,7 +72,7 @@ const canonicalUrl = slug ? `https://przemyslawfilipiak.com/blog/${slug}` : Astr
         <slot />
       </div>
       <footer class="article-footer">
-        <p class="article-author">By {author}</p>
+        <p class="article-author">By {resolvedAuthor}</p>
         {updatedAt && (
           <p class="article-updated">
             Last updated: <time datetime={updatedAt.toISOString()}>
@@ -93,23 +97,23 @@ const canonicalUrl = slug ? `https://przemyslawfilipiak.com/blog/${slug}` : Astr
       "description": description,
       "datePublished": publishedAt?.toISOString(),
       "dateModified": updatedAt?.toISOString() || publishedAt?.toISOString(),
-      "author": { "@id": "https://przemyslawfilipiak.com/#person" },
-      "publisher": { "@id": "https://przemyslawfilipiak.com/#person" },
+      "author": { "@id": `${site.canonicalBaseUrl}/#entity` },
+      "publisher": { "@id": `${site.canonicalBaseUrl}/#entity` },
       "url": canonicalUrl,
-      "isPartOf": { "@id": "https://przemyslawfilipiak.com/#website" },
+      "isPartOf": { "@id": `${site.canonicalBaseUrl}/#website` },
       "mainEntityOfPage": {
         "@type": "WebPage",
         "@id": `${canonicalUrl}#webpage`
       },
-      "image": "https://przemyslawfilipiak.com/og-image.png",
+      "image": absoluteUrl('/og-image.png'),
       "inLanguage": "en-US",
       "keywords": tags.join(', ')
     },
     {
       "@type": "BreadcrumbList",
       "itemListElement": [
-        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://przemyslawfilipiak.com" },
-        { "@type": "ListItem", "position": 2, "name": "Blog", "item": "https://przemyslawfilipiak.com/blog" },
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": site.canonicalBaseUrl },
+        { "@type": "ListItem", "position": 2, "name": "Blog", "item": absoluteUrl('/blog') },
         { "@type": "ListItem", "position": 3, "name": title, "item": canonicalUrl }
       ]
     }

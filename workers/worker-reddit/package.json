@@ -1,0 +1,9 @@
+{
+  "name": "@frinter/worker-reddit",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node ../../scripts/monorepo/noop-build.mjs worker-reddit",
+    "start": "tsx ../runner/src/index.ts reddit"
+  }
+}

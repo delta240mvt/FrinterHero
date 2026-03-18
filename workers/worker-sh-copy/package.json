@@ -1,0 +1,9 @@
+{
+  "name": "@frinter/worker-sh-copy",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node ../../scripts/monorepo/noop-build.mjs worker-sh-copy",
+    "start": "tsx ../runner/src/index.ts sh-copy"
+  }
+}

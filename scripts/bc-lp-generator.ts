@@ -266,6 +266,7 @@ async function run() {
 
   const [project] = await db.select().from(bcProjects).where(eq(bcProjects.id, BC_PROJECT_ID));
   if (!project) { console.error(`[ERROR] Project ${BC_PROJECT_ID} not found`); process.exit(1); }
+  const projectSiteId = project.siteId ?? null;
 
   const lpStructure = project.lpStructureJson as LpStructure | null;
   if (!lpStructure) { console.error('[ERROR] lpStructureJson is empty — run bc-lp-parser first'); process.exit(1); }
@@ -374,6 +375,7 @@ async function run() {
       );
 
       await db.insert(bcLandingPageVariants).values({
+        siteId: projectSiteId,
         projectId: BC_PROJECT_ID,
         iterationId: BC_ITERATION_ID ?? null,
         variantType: variant.type,

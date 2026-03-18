@@ -1,0 +1,11 @@
+{
+  "name": "@frinter/client-focusequalsfreedom",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node ../../scripts/monorepo/client-bff.mjs dev focusequalsfreedom",
+    "build": "node ../../scripts/monorepo/noop-build.mjs client-focusequalsfreedom",
+    "start": "node ../../scripts/monorepo/client-bff.mjs start focusequalsfreedom",
+    "preview": "node ../../scripts/monorepo/client-bff.mjs preview focusequalsfreedom"
+  }
+}
