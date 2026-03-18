@@ -14,6 +14,7 @@ import { db } from '../src/db/client';
 import { shContentBriefs, shGeneratedCopy } from '../src/db/schema';
 import { eq } from 'drizzle-orm';
 import { callBcLlm } from '../src/lib/bc-llm-client';
+import { getBcSettings } from '../src/lib/bc-settings';
 
 dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
 
@@ -48,9 +49,16 @@ async function run() {
   if (isNaN(briefId) || briefId <= 0) shError(`Invalid SH_BRIEF_ID: ${briefIdRaw}`);
 
   // ── 1. Load brief ────────────────────────────────────────────────────────────
-  log('Loading brief...');
+  log('Loading brief and global LLM config...');
   const [brief] = await db.select().from(shContentBriefs).where(eq(shContentBriefs.id, briefId));
   if (!brief) shError(`Brief ${briefId} not found`);
+
+  // Load Brand Clarity settings to get the preferred provider/config (user's "ściągnij ustawienia")
+  const bcSettings = await getBcSettings();
+  if (bcSettings.provider) {
+    process.env.BC_LLM_PROVIDER = bcSettings.provider;
+    log(`Using LLM provider from Brand Clarity settings: ${bcSettings.provider}`);
+  }
 
   const targetPlatforms = Array.isArray(brief.targetPlatforms) ? brief.targetPlatforms : [];
 

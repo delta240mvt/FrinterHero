@@ -123,18 +123,8 @@ async function callOpenrouter(options: BcLlmCallOptions): Promise<BcLlmResponse>
 async function callAnthropic(options: BcLlmCallOptions): Promise<BcLlmResponse> {
   const client = getAnthropicClient();
 
-  // Normalize model ID for direct Anthropic API
-  let actualModel = options.model;
-  if (actualModel === 'claude-sonnet-4-6' || actualModel === 'anthropic/claude-sonnet-4-6') {
-    actualModel = 'claude-3-5-sonnet-20241022';
-  } else if (actualModel === 'claude-opus-4-6' || actualModel === 'anthropic/claude-opus-4-6') {
-    actualModel = 'claude-3-opus-20240229';
-  } else if (actualModel === 'claude-haiku-4-5-20251001') {
-    actualModel = 'claude-3-5-haiku-20241022';
-  }
-
   const thinking = options.thinkingBudget
-    ? buildThinkingConfig(actualModel, options.thinkingBudget)
+    ? buildThinkingConfig(options.model, options.thinkingBudget)
     : undefined;
 
   // When extended thinking: max_tokens must exceed budget_tokens
@@ -144,7 +134,7 @@ async function callAnthropic(options: BcLlmCallOptions): Promise<BcLlmResponse> 
   }
 
   const resp = await client.messages.create({
-    model: actualModel,
+    model: options.model,
     max_tokens: maxTokens,
     system: options.systemPrompt,
     ...(thinking ? { thinking } : {}),
