@@ -1057,8 +1057,7 @@ Statusy:
 
 #### A4-T05 — Video format override dla video
 
-- [ ] Status
-- Kontekst: video musi dostać konkretny format jeszcze przed copy generation.
+- [x] Status
 - Pliki:
 - `src/pages/admin/social-hub/new.astro`
 - `src/pages/api/social-hub/briefs/index.ts`
@@ -1067,8 +1066,7 @@ Statusy:
 
 #### A4-T06 — Snapshot global+override do briefu
 
-- [ ] Status
-- Kontekst: generacja ma korzystać z zamrożonego snapshotu, a nie z aktualnego settings po czasie.
+- [x] Status
 - Pliki:
 - `src/pages/api/social-hub/briefs/index.ts`
 - `src/lib/sh-viral-engine.ts`
@@ -1124,8 +1122,7 @@ Statusy:
 
 #### A5-T06 — Prompt block generator
 
-- [ ] Status
-- Kontekst: prompt injection musi być spójny i testowalny.
+- [x] Status
 - Pliki:
 - `src/lib/sh-viral-engine-prompts.ts`
 - Wynik:
@@ -1133,8 +1130,7 @@ Statusy:
 
 #### A5-T07 — Integracja z `scripts/sh-copywriter.ts`
 
-- [ ] Status
-- Kontekst: to najważniejsze miejsce faktycznego użycia engine.
+- [x] Status
 - Pliki:
 - `scripts/sh-copywriter.ts`
 - Wynik:
@@ -1142,8 +1138,7 @@ Statusy:
 
 #### A5-T08 — Audit trail promptu
 
-- [ ] Status
-- Kontekst: trzeba móc sprawdzić, czy engine był faktycznie użyty.
+- [x] Status
 - Pliki:
 - `scripts/sh-copywriter.ts`
 - `src/db/schema.ts`
@@ -1152,8 +1147,7 @@ Statusy:
 
 #### A5-T09 — Zachowanie przy `engine off`
 
-- [ ] Status
-- Kontekst: wyłączenie nie może łamać generacji.
+- [x] Status
 - Pliki:
 - `scripts/sh-copywriter.ts`
 - `src/lib/sh-viral-engine-prompts.ts`
@@ -1164,8 +1158,7 @@ Statusy:
 
 #### A6-T01 — Przekazanie `videoFormatSlug` do render endpointu
 
-- [ ] Status
-- Kontekst: render musi znać wybrany format, nie tylko `format=image|video`.
+- [x] Status
 - Pliki:
 - `src/pages/api/social-hub/briefs/[id]/render.ts`
 - Wynik:
@@ -1173,8 +1166,7 @@ Statusy:
 
 #### A6-T02 — Persist formatu do assetu
 
-- [ ] Status
-- Kontekst: asset powinien mieć zapisane źródło swojej struktury video.
+- [x] Status
 - Pliki:
 - `src/pages/api/social-hub/briefs/[id]/render.ts`
 - `scripts/sh-video-render.ts`
@@ -1183,8 +1175,7 @@ Statusy:
 
 #### A6-T03 — Snapshot viralowy dla assetu
 
-- [ ] Status
-- Kontekst: audyt video nie może kończyć się na copy.
+- [x] Status
 - Pliki:
 - `src/pages/api/social-hub/briefs/[id]/render.ts`
 - `scripts/sh-video-render.ts`
@@ -1193,8 +1184,7 @@ Statusy:
 
 #### A6-T04 — Format-aware `videoScript`
 
-- [ ] Status
-- Kontekst: video script ma odzwierciedlać strukturę wybranego formatu.
+- [x] Status
 - Pliki:
 - `scripts/sh-copywriter.ts`
 - `scripts/sh-video-render.ts`
@@ -1203,8 +1193,7 @@ Statusy:
 
 #### A6-T05 — Logowanie formatu w jobie video
 
-- [ ] Status
-- Kontekst: debug renderu będzie trudny bez informacji o formacie.
+- [x] Status
 - Pliki:
 - `scripts/sh-video-render.ts`
 - `src/lib/sh-video-job.ts`
@@ -1215,8 +1204,7 @@ Statusy:
 
 #### A7-T01 — Badge `Viral Engine On/Off`
 
-- [ ] Status
-- Kontekst: user musi od razu widzieć, czy brief był generowany z engine.
+- [x] Status
 - Pliki:
 - `src/pages/admin/social-hub/[briefId].astro`
 - Wynik:
@@ -1224,8 +1212,7 @@ Statusy:
 
 #### A7-T02 — Wyświetlenie PCM snapshotu
 
-- [ ] Status
-- Kontekst: dla written user ma widzieć 5 punktów, nie tylko nazwę profilu.
+- [x] Status
 - Pliki:
 - `src/pages/admin/social-hub/[briefId].astro`
 - Wynik:
@@ -1233,8 +1220,7 @@ Statusy:
 
 #### A7-T03 — Wyświetlenie video format
 
-- [ ] Status
-- Kontekst: dla video user ma widzieć wybrany format w detailu briefu i assetu.
+- [x] Status
 - Pliki:
 - `src/pages/admin/social-hub/[briefId].astro`
 - Wynik:
@@ -1242,8 +1228,7 @@ Statusy:
 
 #### A7-T04 — Panel personalization summary
 
-- [ ] Status
-- Kontekst: personalizacja jest ważna biznesowo i musi być widoczna w audycie.
+- [x] Status
 - Pliki:
 - `src/pages/admin/social-hub/[briefId].astro`
 - Wynik:
@@ -1251,8 +1236,7 @@ Statusy:
 
 #### A7-T05 — Prompt/audit panel
 
-- [ ] Status
-- Kontekst: potrzebny szybki wgląd, czy engine był naprawdę w promptach.
+- [x] Status
 - Pliki:
 - `src/pages/admin/social-hub/[briefId].astro`
 - Wynik:
@@ -1323,19 +1307,19 @@ Statusy:
 
 - [x] Migracje DB gotowe
 - [x] `ShSettingsConfig` rozszerzony
-- [ ] Settings UI zapisuje VIRAL ENGINE
-- [ ] New brief obsługuje override
-- [ ] `scripts/sh-copywriter.ts` używa VIRAL ENGINE w promptach
+- [x] Settings UI zapisuje VIRAL ENGINE
+- [x] New brief obsługuje override (toggle, PCM, video format, personalization)
+- [x] `scripts/sh-copywriter.ts` używa VIRAL ENGINE w promptach
 - [x] PCM 5-point działa dla written
 - [x] Video format selection działa dla video
-- [ ] Brief detail pokazuje audit danych viralowych
+- [x] Brief detail pokazuje audit danych viralowych
 
 ### Ważne
 
-- [ ] Prompt snapshot zapisuje się do DB
-- [ ] Asset snapshot zapisuje się do DB
-- [ ] Engine off działa bez regresji
-- [ ] Legacy briefs nadal się otwierają
+- [x] Prompt snapshot zapisuje się do DB (`promptUsed` w `sh_generated_copy`)
+- [x] Asset snapshot zapisuje się do DB (`sh_media_assets.viral_engine_snapshot` — render.ts + sh-video-render.ts)
+- [x] Engine off działa bez regresji (fallback prompt w sh-viral-engine-prompts.ts)
+- [x] Legacy briefs nadal się otwierają (nullable pola viralowe)
 
 ### QA
 
