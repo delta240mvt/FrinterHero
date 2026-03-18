@@ -2,6 +2,26 @@
 
 Data: 2026-03-18
 
+## Status wykonania
+
+### Wykonane i potwierdzone na 2026-03-18
+
+- wykonano migrację `migrations/0005_social_hub_viral_engine.sql` przez `npm run db:push`
+- `drizzle-kit push` zakończył się statusem `Changes applied`
+- model danych w `src/db/schema.ts` zawiera pola VIRAL ENGINE dla `sh_settings`, `sh_content_briefs`, `sh_generated_copy` i `sh_media_assets`
+- runtime i typy VIRAL ENGINE istnieją w:
+- `src/lib/sh-viral-engine-types.ts`
+- `src/lib/sh-viral-engine.ts`
+- backend settings SocialHub obsługuje `viralEngine` w:
+- `src/lib/sh-settings.ts`
+
+### Krótki log wykonania
+
+1. Odczytano połączenie DB z `.env.local` przez `DATABASE_URL`.
+2. Zweryfikowano, że `db:push` mapuje się na `drizzle-kit push`.
+3. Uruchomiono `npm run db:push`.
+4. Migracja została zastosowana poprawnie do bazy.
+
 ## Cel
 
 Wdrożyć w module SocialHub pełny mechanizm `VIRAL ENGINE`, konfigurowalny z poziomu `Settings`, który:
@@ -829,7 +849,7 @@ Statusy:
 
 #### A1-T01 — Rozszerzenie typu `sh_settings.config`
 
-- [ ] Status
+- [x] Status
 - Kontekst: settings SocialHub są dziś trzymane w `jsonb config`, więc VIRAL ENGINE powinien wejść tam bez łamania obecnego modelu.
 - Pliki:
 - `src/db/schema.ts`
@@ -839,7 +859,7 @@ Statusy:
 
 #### A1-T02 — Dodanie pól viralowych do `sh_content_briefs`
 
-- [ ] Status
+- [x] Status
 - Kontekst: brief musi przechowywać snapshot ustawień i override, bo generacja nie może polegać tylko na bieżących settings globalnych.
 - Pliki:
 - `src/db/schema.ts`
@@ -848,7 +868,7 @@ Statusy:
 
 #### A1-T03 — Dodanie pól viralowych do `sh_generated_copy`
 
-- [ ] Status
+- [x] Status
 - Kontekst: copy ma mieć audyt tego, z jakim profilem i strategią powstało.
 - Pliki:
 - `src/db/schema.ts`
@@ -857,7 +877,7 @@ Statusy:
 
 #### A1-T04 — Dodanie pól viralowych do `sh_media_assets`
 
-- [ ] Status
+- [x] Status
 - Kontekst: media asset musi wiedzieć, jaki format video i jaka strategia były użyte.
 - Pliki:
 - `src/db/schema.ts`
@@ -866,7 +886,7 @@ Statusy:
 
 #### A1-T05 — Migracja SQL
 
-- [ ] Status
+- [x] Status
 - Kontekst: migracja musi być bezpieczna dla istniejących rekordów SocialHub.
 - Pliki:
 - `migrations/*`
@@ -874,10 +894,13 @@ Statusy:
 - Wynik:
 - migracja dodaje pola bez destrukcji danych
 - stare rekordy pozostają czytelne
+- Notatka wykonawcza:
+- `migrations/0005_social_hub_viral_engine.sql` została wykonana przez `npm run db:push` w dniu `2026-03-18`
+- Drizzle zwrócił `Changes applied`
 
 #### A1-T06 — Sanity check kompatybilności
 
-- [ ] Status
+- [x] Status
 - Kontekst: UI i API nie mogą wybuchać na starych briefach bez pól viralowych.
 - Pliki:
 - `src/db/schema.ts`
@@ -888,7 +911,7 @@ Statusy:
 
 #### A2-T01 — Rozszerzenie `ShSettingsConfig`
 
-- [ ] Status
+- [x] Status
 - Kontekst: obecny config nie zna VIRAL ENGINE, więc backend nie ma jak go zapisać/odczytać.
 - Pliki:
 - `src/lib/sh-settings.ts`
@@ -897,7 +920,7 @@ Statusy:
 
 #### A2-T02 — Defaults dla VIRAL ENGINE
 
-- [ ] Status
+- [x] Status
 - Kontekst: system musi działać także dla fresh install i starych danych.
 - Pliki:
 - `src/lib/sh-settings.ts`
@@ -906,7 +929,7 @@ Statusy:
 
 #### A2-T03 — Helper merge global settings -> runtime config
 
-- [ ] Status
+- [x] Status
 - Kontekst: trzeba centralnie składać konfigurację, zamiast powielać merge w API i skryptach.
 - Pliki:
 - `src/lib/sh-settings.ts`
@@ -926,7 +949,7 @@ Statusy:
 
 #### A2-T05 — Env/runtime propagation
 
-- [ ] Status
+- [x] Status
 - Kontekst: job generacji musi dostać config viralowy.
 - Pliki:
 - `src/lib/sh-settings.ts`
@@ -1056,7 +1079,7 @@ Statusy:
 
 #### A5-T01 — Typy domenowe VIRAL ENGINE
 
-- [ ] Status
+- [x] Status
 - Kontekst: bez wspólnych typów implementacja rozjedzie się między UI, API i skryptami.
 - Pliki:
 - `src/lib/sh-viral-engine-types.ts`
@@ -1065,7 +1088,7 @@ Statusy:
 
 #### A5-T02 — Biblioteka PCM profiles
 
-- [ ] Status
+- [x] Status
 - Kontekst: written content wymaga pełnego 5-point PCM snapshotu.
 - Pliki:
 - `src/lib/sh-viral-engine.ts`
@@ -1074,7 +1097,7 @@ Statusy:
 
 #### A5-T03 — Biblioteka video formats
 
-- [ ] Status
+- [x] Status
 - Kontekst: video prompt musi znać strukturę formatu, a nie tylko slug.
 - Pliki:
 - `src/lib/sh-viral-engine.ts`
@@ -1083,7 +1106,7 @@ Statusy:
 
 #### A5-T04 — Runtime builder dla written
 
-- [ ] Status
+- [x] Status
 - Kontekst: dla text/image engine ma wygenerować spójny blok do promptu.
 - Pliki:
 - `src/lib/sh-viral-engine.ts`
@@ -1092,7 +1115,7 @@ Statusy:
 
 #### A5-T05 — Runtime builder dla video
 
-- [ ] Status
+- [x] Status
 - Kontekst: dla video engine ma dobrać lub odczytać format i zbudować instrukcję.
 - Pliki:
 - `src/lib/sh-viral-engine.ts`
@@ -1298,13 +1321,13 @@ Statusy:
 
 ### Krytyczne
 
-- [ ] Migracje DB gotowe
-- [ ] `ShSettingsConfig` rozszerzony
+- [x] Migracje DB gotowe
+- [x] `ShSettingsConfig` rozszerzony
 - [ ] Settings UI zapisuje VIRAL ENGINE
 - [ ] New brief obsługuje override
 - [ ] `scripts/sh-copywriter.ts` używa VIRAL ENGINE w promptach
-- [ ] PCM 5-point działa dla written
-- [ ] Video format selection działa dla video
+- [x] PCM 5-point działa dla written
+- [x] Video format selection działa dla video
 - [ ] Brief detail pokazuje audit danych viralowych
 
 ### Ważne
@@ -1376,3 +1399,15 @@ Po wdrożeniu SocialHub będzie miał:
 - wybór formatów video,
 - możliwość A/B testów dzięki trybowi off,
 - audyt tego, czy VIRAL ENGINE był faktycznie użyty w promptach AI.
+
+## 20. Następne kroki
+
+Najbliższe realne kroki po wykonanej migracji i wdrożeniu kontraktów backendowych:
+
+1. Dokończyć `GET/PUT /api/social-hub/settings`, tak żeby payload `viralEngine` był w pełni czytany i zapisywany przez endpoint.
+2. Rozbudować `src/pages/admin/social-hub/settings.astro`, żeby UI umiało edytować pełną konfigurację VIRAL ENGINE.
+3. Dodać override VIRAL ENGINE do `src/pages/admin/social-hub/new.astro` oraz zapisać snapshot do briefu w `src/pages/api/social-hub/briefs/index.ts`.
+4. Wstrzyknąć VIRAL ENGINE do promptów w `scripts/sh-copywriter.ts` i zapisywać audit trail do `sh_generated_copy`.
+5. Spiąć `videoFormatSlug` z render pipeline w `src/pages/api/social-hub/briefs/[id]/render.ts` oraz `scripts/sh-video-render.ts`.
+6. Uzupełnić `src/pages/admin/social-hub/[briefId].astro` o widok audytu: engine on/off, PCM snapshot, video format i personalization summary.
+7. Wykonać smoke testy dla trzech ścieżek: engine on, engine off, video format override.
