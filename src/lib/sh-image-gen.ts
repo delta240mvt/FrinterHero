@@ -15,12 +15,16 @@
 
 import type { SatoriOptions } from 'satori';
 import type { ResvgRenderOptions } from '@resvg/resvg-js';
-import { readFileSync } from 'fs';
-import { resolve } from 'path';
+import { existsSync, readFileSync } from 'fs';
+import { dirname, resolve } from 'path';
+import { fileURLToPath } from 'url';
 
 let satoriFn: ((vdom: unknown, opts: SatoriOptions) => Promise<string>) | null = null;
 let htmlFn: ((markup: string) => unknown) | null = null;
 let ResvgClass: (new (svg: string, opts?: ResvgRenderOptions | null) => { render(): { asPng(): Uint8Array } }) | null = null;
+const MODULE_DIR = dirname(fileURLToPath(import.meta.url));
+const PROJECT_ROOT = resolve(MODULE_DIR, '..', '..');
+const FONT_DIR = resolve(PROJECT_ROOT, 'public', 'fonts');
 
 async function loadDeps(): Promise<void> {
   if (satoriFn && htmlFn && ResvgClass) return;
@@ -60,19 +64,37 @@ let fontRoboto400: Buffer | null = null;
 let fontCourier400: Buffer | null = null;
 let fontCourier700: Buffer | null = null;
 
+function readProjectFile(...segments: string[]): Buffer {
+  const candidatePaths = [
+    resolve(PROJECT_ROOT, ...segments),
+    resolve(process.cwd(), ...segments),
+  ];
+
+  for (const candidate of candidatePaths) {
+    if (existsSync(candidate)) {
+      return readFileSync(candidate);
+    }
+  }
+
+  throw new Error(`Missing file: ${segments.join('/')}`);
+}
+
 async function loadFontsAsync() {
   if (font400 && font500 && font600 && font700 && fontRoboto400 && fontCourier400) return;
+
   try {
-    font400 = readFileSync(resolve(process.cwd(), 'public/fonts/Poppins-400.ttf'));
-    font500 = readFileSync(resolve(process.cwd(), 'public/fonts/Poppins-500.ttf'));
-    font600 = readFileSync(resolve(process.cwd(), 'public/fonts/Poppins-600.ttf'));
-    font700 = readFileSync(resolve(process.cwd(), 'public/fonts/Poppins-700.ttf'));
-    fontRoboto300 = readFileSync(resolve(process.cwd(), 'public/fonts/Roboto-300.ttf'));
-    fontRoboto400 = readFileSync(resolve(process.cwd(), 'public/fonts/Roboto-400.ttf'));
-    fontCourier400 = readFileSync(resolve(process.cwd(), 'public/fonts/CourierPrime-Regular.ttf'));
-    fontCourier700 = readFileSync(resolve(process.cwd(), 'public/fonts/CourierPrime-Bold.ttf'));
-  } catch (err) {
-    console.error('[sh-image-gen] Failed to read local TTF fonts:', err);
+    font400 = readProjectFile('public', 'fonts', 'Poppins-400.ttf');
+    font500 = readProjectFile('public', 'fonts', 'Poppins-500.ttf');
+    font600 = readProjectFile('public', 'fonts', 'Poppins-600.ttf');
+    font700 = readProjectFile('public', 'fonts', 'Poppins-700.ttf');
+    fontRoboto300 = readProjectFile('public', 'fonts', 'Roboto-300.ttf');
+    fontRoboto400 = readProjectFile('public', 'fonts', 'Roboto-400.ttf');
+    fontCourier400 = readProjectFile('public', 'fonts', 'CourierPrime-Regular.ttf');
+    fontCourier700 = readProjectFile('public', 'fonts', 'CourierPrime-Bold.ttf');
+  } catch (err: any) {
+    throw new Error(
+      `[sh-image-gen] Failed to read required TTF fonts from ${FONT_DIR}: ${err?.message ?? String(err)}`,
+    );
   }
 }
 
@@ -163,34 +185,13 @@ function buildTipCard(opts: SocialImageOptions, w: number, h: number): string {
 // ── IG 3:4 — Minimal Dark ──────────────────────────────────────────────────
 function buildIgMinimal(opts: SocialImageOptions, w: number, h: number): string {
   const c = { ...DEFAULT_COLORS, ...opts.brandColors };
-  return `<div style="width:${w}px;height:${h}px;background:#0d1117;display:flex;flex-direction:column;justify-content:space-between;padding:96px 80px;font-family:'Poppins', sans-serif;">
-    <div style="display:flex;align-items:center;gap:16px;">
-      <div style="width:48px;height:4px;background:${c.teal};border-radius:2px;"></div>
-      <div style="font-size:20px;font-family:'Courier Prime', monospace;color:${c.teal};font-weight:700;letter-spacing:3px;">FRINTER</div>
-    </div>
-    <div style="display:flex;flex-direction:column;gap:40px;">
-      <div style="font-size:62px;font-weight:700;color:#f8fafc;line-height:1.15;">${opts.hookLine.slice(0, 80)}</div>
-      <div style="width:64px;height:3px;background:${c.gold};border-radius:2px;"></div>
-      <div style="font-size:30px;font-family:'Roboto', sans-serif;font-weight:300;color:#94a3b8;line-height:1.65;">${opts.bodyText.slice(0, 300)}</div>
-    </div>
-    <div style="font-size:20px;font-family:'Courier Prime', monospace;color:${c.violet};">${opts.hashtags.slice(0, 5).join('  ')}</div>
-  </div>`;
+  return `<div style="width:${w}px;height:${h}px;background:#0d1117;display:flex;flex-direction:column;justify-content:space-between;padding:96px 80px;font-family:'Poppins', sans-serif;"><div style="display:flex;align-items:center;gap:16px;"><div style="display:flex;width:48px;height:4px;background:${c.teal};border-radius:2px;"></div><div style="display:flex;font-size:20px;font-family:'Courier Prime', monospace;color:${c.teal};font-weight:700;letter-spacing:3px;">FRINTER</div></div><div style="display:flex;flex-direction:column;gap:40px;"><div style="display:flex;font-size:62px;font-weight:700;color:#f8fafc;line-height:1.15;">${opts.hookLine.slice(0, 80)}</div><div style="display:flex;width:64px;height:3px;background:${c.gold};border-radius:2px;"></div><div style="display:flex;font-size:30px;font-family:'Roboto', sans-serif;font-weight:300;color:#94a3b8;line-height:1.65;">${opts.bodyText.slice(0, 300)}</div></div><div style="display:flex;font-size:20px;font-family:'Courier Prime', monospace;color:${c.violet};">${opts.hashtags.slice(0, 5).join('  ')}</div></div>`;
 }
 
 // ── IG 3:4 — Gradient Quote ────────────────────────────────────────────────
 function buildIgQuoteGradient(opts: SocialImageOptions, w: number, h: number): string {
   const c = { ...DEFAULT_COLORS, ...opts.brandColors };
-  return `<div style="width:${w}px;height:${h}px;background:linear-gradient(135deg,${c.bg} 0%,#1a0b2e 50%,#0f2027 100%);display:flex;flex-direction:column;justify-content:center;align-items:center;padding:80px;font-family:'Poppins', sans-serif;text-align:center;">
-    <div style="font-size:140px;color:${c.violet};opacity:0.2;line-height:0.7;margin-bottom:32px;">"</div>
-    <div style="font-size:58px;font-weight:700;color:white;line-height:1.2;margin-bottom:48px;">${opts.hookLine.slice(0, 100)}</div>
-    <div style="display:flex;align-items:center;gap:24px;margin-bottom:40px;">
-      <div style="flex:1;height:1px;background:rgba(255,255,255,0.15);"></div>
-      <div style="width:8px;height:8px;border-radius:50%;background:${c.gold};"></div>
-      <div style="flex:1;height:1px;background:rgba(255,255,255,0.15);"></div>
-    </div>
-    <div style="font-size:28px;font-family:'Roboto', sans-serif;font-weight:400;color:#94a3b8;line-height:1.6;max-width:900px;">${opts.bodyText.slice(0, 180)}</div>
-    <div style="margin-top:60px;font-size:22px;font-family:'Courier Prime', monospace;font-weight:700;color:${c.teal};">${opts.hashtags.slice(0, 4).join('  ')}</div>
-  </div>`;
+  return `<div style="width:${w}px;height:${h}px;background:linear-gradient(135deg,${c.bg} 0%,#1a0b2e 50%,#0f2027 100%);display:flex;flex-direction:column;justify-content:center;align-items:center;padding:80px;font-family:'Poppins', sans-serif;text-align:center;"><div style="display:flex;font-size:140px;color:${c.violet};opacity:0.2;line-height:0.7;margin-bottom:32px;">"</div><div style="display:flex;font-size:58px;font-weight:700;color:white;line-height:1.2;margin-bottom:48px;">${opts.hookLine.slice(0, 100)}</div><div style="display:flex;align-items:center;gap:24px;margin-bottom:40px;"><div style="display:flex;flex:1;height:1px;background:rgba(255,255,255,0.15);"></div><div style="display:flex;width:8px;height:8px;border-radius:50%;background:${c.gold};"></div><div style="display:flex;flex:1;height:1px;background:rgba(255,255,255,0.15);"></div></div><div style="display:flex;font-size:28px;font-family:'Roboto', sans-serif;font-weight:400;color:#94a3b8;line-height:1.6;max-width:900px;">${opts.bodyText.slice(0, 180)}</div><div style="display:flex;margin-top:60px;font-size:22px;font-family:'Courier Prime', monospace;font-weight:700;color:${c.teal};">${opts.hashtags.slice(0, 4).join('  ')}</div></div>`;
 }
 
 // ── IG 3:4 — Tip List ─────────────────────────────────────────────────────
@@ -242,7 +243,21 @@ export async function renderSocialImage(opts: SocialImageOptions): Promise<Socia
     default:                    htmlContent = buildRetroBCard(opts, w, h);
   }
 
-  const vdom = htmlFn!(htmlContent);
+  function cleanVdom(node: any): any {
+    if (!node || typeof node !== 'object') return node;
+    if (node.props && node.props.children) {
+      if (Array.isArray(node.props.children)) {
+        node.props.children = node.props.children
+          .filter((c: any) => c !== null && c !== undefined)
+          .map(cleanVdom);
+      } else {
+        node.props.children = cleanVdom(node.props.children);
+      }
+    }
+    return node;
+  }
+
+  const vdom = cleanVdom(htmlFn!(htmlContent));
 
   const fontOptions: SatoriOptions['fonts'] = [];
   if (font400) fontOptions.push({ name: 'Poppins', data: font400, weight: 400, style: 'normal' });
@@ -253,6 +268,9 @@ export async function renderSocialImage(opts: SocialImageOptions): Promise<Socia
   if (fontRoboto400) fontOptions.push({ name: 'Roboto', data: fontRoboto400, weight: 400, style: 'normal' });
   if (fontCourier400) fontOptions.push({ name: 'Courier Prime', data: fontCourier400, weight: 400, style: 'normal' });
   if (fontCourier700) fontOptions.push({ name: 'Courier Prime', data: fontCourier700, weight: 700, style: 'normal' });
+  if (fontOptions.length === 0) {
+    throw new Error(`[sh-image-gen] No fonts were loaded from ${FONT_DIR}.`);
+  }
 
   const svg = await satoriFn!(vdom, {
     width: w,

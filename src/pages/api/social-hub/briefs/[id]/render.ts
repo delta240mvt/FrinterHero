@@ -92,7 +92,7 @@ export const POST: APIRoute = async ({ params, request, cookies }) => {
           .then(rows => rows[0] ?? null);
       }
 
-      const effectiveAspectRatio = (template?.aspectRatio as '1:1' | '9:16' | '16:9') ?? '1:1';
+      const effectiveAspectRatio = (template?.aspectRatio as '1:1' | '9:16' | '16:9' | '3:4') ?? '1:1';
       const effectiveSlug = template?.slug ?? 'retro-quote-card';
 
       // Render image
@@ -228,4 +228,3 @@ export const PUT: APIRoute = async ({ params, request, cookies }) => {
     { status: 400, headers: JSON_HEADERS },
   );
 };
-
