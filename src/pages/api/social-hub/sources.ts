@@ -15,10 +15,21 @@ import { ilike, desc, sql } from 'drizzle-orm';
 
 // ── helpers ─────────────────────────────────────────────────────────────────
 
-function makePreview(text: string | null | undefined, maxLen = 200): string {
+function makePreview(text: string | null | undefined, maxLen = 400): string {
   if (!text) return '';
   const t = text.trim();
   return t.length <= maxLen ? t : t.slice(0, maxLen - 1) + '…';
+}
+
+function formatMeta(obj: Record<string, any>): string {
+  const parts: string[] = [];
+  if (obj.status) parts.push(obj.status);
+  if (obj.category) parts.push(obj.category);
+  if (obj.emotionalIntensity) parts.push(`intensity: ${obj.emotionalIntensity}/10`);
+  if (obj.author) parts.push(`by ${obj.author}`);
+  if (Array.isArray(obj.tags) && obj.tags.length > 0) parts.push(obj.tags.slice(0, 4).join(', '));
+  if (obj.publishedAt) parts.push(new Date(obj.publishedAt).toLocaleDateString('pl-PL', { day:'2-digit', month:'short', year:'numeric' }));
+  return parts.filter(Boolean).join(' · ');
 }
 
 type SourceRow = {
@@ -26,6 +37,7 @@ type SourceRow = {
   sourceId: number;
   title: string;
   preview: string;
+  meta?: string;
   metadata: Record<string, any>;
 };
 
@@ -53,8 +65,18 @@ async function queryArticles(search: string): Promise<SourceRow[]> {
     sourceType: 'article',
     sourceId: r.id,
     title: r.title,
-    preview: makePreview(r.description ?? r.content),
-    metadata: { status: r.status, tags: r.tags, author: r.author, publishedAt: r.publishedAt },
+    preview: makePreview(r.description
+      ? `${r.description}\n\n${r.content ?? ''}`
+      : (r.content ?? ''),
+      600,
+    ),
+    metadata: {
+      status: r.status,
+      tags: r.tags,
+      author: r.author,
+      publishedAt: r.publishedAt,
+    },
+    meta: formatMeta({ status: r.status, tags: r.tags, author: r.author, publishedAt: r.publishedAt }),
   }));
 }
 

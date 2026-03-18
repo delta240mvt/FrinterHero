@@ -29,7 +29,7 @@ export interface ShSettingsConfig {
 }
 
 export const SH_SETTINGS_DEFAULTS: ShSettingsConfig = {
-  copywriterModel: 'claude-sonnet-4-6',
+  copywriterModel: 'claude-sonnet-4-5',
   copywriterThinkingBudget: 10000,
   videoProvider: 'wavespeed',
   videoModel: 'wan-2.2-ultra-fast',
