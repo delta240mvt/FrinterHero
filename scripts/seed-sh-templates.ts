@@ -2,6 +2,9 @@
  * Seed / upsert Social Hub templates into sh_templates table.
  * Run: npx tsx scripts/seed-sh-templates.ts
  */
+import * as dotenv from 'dotenv';
+dotenv.config({ path: '.env.local' });
+
 import { db } from '../src/db/client.ts';
 import { shTemplates } from '../src/db/schema.ts';
 import { getDefaultTemplates } from '../src/lib/sh-image-gen.ts';
