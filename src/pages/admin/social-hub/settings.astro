@@ -35,25 +35,24 @@ import Base from '@/components/layouts/Base.astro';
 
           <div class="field-grid">
             <div class="field-row">
-              <label class="field-label">Model</label>
-              <select name="llmModel" id="llm-model" class="field-select">
+              <select name="copywriterModel" id="llm-model" class="field-select">
                 <option value="claude-opus-4-6">claude-opus-4-6 (max quality)</option>
-                <option value="claude-sonnet-4-6" selected>claude-sonnet-4-6 ★ (recommended)</option>
+                <option value="claude-sonnet-4-6">claude-sonnet-4-6 ★ (recommended)</option>
                 <option value="claude-haiku-4-5-20251001">claude-haiku-4-5-20251001 (fast, cheap)</option>
               </select>
             </div>
             <div class="field-row">
               <label class="field-label">Extended Thinking Budget</label>
-              <input type="number" name="llmThinkingBudget" id="llm-thinking-budget" class="field-input-num" min="1000" max="64000" step="1000" value="10000" />
+              <input type="number" name="copywriterThinkingBudget" id="llm-thinking-budget" class="field-input-num" min="1000" max="64000" step="1000" value="10000" />
               <span class="field-unit">tokens</span>
             </div>
             <div class="field-row field-row--textarea">
               <label class="field-label field-label--top">Default Suggestion Prompt</label>
-              <textarea name="llmDefaultPrompt" id="llm-default-prompt" class="field-textarea" rows="4" placeholder="e.g. Write a compelling LinkedIn post about {topic} for high performers. Focus on actionable insight."></textarea>
+              <textarea name="defaultSuggestionPrompt" id="llm-default-prompt" class="field-textarea" rows="4" placeholder="e.g. Write a compelling LinkedIn post about {topic} for high performers. Focus on actionable insight."></textarea>
             </div>
             <div class="field-row field-row--textarea">
               <label class="field-label field-label--top">Tone Overrides</label>
-              <textarea name="llmToneOverrides" id="llm-tone-overrides" class="field-textarea" rows="3" placeholder="e.g. Always use second person. Avoid corporate jargon. Lead with a bold claim."></textarea>
+              <textarea name="toneOverrides" id="llm-tone-overrides" class="field-textarea" rows="3" placeholder="e.g. Always use second person. Avoid corporate jargon. Lead with a bold claim."></textarea>
             </div>
           </div>
         </div>
@@ -106,7 +105,7 @@ import Base from '@/components/layouts/Base.astro';
 
             <div class="field-row" id="elevenlabs-voice-row">
               <label class="field-label">ElevenLabs Voice ID</label>
-              <input type="text" name="elevenLabsVoiceId" id="elevenlabs-voice-id" class="field-input-text" placeholder="e.g. pNInz6obpgDQGcFmaJgB" />
+              <input type="text" name="elevenlabsVoiceId" id="elevenlabs-voice-id" class="field-input-text" placeholder="e.g. pNInz6obpgDQGcFmaJgB" />
             </div>
 
             <div class="field-row">
@@ -203,10 +202,10 @@ import Base from '@/components/layouts/Base.astro';
       };
 
       // Ensure model appears even if not in hardcoded HTML list
-      if (data.llmModel) {
-        const select = form.elements.namedItem('llmModel') as HTMLSelectElement;
-        if (![...select.options].some(o => o.value === data.llmModel)) {
-          select.add(new Option(`${data.llmModel} (custom)`, data.llmModel));
+      if (data.copywriterModel) {
+        const select = form.elements.namedItem('copywriterModel') as HTMLSelectElement;
+        if (![...select.options].some(o => o.value === data.copywriterModel)) {
+          select.add(new Option(`${data.copywriterModel} (custom)`, data.copywriterModel));
         }
       }
       if (data.videoModel) {
@@ -216,12 +215,12 @@ import Base from '@/components/layouts/Base.astro';
         }
       }
 
-      fd('llmModel', data.llmModel);
-      fd('llmThinkingBudget', data.llmThinkingBudget);
-      fd('llmDefaultPrompt', data.llmDefaultPrompt);
-      fd('llmToneOverrides', data.llmToneOverrides);
+      fd('copywriterModel', data.copywriterModel);
+      fd('copywriterThinkingBudget', data.copywriterThinkingBudget);
+      fd('defaultSuggestionPrompt', data.defaultSuggestionPrompt);
+      fd('toneOverrides', data.toneOverrides);
       fd('videoModel', data.videoModel);
-      fd('elevenLabsVoiceId', data.elevenLabsVoiceId);
+      fd('elevenlabsVoiceId', data.elevenlabsVoiceId);
       fd('avatarImageUrl', data.avatarImageUrl);
       fd('defaultHashtags', Array.isArray(data.defaultHashtags) ? data.defaultHashtags.join('\n') : (data.defaultHashtags ?? ''));
       fd('autoSchedule', data.autoSchedule);
@@ -260,14 +259,14 @@ import Base from '@/components/layouts/Base.astro';
       .filter(h => h.length > 0);
 
     const payload = {
-      llmModel: fd.get('llmModel'),
-      llmThinkingBudget: parseInt(String(fd.get('llmThinkingBudget') ?? '10000'), 10),
-      llmDefaultPrompt: fd.get('llmDefaultPrompt'),
-      llmToneOverrides: fd.get('llmToneOverrides'),
+      copywriterModel: fd.get('copywriterModel'),
+      copywriterThinkingBudget: parseInt(String(fd.get('copywriterThinkingBudget') ?? '10000'), 10),
+      defaultSuggestionPrompt: fd.get('defaultSuggestionPrompt'),
+      toneOverrides: fd.get('toneOverrides'),
       videoProvider: fd.get('videoProvider'),
       videoModel: fd.get('videoModel'),
       ttsProvider: fd.get('ttsProvider'),
-      elevenLabsVoiceId: fd.get('elevenLabsVoiceId'),
+      elevenlabsVoiceId: fd.get('elevenlabsVoiceId'),
       avatarImageUrl: fd.get('avatarImageUrl'),
       defaultHashtags,
       autoSchedule: (form.elements.namedItem('autoSchedule') as HTMLInputElement)?.checked ?? false,
