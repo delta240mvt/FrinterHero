@@ -110,8 +110,6 @@ async function run() {
     resolved.runtime.personalizationNotes = runtimeFromEnv.personalizationNotes;
   }
 
-  process.env.BC_LLM_PROVIDER = 'anthropic';
-
   const systemSections = [
     'You are a SocialHub social media copywriter.',
     brandVoice ? `Brand voice:\n${brandVoice}` : '',
@@ -151,7 +149,8 @@ async function run() {
   const systemPrompt = systemSections.join('\n\n');
   const userPrompt = userSections.join('\n');
 
-  log(`Calling AI copywriter using model: ${model} (provider: anthropic)...`);
+  const provider = process.env.BC_LLM_PROVIDER === 'anthropic' ? 'anthropic' : 'openrouter';
+  log(`Calling AI copywriter using model: ${model} (provider: ${provider})...`);
   let responseText = '';
 
   try {

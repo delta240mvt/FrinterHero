@@ -47,9 +47,17 @@ export interface BcLlmResponse {
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
-const PROVIDER = (process.env.BC_LLM_PROVIDER || 'openrouter') as 'openrouter' | 'anthropic';
-const ET_ENABLED = process.env.BC_EXTENDED_THINKING_ENABLED === 'true';
-const ET_BUDGET_DEFAULT = parseInt(process.env.BC_THINKING_BUDGET_DEFAULT || '10000', 10);
+function getProvider(): 'openrouter' | 'anthropic' {
+  return process.env.BC_LLM_PROVIDER === 'anthropic' ? 'anthropic' : 'openrouter';
+}
+
+function getExtendedThinkingEnabled(): boolean {
+  return process.env.BC_EXTENDED_THINKING_ENABLED === 'true';
+}
+
+function getDefaultThinkingBudget(): number {
+  return parseInt(process.env.BC_THINKING_BUDGET_DEFAULT || '10000', 10);
+}
 
 // ─── Lazy clients ─────────────────────────────────────────────────────────────
 
@@ -91,10 +99,29 @@ function buildThinkingConfig(
   };
 }
 
+function normalizeModelForOpenrouter(model: string): string {
+  if (model.includes('/')) return model;
+  if (model.startsWith('claude-')) return `anthropic/${model}`;
+  if (model.startsWith('gpt-') || model.startsWith('o1') || model.startsWith('o3') || model.startsWith('o4')) {
+    return `openai/${model}`;
+  }
+  if (model.startsWith('gemini-')) return `google/${model}`;
+  if (model.startsWith('llama-')) return `meta-llama/${model}`;
+  return model;
+}
+
+function normalizeModelForAnthropic(model: string): string {
+  if (model.startsWith('anthropic/')) {
+    return model.slice('anthropic/'.length);
+  }
+  return model;
+}
+
 // ─── OpenRouter call ──────────────────────────────────────────────────────────
 
 async function callOpenrouter(options: BcLlmCallOptions): Promise<BcLlmResponse> {
   const client = getOpenrouterClient();
+  const model = normalizeModelForOpenrouter(options.model);
 
   const msgs: OpenAI.Chat.ChatCompletionMessageParam[] = [];
   if (options.systemPrompt) {
@@ -105,7 +132,7 @@ async function callOpenrouter(options: BcLlmCallOptions): Promise<BcLlmResponse>
   }
 
   const resp = await client.chat.completions.create({
-    model: options.model,
+    model,
     max_tokens: options.maxTokens,
     messages: msgs,
   });
@@ -114,7 +141,7 @@ async function callOpenrouter(options: BcLlmCallOptions): Promise<BcLlmResponse>
     content: resp.choices[0]?.message?.content ?? '',
     inputTokens: resp.usage?.prompt_tokens ?? 0,
     outputTokens: resp.usage?.completion_tokens ?? 0,
-    model: options.model,
+    model,
   };
 }
 
@@ -122,9 +149,10 @@ async function callOpenrouter(options: BcLlmCallOptions): Promise<BcLlmResponse>
 
 async function callAnthropic(options: BcLlmCallOptions): Promise<BcLlmResponse> {
   const client = getAnthropicClient();
+  const model = normalizeModelForAnthropic(options.model);
 
   const thinking = options.thinkingBudget
-    ? buildThinkingConfig(options.model, options.thinkingBudget)
+    ? buildThinkingConfig(model, options.thinkingBudget)
     : undefined;
 
   // When extended thinking: max_tokens must exceed budget_tokens
@@ -134,7 +162,7 @@ async function callAnthropic(options: BcLlmCallOptions): Promise<BcLlmResponse> 
   }
 
   const resp = await client.messages.create({
-    model: options.model,
+    model,
     max_tokens: maxTokens,
     system: options.systemPrompt,
     ...(thinking ? { thinking } : {}),
@@ -159,7 +187,7 @@ async function callAnthropic(options: BcLlmCallOptions): Promise<BcLlmResponse> 
     content: textContent,
     inputTokens: resp.usage.input_tokens,
     outputTokens: resp.usage.output_tokens,
-    model: options.model,
+    model,
     thinkingContent,
   };
 }
@@ -167,7 +195,7 @@ async function callAnthropic(options: BcLlmCallOptions): Promise<BcLlmResponse> 
 // ─── Main exported function ───────────────────────────────────────────────────
 
 export async function callBcLlm(options: BcLlmCallOptions): Promise<BcLlmResponse> {
-  if (PROVIDER === 'anthropic') {
+  if (getProvider() === 'anthropic') {
     return callAnthropic(options);
   }
   return callOpenrouter(options);
@@ -176,28 +204,28 @@ export async function callBcLlm(options: BcLlmCallOptions): Promise<BcLlmRespons
 // ─── Model selectors per step ─────────────────────────────────────────────────
 
 export function getBcLpModel(): string {
-  if (PROVIDER === 'anthropic') {
+  if (getProvider() === 'anthropic') {
     return process.env.BC_LP_ANTHROPIC_MODEL || 'claude-sonnet-4-6';
   }
   return process.env.BC_LP_MODEL || 'anthropic/claude-sonnet-4-6';
 }
 
 export function getBcScraperModel(): string {
-  if (PROVIDER === 'anthropic') {
+  if (getProvider() === 'anthropic') {
     return process.env.BC_SCRAPER_ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001';
   }
   return process.env.BC_SCRAPER_MODEL || 'anthropic/claude-haiku-4-5';
 }
 
 export function getBcClusterModel(): string {
-  if (PROVIDER === 'anthropic') {
+  if (getProvider() === 'anthropic') {
     return process.env.BC_CLUSTER_ANTHROPIC_MODEL || 'claude-sonnet-4-6';
   }
   return process.env.BC_LP_MODEL || 'anthropic/claude-sonnet-4-6';
 }
 
 export function getBcGeneratorModel(): string {
-  if (PROVIDER === 'anthropic') {
+  if (getProvider() === 'anthropic') {
     return process.env.BC_GENERATOR_ANTHROPIC_MODEL || 'claude-sonnet-4-6';
   }
   return process.env.BC_LP_MODEL || 'anthropic/claude-sonnet-4-6';
@@ -227,9 +255,9 @@ export function getBcThinkingBudget(
   step: 'lp' | 'scraper' | 'cluster' | 'generator',
 ): number | undefined {
   // ET only works with anthropic provider
-  if (PROVIDER !== 'anthropic' || !ET_ENABLED) return undefined;
+  if (getProvider() !== 'anthropic' || !getExtendedThinkingEnabled()) return undefined;
 
   const envKey = `BC_${step.toUpperCase()}_THINKING_BUDGET`;
   const raw = process.env[envKey];
-  return raw ? parseInt(raw, 10) : ET_BUDGET_DEFAULT;
+  return raw ? parseInt(raw, 10) : getDefaultThinkingBudget();
 }
