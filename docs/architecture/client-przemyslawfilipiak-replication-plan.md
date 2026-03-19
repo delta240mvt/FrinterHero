@@ -24,7 +24,8 @@ Powiązane dokumenty referencyjne:
 Założenia operacyjne:
 
 - użytkownik chce zachować tę samą tożsamość witryny na wszystkich trzech klientach
-- `client-focusequalsfreedom` i `client-frinter` mają mieć własne bazy danych
+- wszyscy trzej klienci korzystają z tej samej bazy danych
+- izolacja danych między klientami odbywa się przez `SITE_SLUG` i `site_id`
 - na starcie ich panel admina i blog mogą być puste, ale nie mogą rzucać `500`
 - jeśli w repo istnieją poprawki tylko w `client-przemyslawfilipiak`, to należy je traktować jako kandydatów do replikacji do pozostałych dwóch klientów
 
@@ -58,7 +59,6 @@ Zakres identyczności:
 
 Jedyna różnica między klientami ma wynikać z tenant context:
 
-- własna baza danych per klient
 - własny `SITE_SLUG`
 - własny `site_id`
 - własne domeny i env
@@ -166,7 +166,7 @@ Oba klienty muszą odziedziczyć:
 - wszystkie strony marketingowe i pomocnicze
 - healthcheck
 
-Treści mają być puste na początku nie dlatego, że front ma inną logikę, tylko dlatego, że ich własne bazy będą początkowo puste.
+Treści mają być puste na początku nie dlatego, że front ma inną logikę, tylko dlatego, że wspólna baza może nie mieć jeszcze danych przypisanych do `site_id = 2` i `site_id = 3`.
 
 ### 5.4 Panel admina
 
@@ -203,15 +203,16 @@ To oznacza, że kod klienta nie powinien hardkodować `site_id`.
 
 ## 6. Wymagania danych i bazy
 
-Każdy klient ma mieć własną bazę danych.
+Wszyscy trzej klienci mają korzystać z jednej wspólnej bazy danych.
 
 To oznacza:
 
-- osobny `DATABASE_URL` dla `api` i workerów w danym rolloutcie klienta
+- wspólny `DATABASE_URL` dla backend stacku
 - seeded `sites` table z poprawnym wpisem tenantowym
-- puste dane biznesowe są akceptowalne
+- izolację danych przez `site_id`
+- puste dane biznesowe dla `site_id = 2` i `site_id = 3` są akceptowalne
 
-Minimalny warunek dla każdej nowej bazy:
+Minimalny warunek dla wspólnej bazy:
 
 1. schema aktualna względem repo
 2. seeded `sites`
@@ -220,7 +221,7 @@ Minimalny warunek dla każdej nowej bazy:
    - `site_id = 2` / `focusequalsfreedom`
    - `site_id = 3` / `frinter`
 
-Jeśli baza jest dedykowana tylko jednemu tenantowi, nadal rekomendowane jest zachowanie pełnej tabeli `sites`, bo obecna architektura jest tenant-aware, a nie single-tenant hardcoded.
+Model docelowy nie jest single-tenant. Obecna architektura pozostaje tenant-aware i wymaga poprawnego działania `sites`, `SITE_SLUG` i `site_id` we wspólnej bazie.
 
 ## 7. Plan wykonania
 
@@ -295,7 +296,7 @@ Szczególnie zweryfikować, że write path idzie do właściwego tenant context:
 
 ### Etap 5. Smoke test na pustych bazach
 
-Po podpięciu pustych baz oba klienty powinny:
+Przy pustych danych dla `site_id = 2` i `site_id = 3` oba klienty powinny:
 
 - poprawnie się uruchomić
 - poprawnie logować do admina
@@ -309,10 +310,10 @@ To jest kluczowy warunek akceptacji.
 Dla każdego klienta potrzebne będą:
 
 - osobny web service
-- osobne API service albo osobny rollout API z dedykowaną bazą
-- osobne workery lub osobny komplet usług pracujących na tej samej dedykowanej bazie klienta
+- API i workery muszą działać w modelu tenant-aware nad tą samą wspólną bazą
+- env klienta musi poprawnie przekazywać `SITE_SLUG`
 
-Jeśli celem jest pełna izolacja danych, to dla każdego rollouttu klienta trzeba utrzymać wspólny backend stack dla tej konkretnej bazy:
+Jeśli rollout pozostaje wspólny dla wszystkich tenantów, backend stack może pozostać wspólny:
 
 - `api`
 - `worker-general`
@@ -320,7 +321,7 @@ Jeśli celem jest pełna izolacja danych, to dla każdego rollouttu klienta trze
 - `worker-sh-copy`
 - `worker-sh-video`
 
-Sam web service nie wystarczy, bo zapis musi trafiać do właściwej bazy tenantowej.
+Sam web service nie wystarczy, bo zapis musi trafiać do właściwego `site_id` we wspólnej bazie.
 
 ## 9. Krytyczne ryzyka
 
@@ -374,9 +375,9 @@ Prace można uznać za zakończone, jeśli:
 2. Oba klienty mają ten sam panel admina i ten sam routing.
 3. Oba klienty używają tego samego API/BFF flow.
 4. Nie ma bezpośredniego DB access w kliencie dla logiki admin/API.
-5. Każdy rollout zapisuje do własnej bazy.
+5. Każdy klient zapisuje do wspólnej bazy, ale do właściwego `site_id`.
 6. Tenant resolution kończy się zapisem do właściwego `site_id`.
-7. Puste bazy nie powodują `500` ani regresji UX.
+7. Puste dane dla `site_id = 2` i `site_id = 3` nie powodują `500` ani regresji UX.
 8. Blog, publikacja artykułów i internal linking działają tenantowo poprawnie.
 
 ## 11. Rekomendacja wykonawcza
