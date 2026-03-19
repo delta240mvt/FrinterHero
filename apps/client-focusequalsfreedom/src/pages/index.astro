@@ -1,0 +1,189 @@
+---
+export const prerender = true;
+
+import Landing from '@/components/layouts/Landing.astro';
+import Hero from '@/components/Hero.astro';
+import About from '@/components/About.astro';
+import Projects from '@/components/Projects.astro';
+import BlogPreview from '@/components/BlogPreview.astro';
+import Contact from '@/components/Contact.astro';
+import { absoluteUrl, getCurrentSiteSlug, getSitePresentation } from '@/lib/site-config';
+
+const site = getSitePresentation();
+const siteSlug = getCurrentSiteSlug();
+---
+
+<Landing title={site.defaultTitle} description={site.defaultDescription}>
+  <Fragment slot="head">
+    <script type="application/ld+json" set:html={JSON.stringify({
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "WebPage",
+          "@id": `${site.canonicalBaseUrl}/#webpage`,
+          "url": `${site.canonicalBaseUrl}/`,
+          "name": site.defaultTitle,
+          "isPartOf": { "@id": `${site.canonicalBaseUrl}/#website` },
+          "about": { "@id": `${site.canonicalBaseUrl}/#entity` },
+          "description": site.defaultDescription,
+          "breadcrumb": {
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+              { "@type": "ListItem", "position": 1, "name": "Home", "item": site.canonicalBaseUrl }
+            ]
+          }
+        },
+        {
+          "@type": "SoftwareApplication",
+          "@id": "https://frinter.app/#software",
+          "name": "frinter.app",
+          "alternateName": "frinter.",
+          "description": "A WholeBeing performance system for High Performers — measuring Focus Sprints (Frints), energy tracking, and life-sphere balance.",
+          "applicationCategory": "ProductivityApplication",
+          "operatingSystem": "Web, Windows, macOS, Linux",
+          "author": { "@id": `${site.canonicalBaseUrl}/#entity` },
+          "url": "https://frinter.app"
+        },
+        {
+          "@type": "SoftwareApplication",
+          "@id": "https://pypi.org/project/frinterflow/#software",
+          "name": "FrinterFlow",
+          "description": "Local voice dictation CLI using faster-whisper. zero cloud, zero subscription, works offline.",
+          "applicationCategory": "DeveloperApplication",
+          "operatingSystem": "Windows, macOS, Linux",
+          "author": { "@id": `${site.canonicalBaseUrl}/#entity` },
+          "url": "https://pypi.org/project/frinterflow/"
+        }
+      ]
+    })} />
+  </Fragment>
+
+  {siteSlug === 'przemyslawfilipiak' ? (
+    <>
+      <Hero />
+      <About />
+      <Projects />
+      <BlogPreview />
+      <Contact />
+    </>
+  ) : (
+    <main class="site-shell">
+      <section class="site-hero">
+        <p class="site-kicker">/home</p>
+        <h1>{site.displayName}</h1>
+        <p class="site-summary">{site.heroTagline}</p>
+        <div class="site-actions">
+          <a href="/blog" class="site-btn site-btn--primary">Read the Blog</a>
+          <a href={absoluteUrl('/admin/login')} class="site-btn">Admin Login</a>
+        </div>
+      </section>
+
+      <section class="site-card-grid">
+        <article class="site-card">
+          <h2>/about</h2>
+          <p>{site.defaultDescription}</p>
+        </article>
+        <article class="site-card">
+          <h2>/llms</h2>
+          <p>{site.llmsSummary}</p>
+          <a href="/llms.txt">Open llms.txt</a>
+        </article>
+      </section>
+
+      <BlogPreview />
+    </main>
+  )}
+</Landing>
+
+<script>
+  import { observeRevealElements } from '@/utils/animations';
+  document.addEventListener('DOMContentLoaded', observeRevealElements);
+</script>
+
+<style>
+  .site-shell {
+    min-height: 100vh;
+    padding: 7rem 1.5rem 4rem;
+    background: var(--bg-base);
+  }
+  .site-hero,
+  .site-card-grid {
+    max-width: 900px;
+    margin: 0 auto;
+  }
+  .site-hero {
+    padding: 2rem 0 3rem;
+  }
+  .site-kicker {
+    font-family: var(--font-mono);
+    color: var(--teal);
+    margin-bottom: 1rem;
+  }
+  .site-hero h1 {
+    font-family: var(--font-heading);
+    font-size: clamp(2rem, 5vw, 4rem);
+    line-height: 1.1;
+    margin-bottom: 1rem;
+    color: var(--text-primary);
+  }
+  .site-summary {
+    max-width: 42rem;
+    color: var(--text-secondary);
+    font-size: var(--text-lg);
+    line-height: 1.7;
+  }
+  .site-actions {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-top: 2rem;
+  }
+  .site-btn {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.75rem 1.1rem;
+    border: 1px solid var(--border);
+    border-radius: 0.45rem;
+    text-decoration: none;
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+  }
+  .site-btn--primary {
+    border-color: var(--teal);
+    color: var(--teal);
+  }
+  .site-card-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+    margin-bottom: 3rem;
+  }
+  .site-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    padding: 1.25rem;
+  }
+  .site-card h2 {
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    color: var(--gold);
+    margin-bottom: 0.75rem;
+  }
+  .site-card p {
+    color: var(--text-secondary);
+    line-height: 1.7;
+    margin-bottom: 0.75rem;
+  }
+  .site-card a {
+    color: var(--teal);
+    text-decoration: none;
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+  }
+  @media (max-width: 768px) {
+    .site-card-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

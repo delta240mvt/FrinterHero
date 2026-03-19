@@ -1,0 +1,531 @@
+---
+import Base from '@/components/layouts/Base.astro';
+
+const headers = { cookie: Astro.request.headers.get('cookie') ?? '' };
+const response = await fetch(new URL('/api/social-hub/accounts', Astro.url), { headers });
+const accounts = response.ok ? await response.json() : [];
+
+const platformIcons: Record<string, string> = {
+  instagram: '📸', tiktok: '🎵', threads: '🧵', twitter: '🐦', linkedin: '💼', youtube: '▶️', bluesky: '🦋'
+};
+
+// Group accounts by platform
+const grouped: Record<string, typeof accounts> = {};
+for (const acc of accounts) {
+  if (!grouped[acc.platform]) grouped[acc.platform] = [];
+  grouped[acc.platform].push(acc);
+}
+const platformOrder = ['instagram', 'tiktok', 'threads', 'twitter', 'linkedin', 'youtube', 'bluesky'];
+const sortedPlatforms = Object.keys(grouped).sort(
+  (a, b) => platformOrder.indexOf(a) - platformOrder.indexOf(b)
+);
+---
+
+<Base title="Social Accounts — SocialHub" description="Manage social media accounts for SocialHub publishing">
+<div class="admin-layout">
+  <header class="admin-header">
+    <a href="/admin" class="admin-logo">FR</a>
+    <nav class="breadcrumb">
+      <a href="/admin" class="bc-link">Admin</a>
+      <span class="bc-sep">›</span>
+      <a href="/admin/social-hub" class="bc-link">Social Hub</a>
+      <span class="bc-sep">›</span>
+      <span class="bc-current">Accounts</span>
+    </nav>
+    <div class="header-actions">
+      <button class="btn-add-account" id="open-modal-btn">+ Add Account</button>
+      <a href="/api/logout" class="btn-logout">Logout</a>
+    </div>
+  </header>
+
+  <main class="admin-main">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Social Accounts</h1>
+        <p class="page-subtitle">
+          {accounts.length} account{accounts.length !== 1 ? 's' : ''} across {sortedPlatforms.length} platform{sortedPlatforms.length !== 1 ? 's' : ''}
+        </p>
+      </div>
+      <div class="stats-row">
+        <span class="stat-chip active">{accounts.filter(a => a.isActive).length} active</span>
+        <span class="stat-chip inactive">{accounts.filter(a => !a.isActive).length} inactive</span>
+      </div>
+    </div>
+
+    {accounts.length === 0 ? (
+      <div class="empty-state">
+        <span class="empty-icon">📱</span>
+        <p class="empty-text">No accounts added yet.</p>
+        <p class="empty-sub">Click <strong>+ Add Account</strong> to connect your first social media account.</p>
+      </div>
+    ) : (
+      <div class="platforms-list">
+        {sortedPlatforms.map(platform => (
+          <section class="platform-section">
+            <div class="platform-header">
+              <span class="platform-icon">{platformIcons[platform] ?? '🌐'}</span>
+              <h2 class="platform-name">{platform}</h2>
+              <span class="platform-count">{grouped[platform].length}</span>
+            </div>
+            <div class="accounts-grid">
+              {grouped[platform].map(acc => (
+                <div class="account-card" id={`card-${acc.id}`} data-active={acc.isActive ? 'true' : 'false'}>
+                  <div class="account-card-top">
+                    <div class="account-identity">
+                      <span class="account-platform-icon">{platformIcons[acc.platform] ?? '🌐'}</span>
+                      <div class="account-names">
+                        <span class="account-name">{acc.accountName}</span>
+                        {acc.accountHandle && (
+                          <span class="account-handle">@{acc.accountHandle.replace(/^@/, '')}</span>
+                        )}
+                      </div>
+                    </div>
+                    <div class="account-actions">
+                      <button
+                        class={`toggle-btn ${acc.isActive ? 'active' : 'inactive'}`}
+                        data-id={acc.id}
+                        data-active={acc.isActive ? 'true' : 'false'}
+                        onclick={`toggleAccount(${acc.id}, ${acc.isActive})`}
+                      >
+                        {acc.isActive ? 'ON' : 'OFF'}
+                      </button>
+                      <button
+                        class="btn-delete"
+                        onclick={`deleteAccount(${acc.id})`}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                  <div class="account-meta">
+                    <span class="meta-label">ID</span>
+                    <span class="meta-value">#{acc.id}</span>
+                    <span class="meta-sep">·</span>
+                    <span class="meta-label">Auth</span>
+                    <span class="meta-value">{acc.authPayload ? 'configured' : 'not set'}</span>
+                    <span class="meta-sep">·</span>
+                    <span class="meta-label">Added</span>
+                    <span class="meta-value">{acc.createdAt ? new Date(acc.createdAt).toLocaleDateString('en-GB') : '—'}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        ))}
+      </div>
+    )}
+  </main>
+</div>
+
+<!-- Add Account Modal -->
+<div class="modal-overlay" id="modal-overlay" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal-header">
+      <h2 class="modal-title" id="modal-title">Add Social Account</h2>
+      <button class="modal-close" id="close-modal-btn" aria-label="Close">✕</button>
+    </div>
+    <form id="add-account-form" class="modal-form" novalidate>
+      <div class="form-field">
+        <label class="form-label" for="f-platform">Platform</label>
+        <select id="f-platform" name="platform" class="form-select" required>
+          <option value="">— select platform —</option>
+          <option value="instagram">📸 Instagram</option>
+          <option value="tiktok">🎵 TikTok</option>
+          <option value="threads">🧵 Threads</option>
+          <option value="twitter">🐦 Twitter / X</option>
+          <option value="linkedin">💼 LinkedIn</option>
+          <option value="youtube">▶️ YouTube</option>
+          <option value="bluesky">🦋 Bluesky</option>
+        </select>
+      </div>
+      <div class="form-field">
+        <label class="form-label" for="f-account-name">Account Name</label>
+        <input
+          id="f-account-name"
+          name="accountName"
+          class="form-input"
+          placeholder="e.g. Przemek Filipiak"
+          required
+          autocomplete="off"
+        />
+      </div>
+      <div class="form-field">
+        <label class="form-label" for="f-handle">Account Handle</label>
+        <div class="input-prefix-wrap">
+          <span class="input-prefix">@</span>
+          <input
+            id="f-handle"
+            name="accountHandle"
+            class="form-input prefixed"
+            placeholder="przemekfilipiak"
+            autocomplete="off"
+          />
+        </div>
+        <span class="form-hint">Optional — used for display only</span>
+      </div>
+      <div class="form-field">
+        <label class="form-label" for="f-auth-payload">Auth Payload</label>
+        <textarea
+          id="f-auth-payload"
+          name="authPayload"
+          class="form-textarea"
+          placeholder={'{\n  "userId": "upload-post-user-id",\n  "token": "optional-token"\n}'}
+          rows="5"
+          spellcheck="false"
+        ></textarea>
+        <span class="form-hint">JSON — Upload-Post user ID and optional auth token</span>
+      </div>
+      <div id="form-error" class="form-error" style="display:none"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn-cancel" id="cancel-modal-btn">Cancel</button>
+        <button type="submit" class="btn-submit" id="submit-btn">Add Account</button>
+      </div>
+    </form>
+  </div>
+</div>
+</Base>
+
+<script>
+  // ── Modal open/close ──────────────────────────────────────────────────────
+  const overlay     = document.getElementById('modal-overlay') as HTMLDivElement;
+  const openBtn     = document.getElementById('open-modal-btn') as HTMLButtonElement;
+  const closeBtn    = document.getElementById('close-modal-btn') as HTMLButtonElement;
+  const cancelBtn   = document.getElementById('cancel-modal-btn') as HTMLButtonElement;
+  const addForm     = document.getElementById('add-account-form') as HTMLFormElement;
+  const formError   = document.getElementById('form-error') as HTMLDivElement;
+  const submitBtn   = document.getElementById('submit-btn') as HTMLButtonElement;
+
+  function openModal() {
+    overlay.removeAttribute('aria-hidden');
+    overlay.classList.add('visible');
+    document.body.style.overflow = 'hidden';
+    (document.getElementById('f-platform') as HTMLSelectElement).focus();
+  }
+
+  function closeModal() {
+    overlay.setAttribute('aria-hidden', 'true');
+    overlay.classList.remove('visible');
+    document.body.style.overflow = '';
+    addForm.reset();
+    formError.style.display = 'none';
+    formError.textContent = '';
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Add Account';
+  }
+
+  openBtn.addEventListener('click', openModal);
+  closeBtn.addEventListener('click', closeModal);
+  cancelBtn.addEventListener('click', closeModal);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
+
+  // ── Add account ───────────────────────────────────────────────────────────
+  addForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    formError.style.display = 'none';
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Adding…';
+
+    const fd = new FormData(addForm);
+    const platform     = (fd.get('platform') as string).trim();
+    const accountName  = (fd.get('accountName') as string).trim();
+    const rawHandle    = (fd.get('accountHandle') as string).trim();
+    const accountHandle = rawHandle ? rawHandle.replace(/^@/, '') : undefined;
+    const rawPayload   = (fd.get('authPayload') as string).trim();
+
+    if (!platform) {
+      showError('Please select a platform.');
+      return;
+    }
+    if (!accountName) {
+      showError('Account name is required.');
+      return;
+    }
+
+    let authPayload: Record<string, unknown> | null = null;
+    if (rawPayload) {
+      try {
+        authPayload = JSON.parse(rawPayload);
+      } catch {
+        showError('Auth Payload must be valid JSON.');
+        return;
+      }
+    }
+
+    try {
+      const res = await fetch('/api/social-hub/accounts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ platform, accountName, accountHandle, authPayload }),
+      });
+      if (res.ok) {
+        location.reload();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        showError(data.error || `Server error ${res.status}`);
+      }
+    } catch (err: any) {
+      showError(err.message || 'Network error');
+    }
+  });
+
+  function showError(msg: string) {
+    formError.textContent = msg;
+    formError.style.display = 'block';
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Add Account';
+  }
+
+  // ── Toggle active ─────────────────────────────────────────────────────────
+  async function toggleAccount(id: number, currentActive: boolean) {
+    const newActive = !currentActive;
+    const res = await fetch(`/api/social-hub/accounts/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ isActive: newActive }),
+    });
+    if (res.ok) {
+      const btn = document.querySelector(`#card-${id} .toggle-btn`) as HTMLButtonElement;
+      const card = document.getElementById(`card-${id}`) as HTMLDivElement;
+      if (btn) {
+        btn.textContent = newActive ? 'ON' : 'OFF';
+        btn.className = `toggle-btn ${newActive ? 'active' : 'inactive'}`;
+        btn.setAttribute('onclick', `toggleAccount(${id}, ${newActive})`);
+        btn.dataset.active = String(newActive);
+      }
+      if (card) card.dataset.active = String(newActive);
+    } else {
+      alert('Failed to update account status.');
+    }
+  }
+
+  // ── Delete account ────────────────────────────────────────────────────────
+  async function deleteAccount(id: number) {
+    if (!confirm('Delete this account? This cannot be undone.')) return;
+    const res = await fetch(`/api/social-hub/accounts/${id}`, { method: 'DELETE' });
+    if (res.ok || res.status === 204) {
+      const card = document.getElementById(`card-${id}`);
+      card?.remove();
+      // If the platform group is now empty, remove it
+      document.querySelectorAll('.platform-section').forEach(section => {
+        if (section.querySelectorAll('.account-card').length === 0) {
+          section.remove();
+        }
+      });
+      // If no platforms remain, reload to show empty state
+      if (document.querySelectorAll('.account-card').length === 0) {
+        location.reload();
+      }
+    } else {
+      alert('Failed to delete account.');
+    }
+  }
+
+  // Expose functions to window for inline onclick handlers
+  (window as any).toggleAccount = toggleAccount;
+  (window as any).deleteAccount = deleteAccount;
+</script>
+
+<style>
+/* ── Layout ──────────────────────────────────────────────────────────────── */
+.admin-layout { min-height: 100vh; background: var(--bg-base); }
+
+/* ── Header ──────────────────────────────────────────────────────────────── */
+.admin-header {
+  display: flex; align-items: center; gap: 1.25rem;
+  padding: 0.875rem 1.5rem;
+  background: var(--bg-elevated); border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; z-index: 20;
+}
+.admin-logo { font-family: var(--font-mono); font-weight: 700; color: var(--teal); text-decoration: none; font-size: 1.1rem; }
+.breadcrumb { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-secondary); display: flex; gap: 0.4rem; align-items: center; }
+.bc-link  { color: var(--text-muted); text-decoration: none; }
+.bc-link:hover { color: var(--teal); }
+.bc-sep   { color: var(--text-muted); }
+.bc-current { color: var(--text-secondary); }
+.header-actions { margin-left: auto; display: flex; align-items: center; gap: 0.625rem; }
+.btn-add-account {
+  padding: 0.35rem 0.875rem; background: var(--teal); color: #fff; border: none;
+  border-radius: 0.25rem; font-family: var(--font-mono); font-size: var(--text-xs);
+  font-weight: 600; cursor: pointer; transition: opacity 0.15s;
+}
+.btn-add-account:hover { opacity: 0.88; }
+.btn-logout {
+  padding: 0.35rem 0.75rem; color: var(--text-muted);
+  border: 1px solid var(--border); border-radius: 0.25rem;
+  font-family: var(--font-mono); font-size: var(--text-xs); text-decoration: none;
+}
+
+/* ── Main ────────────────────────────────────────────────────────────────── */
+.admin-main { max-width: 860px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+
+/* ── Page header ─────────────────────────────────────────────────────────── */
+.page-header {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  padding-bottom: 1.25rem; border-bottom: 1px solid var(--border); margin-bottom: 1.75rem;
+}
+.page-title { font-family: var(--font-mono); font-size: 1rem; color: var(--text-primary); font-weight: 700; margin: 0 0 0.2rem; }
+.page-subtitle { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); margin: 0; }
+.stats-row { display: flex; gap: 0.5rem; align-items: center; }
+.stat-chip {
+  font-family: var(--font-mono); font-size: 0.65rem; font-weight: 600;
+  padding: 0.2rem 0.5rem; border-radius: 0.25rem;
+}
+.stat-chip.active   { background: rgba(74,141,131,0.12); color: var(--teal);  border: 1px solid rgba(74,141,131,0.2); }
+.stat-chip.inactive { background: rgba(255,255,255,0.04); color: var(--text-muted); border: 1px solid var(--border); }
+
+/* ── Empty state ─────────────────────────────────────────────────────────── */
+.empty-state {
+  text-align: center; padding: 4rem 2rem;
+  background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 0.625rem;
+}
+.empty-icon { font-size: 2.5rem; display: block; margin-bottom: 1rem; }
+.empty-text { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--text-primary); margin: 0 0 0.4rem; }
+.empty-sub  { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); margin: 0; }
+
+/* ── Platform sections ───────────────────────────────────────────────────── */
+.platforms-list { display: flex; flex-direction: column; gap: 1.5rem; }
+.platform-section {}
+.platform-header {
+  display: flex; align-items: center; gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+.platform-icon { font-size: 1rem; line-height: 1; }
+.platform-name {
+  font-family: var(--font-mono); font-size: var(--text-sm); font-weight: 700;
+  color: var(--text-primary); margin: 0; text-transform: capitalize;
+}
+.platform-count {
+  font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-muted);
+  background: rgba(255,255,255,0.06); border: 1px solid var(--border);
+  border-radius: 0.875rem; padding: 0.1rem 0.45rem;
+}
+
+/* ── Account cards ───────────────────────────────────────────────────────── */
+.accounts-grid { display: flex; flex-direction: column; gap: 0.5rem; }
+.account-card {
+  background: var(--bg-elevated); border: 1px solid var(--border);
+  border-radius: 0.5rem; padding: 0.875rem 1rem;
+  transition: border-color 0.15s;
+}
+.account-card[data-active="true"]  { border-left: 3px solid var(--teal); }
+.account-card[data-active="false"] { border-left: 3px solid transparent; opacity: 0.65; }
+.account-card:hover { border-color: rgba(74,141,131,0.3); }
+
+.account-card-top { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.account-identity { display: flex; align-items: center; gap: 0.75rem; min-width: 0; }
+.account-platform-icon { font-size: 1.25rem; line-height: 1; flex-shrink: 0; }
+.account-names { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
+.account-name {
+  font-family: var(--font-mono); font-size: var(--text-sm); font-weight: 600;
+  color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.account-handle {
+  font-family: var(--font-mono); font-size: var(--text-xs); color: var(--teal);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.account-actions { display: flex; align-items: center; gap: 0.4rem; flex-shrink: 0; }
+.toggle-btn {
+  padding: 0.2rem 0.5rem; border: none; border-radius: 0.2rem;
+  font-family: var(--font-mono); font-size: 0.6rem; cursor: pointer; font-weight: 700;
+  transition: background 0.15s;
+}
+.toggle-btn.active   { background: rgba(74,141,131,0.2); color: var(--teal); }
+.toggle-btn.inactive { background: rgba(255,255,255,0.06); color: var(--text-muted); }
+.toggle-btn:hover { opacity: 0.8; }
+.btn-delete {
+  padding: 0.2rem 0.5rem; background: none;
+  border: 1px solid rgba(239,68,68,0.2); color: rgba(239,68,68,0.6);
+  border-radius: 0.2rem; font-family: var(--font-mono); font-size: 0.65rem; cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+.btn-delete:hover { border-color: rgba(239,68,68,0.5); color: #ef4444; }
+
+.account-meta {
+  display: flex; align-items: center; gap: 0.35rem; margin-top: 0.5rem;
+  font-family: var(--font-mono); font-size: 0.65rem;
+}
+.meta-label { color: var(--text-muted); }
+.meta-value { color: var(--text-secondary); }
+.meta-sep   { color: var(--border); }
+
+/* ── Modal overlay ───────────────────────────────────────────────────────── */
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 100;
+  background: rgba(0,0,0,0.6); backdrop-filter: blur(2px);
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none; transition: opacity 0.2s;
+}
+.modal-overlay.visible { opacity: 1; pointer-events: auto; }
+
+.modal {
+  background: var(--bg-elevated); border: 1px solid var(--border);
+  border-radius: 0.75rem; width: 100%; max-width: 480px; margin: 1rem;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  transform: translateY(8px); transition: transform 0.2s;
+}
+.modal-overlay.visible .modal { transform: translateY(0); }
+
+.modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 1.125rem 1.25rem 0.875rem; border-bottom: 1px solid var(--border);
+}
+.modal-title { font-family: var(--font-mono); font-size: var(--text-sm); font-weight: 700; color: var(--text-primary); margin: 0; }
+.modal-close {
+  background: none; border: none; color: var(--text-muted); cursor: pointer;
+  font-size: 1rem; line-height: 1; padding: 0.2rem; border-radius: 0.2rem;
+  transition: color 0.15s;
+}
+.modal-close:hover { color: var(--text-primary); }
+
+/* ── Modal form ──────────────────────────────────────────────────────────── */
+.modal-form { display: flex; flex-direction: column; gap: 0.875rem; padding: 1.25rem; }
+.form-field { display: flex; flex-direction: column; gap: 0.3rem; }
+.form-label { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-secondary); font-weight: 600; }
+.form-select,
+.form-input,
+.form-textarea {
+  background: var(--bg-base); border: 1px solid var(--border);
+  color: var(--text-primary); font-family: var(--font-mono); font-size: var(--text-xs);
+  padding: 0.45rem 0.75rem; border-radius: 0.375rem; outline: none;
+  transition: border-color 0.15s;
+}
+.form-select:focus,
+.form-input:focus,
+.form-textarea:focus { border-color: var(--teal); }
+.form-textarea { resize: vertical; min-height: 90px; }
+
+.input-prefix-wrap { display: flex; align-items: stretch; }
+.input-prefix {
+  display: flex; align-items: center; padding: 0 0.5rem;
+  background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-right: none;
+  border-radius: 0.375rem 0 0 0.375rem;
+  font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted);
+}
+.form-input.prefixed { border-radius: 0 0.375rem 0.375rem 0; flex: 1; }
+
+.form-hint { font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-muted); }
+
+.form-error {
+  font-family: var(--font-mono); font-size: var(--text-xs); color: #ef4444;
+  background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.2);
+  border-radius: 0.375rem; padding: 0.5rem 0.75rem;
+}
+
+.modal-actions { display: flex; justify-content: flex-end; gap: 0.5rem; padding-top: 0.25rem; }
+.btn-cancel {
+  padding: 0.45rem 1rem; background: none; border: 1px solid var(--border);
+  color: var(--text-muted); border-radius: 0.375rem; font-family: var(--font-mono);
+  font-size: var(--text-xs); cursor: pointer; transition: border-color 0.15s, color 0.15s;
+}
+.btn-cancel:hover { border-color: var(--text-muted); color: var(--text-primary); }
+.btn-submit {
+  padding: 0.45rem 1.25rem; background: var(--teal); border: none; color: #fff;
+  border-radius: 0.375rem; font-family: var(--font-mono); font-size: var(--text-xs);
+  font-weight: 600; cursor: pointer; transition: opacity 0.15s;
+}
+.btn-submit:hover { opacity: 0.9; }
+.btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+</style>
+

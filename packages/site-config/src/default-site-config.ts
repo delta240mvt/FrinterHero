@@ -37,12 +37,12 @@ export const DEFAULT_SITE_CONFIGS: DefaultSiteConfig[] = [
   },
   {
     slug: 'focusequalsfreedom',
-    displayName: 'Focus Equals Freedom',
+    displayName: 'Przemysław Filipiak',
     primaryDomain: 'focusequalsfreedom.com',
     brandConfig: {
-      siteName: 'Focus Equals Freedom',
-      shortName: 'FEF',
-      personName: 'Focus Equals Freedom',
+      siteName: 'Przemysław Filipiak',
+      shortName: 'P·F',
+      personName: 'Przemysław Filipiak',
     },
     seoConfig: {
       canonicalBaseUrl: 'https://focusequalsfreedom.com',
@@ -51,16 +51,16 @@ export const DEFAULT_SITE_CONFIGS: DefaultSiteConfig[] = [
       brandClarity: true,
       socialHub: true,
     },
-    llmContext: 'Bootstrap tenant for future client2 extraction.',
+    llmContext: 'Replica tenant for the Przemyslaw Filipiak site on a separate client deployment.',
   },
   {
     slug: 'frinter',
-    displayName: 'Frinter',
+    displayName: 'Przemysław Filipiak',
     primaryDomain: 'frinter.app',
     brandConfig: {
-      siteName: 'Frinter',
-      shortName: 'FR',
-      personName: 'Frinter',
+      siteName: 'Przemysław Filipiak',
+      shortName: 'P·F',
+      personName: 'Przemysław Filipiak',
     },
     seoConfig: {
       canonicalBaseUrl: 'https://frinter.app',
@@ -69,7 +69,7 @@ export const DEFAULT_SITE_CONFIGS: DefaultSiteConfig[] = [
       brandClarity: true,
       socialHub: true,
     },
-    llmContext: 'Bootstrap tenant for future client3 extraction.',
+    llmContext: 'Replica tenant for the Przemyslaw Filipiak site on a separate client deployment.',
   },
 ];
 

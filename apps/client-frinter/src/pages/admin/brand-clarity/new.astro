@@ -1,0 +1,407 @@
+---
+import Base from '@/components/layouts/Base.astro';
+---
+
+<Base title="New Brand Clarity Project" description="Create a new Brand Clarity project">
+<div class="admin-layout">
+  <header class="admin-header">
+    <a href="/admin" class="admin-logo">FR</a>
+    <nav class="breadcrumb">
+      <a href="/admin" class="bc-link">Admin</a>
+      <span class="bc-sep">›</span>
+      <a href="/admin/brand-clarity" class="bc-link">Brand Clarity</a>
+      <span class="bc-sep">›</span>
+      <span class="bc-current">New Project</span>
+    </nav>
+    <div class="header-actions">
+      <a href="/api/logout" class="btn-logout">Logout</a>
+    </div>
+  </header>
+
+  <main class="admin-main">
+    <section class="form-section">
+      <h2 class="form-title">New Brand Clarity Project</h2>
+      <p class="form-subtitle">Stage 1: Paste your landing page and founder description to extract LP structure and niche keywords.</p>
+
+      <form id="new-project-form" class="bc-form">
+        <div class="form-group">
+          <label class="form-label" for="name">Project Name</label>
+          <input type="text" id="name" name="name" class="form-input" placeholder="e.g. Frinter App LP Analysis" required />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="lpRawInput">Landing Page Content</label>
+          <p class="form-hint">Pobierz prompt, wgraj go razem z plikami LP do Claude lub ChatGPT, a następnie wgraj odpowiedź agenta poniżej.</p>
+
+          <div class="lp-toolbar">
+            <button type="button" id="download-prompt-btn" class="btn-download-prompt">
+              ↓ Pobierz prompt dla agenta AI (.md)
+            </button>
+            <span class="lp-toolbar-sep">lub wgraj odpowiedź:</span>
+            <label for="lp-file-input" class="btn-upload-label">↑ Wgraj plik</label>
+            <input type="file" id="lp-file-input" accept=".yaml,.yml,.md,.txt,.html" style="display:none" />
+          </div>
+
+          <div id="upload-zone" class="upload-zone">
+            <span class="upload-zone-text">Upuść plik odpowiedzi agenta tutaj <span class="upload-zone-dim">(.md / .txt / .html)</span></span>
+          </div>
+
+          <textarea id="lpRawInput" name="lpRawInput" class="form-textarea" rows={12} placeholder="Paste your landing page HTML or plain text here..." required></textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="founderDescription">How You Feel Your Product Works</label>
+          <p class="form-hint">Describe in your own words what your product does and how. Be honest and specific.</p>
+          <textarea id="founderDescription" name="founderDescription" class="form-textarea" rows={5} placeholder="My product helps high performers by..." required></textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="projectDocumentation">Project Documentation (Optional)</label>
+          <p class="form-hint">Paste your README, feature spec, or full product docs. Helps LPs reflect real product facts. You can also add this later.</p>
+          <textarea id="projectDocumentation" name="projectDocumentation" class="form-textarea" rows={8} placeholder="Paste README, spec, or feature documentation here..."></textarea>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" id="submit-btn" class="btn-submit">Parse LP & Create Project</button>
+          <a href="/admin/brand-clarity" class="btn-ghost-sm">Cancel</a>
+        </div>
+      </form>
+
+      <div id="status-msg" class="status-msg" style="display:none"></div>
+
+      <!-- Parse panel -->
+      <div id="parse-panel" class="parse-panel" style="display:none">
+        <div class="parse-panel-top">
+          <span id="parse-status" class="parse-status">LP Parser — initializing…</span>
+          <span id="parse-elapsed" class="parse-elapsed"></span>
+        </div>
+        <div id="parse-log" class="parse-log"></div>
+        <div id="parse-footer" class="parse-footer" style="display:none">
+          <span id="parse-result-msg"></span>
+          <span id="parse-redirect-msg" class="parse-redirect-msg"></span>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+  // ── AI Agent Prompt download ────────────────────────────────────────────
+  const AGENT_PROMPT = `# AI Agent Prompt — Landing Page Analysis
+#
+# JAK UŻYĆ:
+# 1. Wgraj ten plik + pliki swojego landing page (HTML, MD, Notion export, screenshot) do Claude lub ChatGPT
+# 2. Wyślij — agent przeanalizuje pliki i zwróci gotowy YAML
+# 3. Skopiuj całą odpowiedź agenta, zapisz jako plik (.txt lub .md)
+# 4. Wgraj ten plik z powrotem do pola "Landing Page Content" w Brand Clarity
+
+---
+
+You are a senior conversion copywriter and UX analyst.
+
+I am attaching files that contain my landing page content — HTML, exported documents, screenshots, or plain text copies of my landing page.
+
+Your task: read every attached file carefully, find all landing page content, and extract it into a structured YAML format. This output will be used by an AI pipeline to generate better-converting landing page variants.
+
+## Rules
+
+- Extract EXACT language from the files — do not rewrite, summarize, or improve the copy
+- If a section is not present in the files, write: null
+- Preserve original capitalization, punctuation, and sentence structure
+- If you find multiple versions of the same section, pick the most complete one
+- Do not add anything that is not in the source files
+
+## Output format
+
+Return ONLY the YAML block below, filled with real content from the files. No explanations before or after.
+
+\`\`\`yaml
+hero:
+  headline: "EXACT headline text from the page"
+  subheadline: "EXACT subheadline or descriptor text"
+  cta_primary: "EXACT primary CTA button text"
+  cta_secondary: "EXACT secondary CTA or link text, or null"
+  hero_body: |
+    Any additional body text in the hero section, word for word.
+
+problem:
+  headline: "Section headline if present, or null"
+  body: |
+    EXACT text describing the problem being solved, every sentence.
+  who_it_affects: "EXACT text about who the target customer is, or null"
+
+solution:
+  headline: "EXACT section headline, or null"
+  what_it_is: |
+    EXACT text explaining what the product is.
+  how_it_works: |
+    EXACT text from the how-it-works section (steps, process, etc.)
+
+features:
+  - name: "EXACT feature name"
+    description: "EXACT feature description, word for word"
+    benefit: "EXACT benefit statement if present, or null"
+  - name: "..."
+    description: "..."
+    benefit: "..."
+
+social_proof:
+  testimonials:
+    - quote: "EXACT testimonial text"
+      author: "EXACT author name and role"
+  stats: "EXACT stats or trust signals shown on page, or null"
+
+pricing:
+  model: "free | paid | freemium | waitlist"
+  tiers:
+    - name: "EXACT tier name"
+      price: "EXACT price shown"
+      what_you_get: "EXACT list of what's included"
+
+footer_cta:
+  headline: "EXACT bottom-of-page CTA headline, or null"
+  cta_button: "EXACT CTA button text, or null"
+
+target_audience: "EXACT text describing who this product is for"
+unique_selling_point: "EXACT text explaining why this is different from alternatives"
+
+tone_of_voice: |
+  Describe the brand voice in 2-3 sentences based on how the page reads.
+  e.g. "Direct and confident. Short sentences. No jargon."
+\`\`\`
+`;
+
+  document.getElementById('download-prompt-btn')?.addEventListener('click', () => {
+    const blob = new Blob([AGENT_PROMPT], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'lp-agent-prompt.md';
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  // ── File upload → populate textarea ────────────────────────────────────
+  const lpTextarea = document.getElementById('lpRawInput') as HTMLTextAreaElement;
+  const fileInput = document.getElementById('lp-file-input') as HTMLInputElement;
+  const uploadZone = document.getElementById('upload-zone') as HTMLElement;
+
+  function loadFile(file: File) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      lpTextarea.value = e.target?.result as string;
+      uploadZone.classList.add('upload-zone--done');
+      uploadZone.querySelector('.upload-zone-text')!.textContent = `✓ ${file.name} wgrany`;
+    };
+    reader.readAsText(file, 'UTF-8');
+  }
+
+  fileInput?.addEventListener('change', () => { if (fileInput.files?.[0]) loadFile(fileInput.files[0]); });
+
+  uploadZone?.addEventListener('dragover', (e) => { e.preventDefault(); uploadZone.classList.add('upload-zone--over'); });
+  uploadZone?.addEventListener('dragleave', () => uploadZone.classList.remove('upload-zone--over'));
+  uploadZone?.addEventListener('drop', (e: DragEvent) => {
+    e.preventDefault();
+    uploadZone.classList.remove('upload-zone--over');
+    const file = e.dataTransfer?.files?.[0];
+    if (file) loadFile(file);
+  });
+  uploadZone?.addEventListener('click', () => fileInput?.click());
+
+  // ── Form submit ─────────────────────────────────────────────────────────
+  const form = document.getElementById('new-project-form') as HTMLFormElement;
+  const submitBtn = document.getElementById('submit-btn') as HTMLButtonElement;
+  const statusMsg = document.getElementById('status-msg') as HTMLElement;
+  const parsePanel = document.getElementById('parse-panel') as HTMLElement;
+  const parseLog = document.getElementById('parse-log') as HTMLElement;
+  const parseStatus = document.getElementById('parse-status') as HTMLElement;
+  const parseElapsed = document.getElementById('parse-elapsed') as HTMLElement;
+  const parseFooter = document.getElementById('parse-footer') as HTMLElement;
+  const parseResultMsg = document.getElementById('parse-result-msg') as HTMLElement;
+  const parseRedirectMsg = document.getElementById('parse-redirect-msg') as HTMLElement;
+
+  let elapsedTimer: ReturnType<typeof setInterval> | null = null;
+  let startTime = 0;
+
+  function appendLine(text: string) {
+    const el = document.createElement('div');
+    el.className = 'parse-log-line';
+    if (text.includes('[ERROR]') || text.toLowerCase().includes('error') || text.includes('failed')) {
+      el.classList.add('error');
+    } else if (text.includes('✓') || text.includes('Done') || text.includes('done') || text.includes('saved') || text.includes('Saved')) {
+      el.classList.add('highlight');
+    }
+    el.textContent = text;
+    parseLog.appendChild(el);
+    parseLog.scrollTop = parseLog.scrollHeight;
+  }
+
+  function showPanel() {
+    parsePanel.style.display = 'block';
+    parsePanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    startTime = Date.now();
+    elapsedTimer = setInterval(() => {
+      const s = Math.floor((Date.now() - startTime) / 1000);
+      parseElapsed.textContent = `${s}s`;
+    }, 1000);
+  }
+
+  function finishPanel(success: boolean, projectId: number) {
+    if (elapsedTimer) clearInterval(elapsedTimer);
+    parseStatus.textContent = success ? 'LP Parser — done ✓' : 'LP Parser — error ✗';
+    parseStatus.className = 'parse-status ' + (success ? 'done' : 'error');
+    parseFooter.style.display = 'flex';
+    if (success) {
+      parseResultMsg.textContent = 'LP parsed successfully.';
+      parseResultMsg.className = 'parse-result-ok';
+      let countdown = 3;
+      parseRedirectMsg.textContent = `Redirecting to channels in ${countdown}s…`;
+      const t = setInterval(() => {
+        countdown--;
+        if (countdown <= 0) {
+          clearInterval(t);
+          window.location.href = `/admin/brand-clarity/${projectId}/channels`;
+        } else {
+          parseRedirectMsg.textContent = `Redirecting to channels in ${countdown}s…`;
+        }
+      }, 1000);
+    } else {
+      parseResultMsg.textContent = 'Parser failed — check logs above.';
+      parseResultMsg.className = 'parse-result-error';
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Parse LP & Create Project';
+    }
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Creating project…';
+    statusMsg.style.display = 'none';
+    parseLog.innerHTML = '';
+    parseFooter.style.display = 'none';
+    parseStatus.textContent = 'LP Parser — running…';
+    parseStatus.className = 'parse-status running';
+    parseElapsed.textContent = '';
+
+    const body = {
+      name: (document.getElementById('name') as HTMLInputElement).value.trim(),
+      lpRawInput: (document.getElementById('lpRawInput') as HTMLTextAreaElement).value.trim(),
+      founderDescription: (document.getElementById('founderDescription') as HTMLTextAreaElement).value.trim(),
+      projectDocumentation: (document.getElementById('projectDocumentation') as HTMLTextAreaElement).value.trim() || null,
+    };
+
+    try {
+      const res = await fetch('/api/brand-clarity/projects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || `HTTP ${res.status}`);
+      }
+
+      const data = await res.json();
+      const projectId = data.project.id;
+
+      submitBtn.textContent = 'Parsing LP…';
+      submitBtn.textContent = 'Parsing LP…';
+      showPanel();
+      appendLine(`[BC-LP-PARSER] Project #${projectId} created — starting LP analysis…`);
+
+      // Subscribe to SSE log stream
+      const sse = new EventSource('/api/brand-clarity/projects/parse-stream');
+      sse.onmessage = (ev) => {
+        try {
+          const msg = JSON.parse(ev.data);
+          if (msg.line) appendLine(msg.line);
+          if (msg.done) { sse.close(); finishPanel(msg.code === 0, projectId); }
+        } catch {}
+      };
+      sse.onerror = () => {
+        sse.close();
+        appendLine('[ERROR] Lost connection to parser stream.');
+        finishPanel(false, projectId);
+      };
+
+    } catch (err: any) {
+      statusMsg.style.display = 'block';
+      statusMsg.className = 'status-msg status-msg--error';
+      statusMsg.textContent = `Error: ${err.message}`;
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Parse LP & Create Project';
+    }
+  });
+</script>
+
+<style>
+.admin-layout { min-height: 100vh; background: var(--bg-base); }
+.admin-header { display: flex; align-items: center; gap: 1.25rem; padding: 0.875rem 1.5rem; background: var(--bg-elevated); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 20; }
+.admin-logo  { font-family: var(--font-mono); font-weight: 700; color: var(--teal); text-decoration: none; font-size: 1.1rem; }
+.breadcrumb  { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-secondary); display: flex; gap: 0.4rem; align-items: center; }
+.bc-link  { color: var(--text-muted); text-decoration: none; }
+.bc-link:hover { color: var(--teal); }
+.bc-sep   { color: var(--text-muted); }
+.bc-current { color: var(--text-secondary); }
+.header-actions { margin-left: auto; }
+.btn-logout  { padding: 0.35rem 0.75rem; color: var(--text-muted); border: 1px solid var(--border); border-radius: 0.25rem; font-family: var(--font-mono); font-size: var(--text-xs); text-decoration: none; }
+.btn-ghost-sm { padding: 0.35rem 0.75rem; background: none; color: var(--text-secondary); border: 1px solid var(--border); border-radius: 0.25rem; font-family: var(--font-mono); font-size: var(--text-xs); cursor: pointer; text-decoration: none; }
+.admin-main  { max-width: 760px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+.form-section { display: flex; flex-direction: column; gap: 1.5rem; }
+.form-title  { font-family: var(--font-mono); font-size: 1.25rem; font-weight: 700; color: var(--text-primary); margin: 0; }
+.form-subtitle { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); margin: 0; }
+.bc-form { display: flex; flex-direction: column; gap: 1.5rem; }
+.form-group { display: flex; flex-direction: column; gap: 0.5rem; }
+.form-label { font-family: var(--font-mono); font-size: var(--text-xs); font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em; }
+.form-hint  { font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-muted); margin: 0; }
+.form-input, .form-textarea {
+  background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 0.375rem;
+  color: var(--text-primary); font-family: var(--font-mono); font-size: var(--text-sm);
+  padding: 0.625rem 0.875rem; outline: none; width: 100%;
+}
+.form-input:focus, .form-textarea:focus { border-color: var(--teal); }
+.form-textarea { resize: vertical; line-height: 1.5; }
+.form-actions { display: flex; gap: 0.75rem; align-items: center; }
+.btn-submit { padding: 0.625rem 1.5rem; background: var(--teal); color: #fff; border: none; border-radius: 0.375rem; font-family: var(--font-mono); font-size: var(--text-sm); font-weight: 600; cursor: pointer; }
+.btn-submit:disabled { opacity: 0.6; cursor: not-allowed; }
+.status-msg { padding: 0.75rem 1rem; border-radius: 0.375rem; font-family: var(--font-mono); font-size: var(--text-xs); }
+.status-msg--success { background: rgba(74,141,131,0.1); border: 1px solid rgba(74,141,131,0.3); color: var(--teal); }
+.status-msg--error   { background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.25); color: #ef4444; }
+
+/* ── LP toolbar ──────────────────────────────────────────────────────────── */
+.lp-toolbar { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+.btn-download-prompt { padding: 0.4rem 0.9rem; background: var(--bg-elevated); border: 1px solid var(--teal); color: var(--teal); border-radius: 0.35rem; font-family: var(--font-mono); font-size: 0.7rem; font-weight: 600; cursor: pointer; }
+.btn-download-prompt:hover { background: rgba(74,141,131,0.1); }
+.lp-toolbar-sep { font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-muted); }
+.btn-upload-label { padding: 0.4rem 0.9rem; background: var(--bg-elevated); border: 1px solid var(--border); color: var(--text-secondary); border-radius: 0.35rem; font-family: var(--font-mono); font-size: 0.7rem; cursor: pointer; }
+.btn-upload-label:hover { border-color: var(--gold); color: var(--gold); }
+
+.upload-zone { border: 1px dashed var(--border); border-radius: 0.375rem; padding: 0.75rem 1rem; cursor: pointer; text-align: center; transition: border-color 0.15s, background 0.15s; }
+.upload-zone:hover, .upload-zone--over { border-color: var(--teal); background: rgba(74,141,131,0.04); }
+.upload-zone--done { border-color: var(--teal); border-style: solid; }
+.upload-zone-text { font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-muted); }
+.upload-zone-dim { color: var(--text-muted); opacity: 0.6; }
+
+/* ── Parse panel (matches scrape.astro style) ───────────────────────────── */
+.parse-panel { background: var(--bg-elevated); border: 1px solid rgba(214,183,121,0.3); border-radius: 0.5rem; overflow: hidden; }
+.parse-panel-top { display: flex; align-items: center; justify-content: space-between; padding: 0.625rem 1rem; background: rgba(214,183,121,0.05); border-bottom: 1px solid rgba(214,183,121,0.15); }
+.parse-status { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); }
+.parse-status.running { color: var(--gold); }
+.parse-status.done    { color: var(--teal); }
+.parse-status.error   { color: #ef4444; }
+.parse-elapsed { font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-muted); }
+.parse-log { height: 220px; overflow-y: auto; padding: 0.375rem 0; font-family: var(--font-mono); font-size: 0.71rem; line-height: 1.55; }
+.parse-log-line { padding: 0.1rem 1rem; color: var(--text-muted); border-left: 2px solid transparent; white-space: pre-wrap; word-break: break-all; }
+.parse-log-line.error     { color: #ef4444; border-left-color: #ef4444; }
+.parse-log-line.highlight { color: var(--teal); border-left-color: var(--teal); }
+.parse-log::-webkit-scrollbar { width: 4px; }
+.parse-log::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; }
+.parse-footer { display: flex; align-items: center; gap: 1rem; padding: 0.5rem 1rem; background: rgba(255,255,255,0.03); border-top: 1px solid var(--border); font-family: var(--font-mono); font-size: var(--text-xs); }
+.parse-result-ok    { color: var(--teal); }
+.parse-result-error { color: #ef4444; }
+.parse-redirect-msg { color: var(--text-muted); font-size: 0.65rem; }
+</style>
+</Base>
+

@@ -3,11 +3,14 @@ builder = "NIXPACKS"
 buildCommand = "npm install && npm run build:client3"
 watchPatterns = [
   "apps/client-frinter/**",
+  "packages/site-config/**",
+  "src/db/**",
+  "src/lib/**",
+  "src/utils/**",
   "package.json",
   "package-lock.json",
   "infra/railway/client-frinter.toml",
-  "scripts/monorepo/client-bff.mjs",
-  "scripts/monorepo/noop-build.mjs",
+  "scripts/monorepo/start-client-app.mjs",
 ]
 
 [deploy]

@@ -26,8 +26,9 @@ Optional later:
 
 Important distinctions:
 
-- `client-przemyslawfilipiak` is a real Astro app build
-- `client-focusequalsfreedom` and `client-frinter` are thin BFF shells today
+- all three clients are real Astro app builds
+- each client talks to the same central `apps/api`
+- tenant context is resolved through `SITE_SLUG -> sites -> site_id`
 - dedicated workers are thin runtime wrappers over `workers/runner/src/index.ts`
 
 ## 3. Topic routing
@@ -97,20 +98,12 @@ Workers:
 - `API_BASE_URL=https://your-api-domain`
 - `SITE_SLUG=focusequalsfreedom`
 
-Optional transitional fallback:
-
-- `LEGACY_APP_URL=https://your-client1-domain`
-
 ### `client-frinter`
 
 - `PORT`
 - `HOST=0.0.0.0`
 - `API_BASE_URL=https://your-api-domain`
 - `SITE_SLUG=frinter`
-
-Optional transitional fallback:
-
-- `LEGACY_APP_URL=https://your-client1-domain`
 
 ### `worker-general`
 
@@ -175,6 +168,6 @@ Optional transitional fallback:
 
 ## 8. Constraints
 
-- `client2` and `client3` are still BFF shells, not extracted app clones
-- `client1` runtime cutoff is complete, but some shared domain code is still legacy-shaped internally
+- all three clients must deploy the same Astro app shape in separate workspace services
+- `client1` remains the reference runtime, but fixes affecting shared frontend behavior should be propagated to all three clients
 - `Social Hub` is site-scoped end-to-end; deploy `SITE_SLUG` consistently across clients and seed scripts

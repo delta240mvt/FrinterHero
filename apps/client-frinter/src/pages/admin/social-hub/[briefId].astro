@@ -1,0 +1,1189 @@
+---
+import Base from '@/components/layouts/Base.astro';
+
+const { briefId } = Astro.params;
+const id = parseInt(briefId || '0', 10);
+const headers = { cookie: Astro.request.headers.get('cookie') ?? '' };
+const [briefResponse, templatesResponse] = await Promise.all([
+  fetch(new URL(`/api/social-hub/briefs/${id}`, Astro.url), { headers }),
+  fetch(new URL('/api/social-hub/templates', Astro.url), { headers }),
+]);
+if (!briefResponse.ok) return Astro.redirect('/admin/social-hub');
+const briefData = await briefResponse.json();
+const brief = briefData.brief;
+const copies = briefData.generatedCopy ?? [];
+const assets = briefData.mediaAssets ?? [];
+const publishLogs = briefData.publishLogs ?? [];
+const accounts = briefData.accounts ?? [];
+const targetAccounts = briefData.targetAccounts ?? [];
+const activeTemplates = templatesResponse.ok ? await templatesResponse.json() : [];
+const targetAccountIds: number[] = Array.isArray(brief.targetAccountIds) ? brief.targetAccountIds : [];
+
+const statusColors: Record<string, string> = {
+  draft: 'var(--text-muted)',
+  copy_review: 'var(--gold)',
+  rendering: 'var(--teal)',
+  scheduled: '#8b5cf6',
+  published: '#10b981',
+  failed: '#ef4444',
+};
+
+const copyStatusColors: Record<string, string> = {
+  draft: 'var(--text-muted)',
+  approved: '#10b981',
+  rejected: '#ef4444',
+};
+
+const mediaStatusColors: Record<string, string> = {
+  pending: 'var(--text-muted)',
+  rendering: 'var(--gold)',
+  completed: '#10b981',
+  failed: '#ef4444',
+};
+
+const publishStatusColors: Record<string, string> = {
+  pending: 'var(--text-muted)',
+  scheduled: '#8b5cf6',
+  published: '#10b981',
+  failed: '#ef4444',
+};
+
+const approvedCopy = copies.find(c => c.status === 'approved');
+const canGenerate = brief.status === 'draft' || brief.status === 'copy_review';
+
+const viralEngineEnabled = Boolean((brief as any).viralEngineEnabled ?? (brief as any).viral_engine_enabled ?? false);
+const viralEngineMode = String((brief as any).viralEngineMode ?? (brief as any).viral_engine_mode ?? 'default');
+const viralEnginePrompt = String((brief as any).viralEnginePrompt ?? (brief as any).viral_engine_prompt ?? '');
+const viralEngineProfile = (brief as any).viralEngine ?? (brief as any).viralEngineProfile ?? (brief as any).viral_engine_profile ?? null;
+const pcmProfile = viralEngineProfile?.pcmSnapshot ?? viralEngineProfile?.pcm_snapshot ?? (viralEngineProfile?.written?.pcmSnapshot ?? viralEngineProfile?.written?.pcm_snapshot ?? null);
+const selectedVideoFormat = String((brief as any).videoFormatSlug ?? (brief as any).video_format_slug ?? viralEngineProfile?.video?.selectedVideoFormat?.slug ?? viralEngineProfile?.video?.selected_video_format?.slug ?? '');
+const personalization = viralEngineProfile?.personalization ?? viralEngineProfile?.personalizationSummary ?? viralEngineProfile?.personalization_summary ?? null;
+const pcmProfileData = pcmProfile && typeof pcmProfile === 'object' ? pcmProfile as Record<string, any> : null;
+
+function asText(value: unknown, fallback = '—'): string {
+  if (value === null || value === undefined) return fallback;
+  if (typeof value === 'string') return value.trim() || fallback;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  return fallback;
+}
+
+function formatJson(value: unknown): string {
+  if (value === null || value === undefined) return '—';
+  if (typeof value === 'string') return value;
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return '—';
+  }
+}
+---
+
+<Base title={`Brief #${id} — Social Hub`} description="SocialHub content brief detail: copy, media, and publish">
+<div class="admin-layout">
+  <header class="admin-header">
+    <a href="/admin" class="admin-logo">FR</a>
+    <nav class="breadcrumb">
+      <a href="/admin/social-hub" class="bc-link">Social Hub</a>
+      <span class="bc-sep">›</span>
+      <span class="bc-current">Brief #{id}</span>
+    </nav>
+    <div class="header-actions">
+      <span class="project-status" style={`color: ${statusColors[brief.status] || 'var(--text-muted)'}; border-color: ${statusColors[brief.status] || 'var(--border)'}30; background: ${statusColors[brief.status] || 'var(--text-muted)'}18`}>{brief.status}</span>
+      <a href="/api/logout" class="btn-logout">Logout</a>
+    </div>
+  </header>
+
+  <main class="admin-main">
+
+    <!-- ── Stage bar ─────────────────────────────────────────── -->
+    <div class="stage-bar">
+      <span class={`stage ${brief.status === 'draft' || brief.status === 'copy_review' ? 'active' : 'done'}`}>1. Copy</span>
+      <span class="stage-arrow">→</span>
+      <span class={`stage ${brief.status === 'rendering' ? 'active' : (brief.status === 'scheduled' || brief.status === 'published') ? 'done' : ''}`}>2. Media</span>
+      <span class="stage-arrow">→</span>
+      <span class={`stage ${brief.status === 'scheduled' || brief.status === 'published' ? (brief.status === 'published' ? 'done' : 'active') : ''}`}>3. Publish</span>
+    </div>
+
+    <!-- ── Section 1: Source Overview ────────────────────────── -->
+    <section class="admin-section">
+      <div class="section-header-row">
+        <div class="section-title-block">
+          <h2 class="section-title">Source Overview</h2>
+          <p class="section-subtitle">Origin content that drives this brief</p>
+        </div>
+        {canGenerate && (
+          <div class="header-btns">
+            <button id="btn-generate-copy" class="btn-primary">🤖 Generate Copy</button>
+          </div>
+        )}
+      </div>
+
+      <div class="source-meta-grid">
+        <div class="meta-item">
+          <span class="meta-label">Source Type</span>
+          <span class="meta-value source-type-badge">{brief.sourceType}</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-label">Output Format</span>
+          <span class="meta-value">{brief.outputFormat}</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-label">Status</span>
+          <span class="meta-value" style={`color: ${statusColors[brief.status] || 'var(--text-muted)'}`}>{brief.status}</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-label">Created</span>
+          <span class="meta-value">{new Date(brief.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+        </div>
+      </div>
+
+      {brief.sourceTitle && (
+        <div class="source-title-block">
+          <span class="meta-label">Source Title</span>
+          <p class="source-title-text">{brief.sourceTitle}</p>
+        </div>
+      )}
+
+      {brief.suggestionPrompt && (
+        <div class="suggestion-block">
+          <span class="meta-label">Suggestion Prompt</span>
+          <p class="suggestion-text">{brief.suggestionPrompt}</p>
+        </div>
+      )}
+
+      <div class="viral-engine-card">
+        <div class="viral-engine-card__header">
+          <div class="viral-engine-title-wrap">
+            <span class="meta-label">VIRAL ENGINE</span>
+            <h3 class="viral-engine-title">Strategy audit</h3>
+          </div>
+          <span
+            class={`viral-engine-badge ${viralEngineEnabled ? 'viral-engine-badge--on' : 'viral-engine-badge--off'}`}
+          >
+            {viralEngineEnabled ? 'Enabled' : 'Disabled'}
+          </span>
+        </div>
+
+        <div class="viral-engine-grid">
+          <div class="viral-engine-item">
+            <span class="viral-engine-item-label">Mode</span>
+            <span class="viral-engine-item-value">{asText(viralEngineMode)}</span>
+          </div>
+          <div class="viral-engine-item">
+            <span class="viral-engine-item-label">Output Focus</span>
+            <span class="viral-engine-item-value">
+              {brief.outputFormat === 'video' ? 'Video format selection' : 'Process Communication Model'}
+            </span>
+          </div>
+          <div class="viral-engine-item">
+            <span class="viral-engine-item-label">Video Format</span>
+            <span class="viral-engine-item-value">{selectedVideoFormat ? asText(selectedVideoFormat) : '—'}</span>
+          </div>
+          <div class="viral-engine-item">
+            <span class="viral-engine-item-label">Personalization</span>
+            <span class="viral-engine-item-value">
+              {personalization ? 'Applied' : viralEngineEnabled ? 'Default only' : 'Disabled'}
+            </span>
+          </div>
+        </div>
+
+        {pcmProfileData && (
+          <div class="viral-engine-panel">
+            <div class="viral-engine-panel__top">
+              <span class="viral-engine-panel__label">PCM Snapshot</span>
+              <span class="viral-engine-panel__hint">5-point summary used before generation</span>
+            </div>
+            <div class="viral-engine-pcm-grid">
+              <div class="viral-engine-pcm-item">
+                <span class="viral-engine-pcm-key">Core audience state</span>
+                <span class="viral-engine-pcm-value">{asText(pcmProfileData.coreAudienceState ?? pcmProfileData.core_audience_state)}</span>
+              </div>
+              <div class="viral-engine-pcm-item">
+                <span class="viral-engine-pcm-key">Dominant need</span>
+                <span class="viral-engine-pcm-value">{asText(pcmProfileData.dominantPsychologicalNeed ?? pcmProfileData.dominant_psychological_need)}</span>
+              </div>
+              <div class="viral-engine-pcm-item">
+                <span class="viral-engine-pcm-key">Communication channel</span>
+                <span class="viral-engine-pcm-value">{asText(pcmProfileData.channelOfCommunication ?? pcmProfileData.channel_of_communication)}</span>
+              </div>
+              <div class="viral-engine-pcm-item">
+                <span class="viral-engine-pcm-key">Tone and language</span>
+                <span class="viral-engine-pcm-value">{asText(pcmProfileData.preferredToneAndLanguage ?? pcmProfileData.preferred_tone_and_language)}</span>
+              </div>
+              <div class="viral-engine-pcm-item">
+                <span class="viral-engine-pcm-key">CTA style</span>
+                <span class="viral-engine-pcm-value">{asText(pcmProfileData.callToActionStyle ?? pcmProfileData.call_to_action_style)}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div class="viral-engine-panel">
+          <div class="viral-engine-panel__top">
+            <span class="viral-engine-panel__label">Personalization</span>
+            <span class="viral-engine-panel__hint">Merged runtime context used by the engine</span>
+          </div>
+          <p class="viral-engine-copy">
+            {personalization
+              ? formatJson(personalization)
+              : viralEngineEnabled
+                ? 'No brief-specific personalization was provided. Global defaults were used.'
+                : 'VIRAL ENGINE is disabled for this brief.'}
+          </p>
+        </div>
+
+        <div class="viral-engine-panel">
+          <div class="viral-engine-panel__top">
+            <span class="viral-engine-panel__label">Prompt Audit</span>
+            <span class="viral-engine-panel__hint">Final prompt block persisted for traceability</span>
+          </div>
+          <pre class="viral-engine-prompt">{viralEnginePrompt || 'No persisted VIRAL ENGINE prompt block found for this brief.'}</pre>
+        </div>
+      </div>
+
+      <!-- SSE console for real-time copy generation logs -->
+      <div id="generate-panel" class="generate-panel" style="display:none">
+        <div class="generate-panel-top">
+          <span id="generate-status" class="generate-status">Initializing…</span>
+          <div class="generate-panel-actions">
+            <span id="generate-elapsed" class="generate-elapsed"></span>
+            <button id="generate-close" class="scrape-close-btn" style="display:none">✕ Close</button>
+          </div>
+        </div>
+        <div class="generate-metrics">
+          <span class="metric">Variants: <strong id="generate-variant-count">0</strong></span>
+        </div>
+        <div id="generate-log" class="scrape-log"></div>
+      </div>
+    </section>
+
+    <!-- ── Section 2: Generated Copy ─────────────────────────── -->
+    <section class="admin-section">
+      <div class="section-header-row">
+        <div class="section-title-block">
+          <h2 class="section-title">Generated Copy</h2>
+          <p class="section-subtitle">
+            {copies.length === 0 ? 'No copy generated yet' : `${copies.length} variant${copies.length !== 1 ? 's' : ''} · select one to approve`}
+          </p>
+        </div>
+      </div>
+
+      {copies.length === 0 ? (
+        <div class="empty-state">
+          <p class="empty-text">No copy generated yet. Use "🤖 Generate Copy" above to start.</p>
+        </div>
+      ) : (
+        <div class="copy-tabs">
+          <div class="tab-nav" id="copy-tab-nav">
+            {copies.map((copy, idx) => (
+              <button
+                class={`tab-btn ${idx === 0 ? 'active' : ''}`}
+                data-tab={`copy-${copy.id}`}
+              >
+                Variant {String.fromCharCode(65 + (copy.variantIndex ?? idx))}
+                <span class="tab-status-dot" style={`background: ${copyStatusColors[copy.status] || 'var(--text-muted)'}`}></span>
+              </button>
+            ))}
+          </div>
+
+          <div class="tab-panels">
+            {copies.map((copy, idx) => (
+              <div
+                class={`tab-panel ${idx === 0 ? 'active' : ''}`}
+                id={`copy-${copy.id}`}
+                data-copy-id={copy.id}
+                data-status={copy.status}
+              >
+                <div class="copy-card">
+                  <div class="copy-card-header">
+                    <div class="copy-status-row">
+                      <span class="copy-status-badge" style={`color: ${copyStatusColors[copy.status] || 'var(--text-muted)'}; border-color: ${copyStatusColors[copy.status] || 'var(--border)'}40`}>
+                        {copy.status}
+                      </span>
+                      {copy.generationModel && (
+                        <span class="copy-model-badge">{copy.generationModel}</span>
+                      )}
+                    </div>
+                    <div class="copy-actions">
+                      <button class="btn-ghost btn-edit-copy" data-copy-id={copy.id}>✏️ Edit</button>
+                      <button
+                        class="btn-approve-copy"
+                        data-copy-id={copy.id}
+                        disabled={copy.status === 'approved'}
+                        style={copy.status === 'approved' ? 'opacity:0.45;cursor:not-allowed' : ''}
+                      >✅ Approve</button>
+                      <button
+                        class="btn-reject-copy"
+                        data-copy-id={copy.id}
+                        disabled={copy.status === 'rejected'}
+                        style={copy.status === 'rejected' ? 'opacity:0.45;cursor:not-allowed' : ''}
+                      >❌ Reject</button>
+                      <button class="btn-ghost btn-regen-copy" data-copy-id={copy.id}>🔄 Regenerate</button>
+                    </div>
+                  </div>
+
+                  <!-- Hook Line -->
+                  <div class="copy-field">
+                    <label class="copy-field-label">Hook Line</label>
+                    <h3 class="copy-hook" id={`hook-${copy.id}`}>{copy.hookLine}</h3>
+                    <textarea
+                      class="copy-hook-edit field-edit"
+                      id={`hook-edit-${copy.id}`}
+                      style="display:none"
+                      rows="2"
+                    >{copy.hookLine}</textarea>
+                  </div>
+
+                  <!-- Body Text -->
+                  <div class="copy-field">
+                    <label class="copy-field-label">Body Text</label>
+                    <p class="copy-body" id={`body-${copy.id}`}>{copy.bodyText}</p>
+                    <textarea
+                      class="copy-body-edit field-edit"
+                      id={`body-edit-${copy.id}`}
+                      style="display:none"
+                      rows="6"
+                    >{copy.bodyText}</textarea>
+                  </div>
+
+                  <!-- Hashtags -->
+                  {Array.isArray(copy.hashtags) && copy.hashtags.length > 0 && (
+                    <div class="copy-field">
+                      <label class="copy-field-label">Hashtags</label>
+                      <div class="hashtag-chips">
+                        {(copy.hashtags as string[]).map((tag: string) => (
+                          <span class="hashtag-chip">#{tag.replace(/^#/, '')}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <!-- CTA -->
+                  {copy.cta && (
+                    <div class="copy-field">
+                      <label class="copy-field-label">Call to Action</label>
+                      <p class="copy-cta">{copy.cta}</p>
+                    </div>
+                  )}
+
+                  <!-- Save edit controls (hidden by default) -->
+                  <div class="edit-controls" id={`edit-controls-${copy.id}`} style="display:none">
+                    <button class="btn-primary btn-save-copy" data-copy-id={copy.id}>Save Changes</button>
+                    <button class="btn-ghost btn-cancel-edit" data-copy-id={copy.id}>Cancel</button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </section>
+
+    <!-- ── Section 3: Media Preview ───────────────────────────── -->
+    <section class="admin-section">
+      <div class="section-header-row">
+        <div class="section-title-block">
+          <h2 class="section-title">Media Preview</h2>
+          <p class="section-subtitle">
+            {assets.length === 0 ? 'No media generated' : `${assets.length} asset${assets.length !== 1 ? 's' : ''}`}
+          </p>
+        </div>
+        {approvedCopy && (
+          <div class="header-btns">
+            <select id="render-template-select" class="select-input">
+              <option value="">— select template —</option>
+              {activeTemplates.length === 0 ? (
+                <option value="retro-quote-card" selected>Default (retro-quote-card)</option>
+              ) : (
+                activeTemplates.map(t => (
+                  <option value={t.slug}>{t.name} — {t.aspectRatio}</option>
+                ))
+              )}
+            </select>
+            <button id="btn-render" class="btn-teal">🎬 Render</button>
+          </div>
+        )}
+      </div>
+
+      {assets.length === 0 ? (
+        <div class="empty-state">
+          <p class="empty-text">
+            {approvedCopy ? 'Approve a copy variant, then click "🎬 Render" to generate media.' : 'No media generated yet. Approve a copy variant first.'}
+          </p>
+        </div>
+      ) : (
+        <div class="media-grid">
+          {assets.map(asset => (
+            <div class="media-card" data-asset-id={asset.id}>
+              <div class="media-preview">
+                {asset.type === 'video' ? (
+                  asset.mediaUrl ? (
+                    <video
+                      src={asset.mediaUrl}
+                      poster={asset.thumbnailUrl || undefined}
+                      controls
+                      class="media-video"
+                    ></video>
+                  ) : (
+                    <div class="media-placeholder">
+                      <span class="media-placeholder-icon">🎬</span>
+                      <span class="media-placeholder-label">Video rendering…</span>
+                    </div>
+                  )
+                ) : (
+                  asset.mediaUrl ? (
+                    <img src={asset.mediaUrl} alt="Generated media" class="media-image" />
+                  ) : (
+                    <div class="media-placeholder">
+                      <span class="media-placeholder-icon">🖼️</span>
+                      <span class="media-placeholder-label">Image rendering…</span>
+                    </div>
+                  )
+                )}
+              </div>
+              <div class="media-footer">
+                <div class="media-meta">
+                  <span class="media-type-badge">{asset.type}</span>
+                  <span class="media-status-badge" style={`color: ${mediaStatusColors[asset.status] || 'var(--text-muted)'}; border-color: ${mediaStatusColors[asset.status] || 'var(--border)'}40`}>
+                    {asset.status}
+                  </span>
+                  {asset.width && asset.height && (
+                    <span class="media-dims">{asset.width}×{asset.height}</span>
+                  )}
+                </div>
+                <div class="media-actions">
+                  <button
+                    class="btn-approve-media"
+                    data-asset-id={asset.id}
+                    disabled={asset.status !== 'completed'}
+                    style={asset.status !== 'completed' ? 'opacity:0.45;cursor:not-allowed' : ''}
+                  >✅ Approve Media</button>
+                  <button class="btn-ghost btn-rerender" data-asset-id={asset.id}>🔄 Re-render</button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+
+    <!-- ── Section 4: Publish ─────────────────────────────────── -->
+    <section class="admin-section">
+      <div class="section-header-row">
+        <div class="section-title-block">
+          <h2 class="section-title">Publish</h2>
+          <p class="section-subtitle">Target accounts and scheduling</p>
+        </div>
+      </div>
+
+      <div class="publish-layout">
+        <!-- Target accounts -->
+        <div class="publish-accounts">
+          <p class="publish-label">Target Accounts</p>
+          {accounts.length === 0 ? (
+            <p class="empty-text" style="font-size:0.75rem">No social accounts configured. Add accounts in Social Hub settings.</p>
+          ) : (
+            <div class="accounts-list">
+              {accounts.map(account => (
+                <label class="account-row">
+                  <input
+                    type="checkbox"
+                    class="account-checkbox"
+                    value={account.id}
+                    checked={targetAccountIds.includes(account.id)}
+                    data-account-id={account.id}
+                  />
+                  <span class="account-platform-badge">{account.platform}</span>
+                  <span class="account-name">{account.accountName}</span>
+                  {account.accountHandle && (
+                    <span class="account-handle">@{account.accountHandle}</span>
+                  )}
+                  {!account.isActive && (
+                    <span class="account-inactive-badge">inactive</span>
+                  )}
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <!-- Scheduling -->
+        <div class="publish-schedule">
+          <p class="publish-label">Schedule (optional)</p>
+          <div class="schedule-row">
+            <input
+              type="datetime-local"
+              id="schedule-datetime"
+              class="datetime-input"
+              min={new Date().toISOString().slice(0, 16)}
+            />
+            <p class="schedule-hint">Leave empty to publish immediately.</p>
+          </div>
+        </div>
+
+        <!-- Publish actions -->
+        <div class="publish-actions">
+          <button id="btn-publish-now" class="btn-publish">🚀 Publish Now</button>
+          <button id="btn-schedule" class="btn-ghost">📅 Schedule</button>
+        </div>
+      </div>
+
+      <!-- Published posts -->
+      {publishLogs.length > 0 && (
+        <div class="publish-results">
+          <p class="publish-label" style="margin-bottom:0.5rem">Published Posts</p>
+          <div class="publish-log-list">
+            {publishLogs.map(log => (
+              <div class="publish-log-row">
+                <span class="publish-log-platform">{log.platform}</span>
+                <span
+                  class="publish-log-status"
+                  style={`color: ${publishStatusColors[log.status] || 'var(--text-muted)'}; border-color: ${publishStatusColors[log.status] || 'var(--border)'}40`}
+                >{log.status}</span>
+                {log.externalPostUrl ? (
+                  <a href={log.externalPostUrl} target="_blank" rel="noopener noreferrer" class="publish-log-link">
+                    View Post ↗
+                  </a>
+                ) : (
+                  <span class="publish-log-no-url">—</span>
+                )}
+                {log.scheduledFor && (
+                  <span class="publish-log-scheduled">
+                    Scheduled: {new Date(log.scheduledFor).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                )}
+                {log.publishedAt && (
+                  <span class="publish-log-date">
+                    Published: {new Date(log.publishedAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                )}
+                {log.errorMessage && (
+                  <span class="publish-log-error">{log.errorMessage}</span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </section>
+
+  </main>
+</div>
+
+<script define:vars={{ briefId: id }}>
+  const BRIEF_ID = briefId;
+
+  // ── Tab switching ────────────────────────────────────────────
+  const tabNav = document.getElementById('copy-tab-nav');
+  if (tabNav) {
+    tabNav.addEventListener('click', (e) => {
+      const btn = e.target.closest('.tab-btn');
+      if (!btn) return;
+      const tabId = btn.dataset.tab;
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      const panel = document.getElementById(tabId);
+      if (panel) panel.classList.add('active');
+    });
+  }
+
+  // ── Generate panel helpers ───────────────────────────────────
+  const generatePanel   = document.getElementById('generate-panel');
+  const generateLog     = document.getElementById('generate-log');
+  const generateStatus  = document.getElementById('generate-status');
+  const generateClose   = document.getElementById('generate-close');
+  const generateElapsed = document.getElementById('generate-elapsed');
+  const variantCountEl  = document.getElementById('generate-variant-count');
+
+  let elapsedTimer = null;
+  let elapsedStart = 0;
+
+  function startElapsed() {
+    elapsedStart = Date.now();
+    elapsedTimer = setInterval(() => {
+      if (generateElapsed) generateElapsed.textContent = `${Math.floor((Date.now() - elapsedStart) / 1000)}s`;
+    }, 1000);
+  }
+
+  function stopElapsed() {
+    clearInterval(elapsedTimer);
+    elapsedTimer = null;
+  }
+
+  generateClose?.addEventListener('click', () => {
+    generatePanel.style.display = 'none';
+    stopElapsed();
+  });
+
+  function appendGenerateLog(line) {
+    const el = document.createElement('div');
+    el.className = 'scrape-log-line';
+    if (line.includes('[ERROR]') || line.includes('[FATAL]') || line.includes('[WARN]')) {
+      el.classList.add('error');
+    } else if (line.includes('variant') || line.includes('Done') || line.includes('Generated')) {
+      el.classList.add('highlight');
+    }
+    el.textContent = line;
+    generateLog.appendChild(el);
+    generateLog.scrollTop = generateLog.scrollHeight;
+  }
+
+  function showGeneratePanel() {
+    generateLog.innerHTML = '';
+    if (variantCountEl) variantCountEl.textContent = '0';
+    if (generateElapsed) generateElapsed.textContent = '';
+    generateStatus.textContent = 'Generating copy…';
+    generateStatus.className = 'generate-status running';
+    generateClose.style.display = 'none';
+    generatePanel.style.display = 'block';
+    generatePanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    startElapsed();
+  }
+
+  // ── SSE: stream generation logs ─────────────────────────────
+  async function connectGenerateStream() {
+    try {
+      const res = await fetch(`/api/social-hub/briefs/${BRIEF_ID}/stream`);
+      if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = '';
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const parts = buf.split('\n\n');
+        buf = parts.pop() ?? '';
+        for (const part of parts) {
+          const dataLine = part.split('\n').find(l => l.startsWith('data: '));
+          if (!dataLine) continue;
+          let payload;
+          try { payload = JSON.parse(dataLine.slice(6)); } catch { continue; }
+          if (payload.line) appendGenerateLog(payload.line);
+          if (payload.variantCount !== undefined && variantCountEl) {
+            variantCountEl.textContent = payload.variantCount;
+          }
+          if (payload.done) {
+            stopElapsed();
+            generateClose.style.display = 'inline-block';
+            if (payload.code === 0) {
+              generateStatus.textContent = `Copy generated ✓ — ${payload.variantCount ?? ''} variants`;
+              generateStatus.className = 'generate-status done';
+              setTimeout(() => window.location.reload(), 2000);
+            } else {
+              generateStatus.textContent = 'Generation failed ✗';
+              generateStatus.className = 'generate-status error';
+            }
+            return;
+          }
+        }
+      }
+    } catch (e) {
+      stopElapsed();
+      generateStatus.textContent = `Stream error: ${e.message}`;
+      generateStatus.className = 'generate-status error';
+      generateClose.style.display = 'inline-block';
+    }
+  }
+
+  // ── Generate Copy button ─────────────────────────────────────
+  document.getElementById('btn-generate-copy')?.addEventListener('click', async () => {
+    if (!confirm('Generate AI copy for this brief? This will call the copywriter model.')) return;
+    showGeneratePanel();
+    const res = await fetch(`/api/social-hub/briefs/${BRIEF_ID}/generate-copy`, { method: 'POST' });
+    if (res.status === 409) {
+      // Already running — just subscribe to stream
+      connectGenerateStream();
+      return;
+    }
+    if (!res.ok) {
+      let errMsg = 'Failed to start generation';
+      try { const data = await res.json(); errMsg = data.error || errMsg; } catch {}
+      stopElapsed();
+      generateStatus.textContent = `Error: ${errMsg}`;
+      generateStatus.className = 'generate-status error';
+      generateClose.style.display = 'inline-block';
+      return;
+    }
+    connectGenerateStream();
+  });
+
+  // ── Copy: Edit/Save/Cancel ───────────────────────────────────
+  function getEditElements(copyId) {
+    return {
+      hookDisplay:  document.getElementById(`hook-${copyId}`),
+      hookEdit:     document.getElementById(`hook-edit-${copyId}`),
+      bodyDisplay:  document.getElementById(`body-${copyId}`),
+      bodyEdit:     document.getElementById(`body-edit-${copyId}`),
+      editControls: document.getElementById(`edit-controls-${copyId}`),
+    };
+  }
+
+  document.querySelectorAll('.btn-edit-copy').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const copyId = btn.dataset.copyId;
+      const els = getEditElements(copyId);
+      els.hookDisplay.style.display = 'none';
+      els.hookEdit.style.display = 'block';
+      els.bodyDisplay.style.display = 'none';
+      els.bodyEdit.style.display = 'block';
+      els.editControls.style.display = 'flex';
+      btn.style.display = 'none';
+    });
+  });
+
+  document.querySelectorAll('.btn-cancel-edit').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const copyId = btn.dataset.copyId;
+      const els = getEditElements(copyId);
+      els.hookEdit.value = els.hookDisplay.textContent;
+      els.bodyEdit.value = els.bodyDisplay.textContent;
+      els.hookDisplay.style.display = '';
+      els.hookEdit.style.display = 'none';
+      els.bodyDisplay.style.display = '';
+      els.bodyEdit.style.display = 'none';
+      els.editControls.style.display = 'none';
+      const editBtn = document.querySelector(`.btn-edit-copy[data-copy-id="${copyId}"]`);
+      if (editBtn) editBtn.style.display = '';
+    });
+  });
+
+  document.querySelectorAll('.btn-save-copy').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const copyId = btn.dataset.copyId;
+      const hookEdit = document.getElementById(`hook-edit-${copyId}`);
+      const bodyEdit = document.getElementById(`body-edit-${copyId}`);
+      btn.disabled = true;
+      btn.textContent = 'Saving…';
+      try {
+        const res = await fetch(`/api/social-hub/briefs/${BRIEF_ID}/copy`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ copyId: parseInt(copyId), hookLine: hookEdit.value, bodyText: bodyEdit.value }),
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        window.location.reload();
+      } catch (e) {
+        btn.disabled = false;
+        btn.textContent = 'Save Changes';
+        alert(`Save failed: ${e.message}`);
+      }
+    });
+  });
+
+  // ── Copy: Approve ────────────────────────────────────────────
+  document.querySelectorAll('.btn-approve-copy').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (btn.disabled) return;
+      const copyId = parseInt(btn.dataset.copyId);
+      if (!confirm('Approve this copy variant? The brief will move to the rendering stage.')) return;
+      btn.disabled = true;
+      btn.textContent = 'Approving…';
+      try {
+        const res = await fetch(`/api/social-hub/briefs/${BRIEF_ID}/copy`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ copyId, status: 'approved' }),
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        window.location.reload();
+      } catch (e) {
+        btn.disabled = false;
+        btn.textContent = '✅ Approve';
+        alert(`Approve failed: ${e.message}`);
+      }
+    });
+  });
+
+  // ── Copy: Reject ─────────────────────────────────────────────
+  document.querySelectorAll('.btn-reject-copy').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (btn.disabled) return;
+      const copyId = parseInt(btn.dataset.copyId);
+      btn.disabled = true;
+      btn.textContent = 'Rejecting…';
+      try {
+        const res = await fetch(`/api/social-hub/briefs/${BRIEF_ID}/copy`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ copyId, status: 'rejected' }),
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        window.location.reload();
+      } catch (e) {
+        btn.disabled = false;
+        btn.textContent = '❌ Reject';
+        alert(`Reject failed: ${e.message}`);
+      }
+    });
+  });
+
+  // ── Copy: Regenerate ─────────────────────────────────────────
+  document.querySelectorAll('.btn-regen-copy').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const copyId = parseInt(btn.dataset.copyId);
+      if (!confirm('Regenerate this variant? The existing copy will be replaced.')) return;
+      btn.disabled = true;
+      btn.textContent = '🔄 Regenerating…';
+      showGeneratePanel();
+      try {
+        const res = await fetch(`/api/social-hub/briefs/${BRIEF_ID}/generate-copy`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ copyId }),
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        connectGenerateStream();
+      } catch (e) {
+        stopElapsed();
+        generateStatus.textContent = `Error: ${e.message}`;
+        generateStatus.className = 'generate-status error';
+        generateClose.style.display = 'inline-block';
+        btn.disabled = false;
+        btn.textContent = '🔄 Regenerate';
+      }
+    });
+  });
+
+  // ── Media: Approve ───────────────────────────────────────────
+  document.querySelectorAll('.btn-approve-media').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (btn.disabled) return;
+      const assetId = parseInt(btn.dataset.assetId);
+      btn.disabled = true;
+      btn.textContent = 'Approving…';
+      try {
+        const res = await fetch(`/api/social-hub/briefs/${BRIEF_ID}/render`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ assetId, action: 'approve' }),
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        window.location.reload();
+      } catch (e) {
+        btn.disabled = false;
+        btn.textContent = '✅ Approve Media';
+        alert(`Approve failed: ${e.message}`);
+      }
+    });
+  });
+
+  // ── Media: Re-render ─────────────────────────────────────────
+  document.querySelectorAll('.btn-rerender').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const templateSelect = document.getElementById('render-template-select');
+      const templateSlug = templateSelect ? templateSelect.value : '';
+      if (!templateSlug) { alert('Please select a template first.'); return; }
+      if (!confirm('Re-render this asset?')) return;
+
+      // Re-render uses the approved copy
+      const approvedPanel = document.querySelector('.tab-panel[data-status="approved"]');
+      const approvedCopyId = approvedPanel ? parseInt(approvedPanel.dataset.copyId, 10) : null;
+      if (!approvedCopyId) {
+        alert('No approved copy variant found. Approve a copy first.');
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = '🔄 Rendering…';
+      try {
+        const res = await fetch(`/api/social-hub/briefs/${BRIEF_ID}/render`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ copyId: approvedCopyId, templateSlug, format: 'image' }),
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        window.location.reload();
+      } catch (e) {
+        btn.disabled = false;
+        btn.textContent = '🔄 Re-render';
+        alert(`Re-render failed: ${e.message}`);
+      }
+    });
+  });
+
+  // ── Render new asset ────────────────────────────────────────
+  document.getElementById('btn-render')?.addEventListener('click', async () => {
+    const templateSelect = document.getElementById('render-template-select');
+    const templateSlug = templateSelect ? templateSelect.value : '';
+    if (!templateSlug) { alert('Please select a template first.'); return; }
+
+    // Find approved copyId from data-status attribute
+    const approvedPanel = document.querySelector('.tab-panel[data-status="approved"]');
+    const approvedCopyId = approvedPanel ? parseInt(approvedPanel.dataset.copyId, 10) : null;
+    if (!approvedCopyId) {
+      alert('No approved copy variant found. Please approve a copy variant first.');
+      return;
+    }
+
+    const btn = document.getElementById('btn-render');
+    btn.disabled = true;
+    btn.textContent = '🎬 Rendering…';
+    try {
+      const res = await fetch(`/api/social-hub/briefs/${BRIEF_ID}/render`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ copyId: approvedCopyId, templateSlug, format: 'image' }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      window.location.reload();
+    } catch (e) {
+      btn.disabled = false;
+      btn.textContent = '🎬 Render';
+      alert(`Render failed: ${e.message}`);
+    }
+  });
+
+  // ── Get selected account IDs ─────────────────────────────────
+  function getSelectedAccountIds() {
+    return Array.from(document.querySelectorAll('.account-checkbox:checked'))
+      .map(el => parseInt(el.value))
+      .filter(n => !isNaN(n));
+  }
+
+  // ── Publish Now ──────────────────────────────────────────────
+  document.getElementById('btn-publish-now')?.addEventListener('click', async () => {
+    const accountIds = getSelectedAccountIds();
+    if (accountIds.length === 0) {
+      alert('Select at least one target account before publishing.');
+      return;
+    }
+    if (!confirm(`Publish now to ${accountIds.length} account(s)?`)) return;
+    const btn = document.getElementById('btn-publish-now');
+    btn.disabled = true;
+    btn.textContent = '🚀 Publishing…';
+    try {
+      const res = await fetch(`/api/social-hub/briefs/${BRIEF_ID}/publish`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accountIds, publishNow: true }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      window.location.reload();
+    } catch (e) {
+      btn.disabled = false;
+      btn.textContent = '🚀 Publish Now';
+      alert(`Publish failed: ${e.message}`);
+    }
+  });
+
+  // ── Schedule ─────────────────────────────────────────────────
+  document.getElementById('btn-schedule')?.addEventListener('click', async () => {
+    const accountIds = getSelectedAccountIds();
+    if (accountIds.length === 0) {
+      alert('Select at least one target account before scheduling.');
+      return;
+    }
+    const scheduledFor = document.getElementById('schedule-datetime')?.value;
+    if (!scheduledFor) {
+      alert('Pick a date/time for scheduling, or use "Publish Now" to publish immediately.');
+      return;
+    }
+    if (!confirm(`Schedule post for ${new Date(scheduledFor).toLocaleString()} to ${accountIds.length} account(s)?`)) return;
+    const btn = document.getElementById('btn-schedule');
+    btn.disabled = true;
+    btn.textContent = '📅 Scheduling…';
+    try {
+      const res = await fetch(`/api/social-hub/briefs/${BRIEF_ID}/publish`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accountIds, scheduledFor }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      window.location.reload();
+    } catch (e) {
+      btn.disabled = false;
+      btn.textContent = '📅 Schedule';
+      alert(`Schedule failed: ${e.message}`);
+    }
+  });
+</script>
+
+<style>
+/* ── Layout ──────────────────────────────────────────────────── */
+.admin-layout { min-height: 100vh; background: var(--bg-base); }
+
+/* ── Header ──────────────────────────────────────────────────── */
+.admin-header { display: flex; align-items: center; gap: 1.25rem; padding: 0.875rem 1.5rem; background: var(--bg-elevated); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 20; }
+.admin-logo { font-family: var(--font-mono); font-weight: 700; color: var(--teal); text-decoration: none; font-size: 1.1rem; }
+.breadcrumb { font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-secondary); display: flex; gap: 0.4rem; align-items: center; }
+.bc-link { color: var(--text-muted); text-decoration: none; }
+.bc-link:hover { color: var(--teal); }
+.bc-sep { color: var(--text-muted); }
+.bc-current { color: var(--text-secondary); }
+.header-actions { margin-left: auto; display: flex; gap: 0.5rem; align-items: center; }
+.project-status { font-family: var(--font-mono); font-size: 0.65rem; padding: 0.2rem 0.5rem; border: 1px solid; border-radius: 0.2rem; }
+.btn-logout { padding: 0.35rem 0.75rem; color: var(--text-muted); border: 1px solid var(--border); border-radius: 0.25rem; font-family: var(--font-mono); font-size: 0.72rem; text-decoration: none; }
+
+/* ── Main ────────────────────────────────────────────────────── */
+.admin-main { max-width: 960px; margin: 0 auto; padding: 1.75rem 1.5rem 3rem; display: flex; flex-direction: column; gap: 2rem; }
+
+/* ── Stage bar ───────────────────────────────────────────────── */
+.stage-bar { display: flex; align-items: center; gap: 0.5rem; font-family: var(--font-mono); font-size: 0.65rem; padding: 0.625rem 1rem; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 0.375rem; overflow-x: auto; }
+.stage { color: var(--text-muted); white-space: nowrap; }
+.stage.done { color: var(--teal); }
+.stage.active { color: var(--gold); font-weight: 700; }
+.stage-arrow { color: var(--border); }
+
+/* ── Section ─────────────────────────────────────────────────── */
+.admin-section { display: flex; flex-direction: column; gap: 0.875rem; }
+.section-header-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; padding-bottom: 0.875rem; border-bottom: 1px solid var(--border); }
+.section-title-block { display: flex; flex-direction: column; gap: 0.2rem; }
+.section-title { font-family: var(--font-mono); font-size: 1rem; color: var(--text-primary); font-weight: 700; margin: 0; }
+.section-subtitle { font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-muted); margin: 0; }
+.header-btns { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
+
+/* ── Buttons ─────────────────────────────────────────────────── */
+.btn-primary { padding: 0.4rem 1rem; background: var(--teal); color: #fff; border: none; border-radius: 0.3rem; font-family: var(--font-mono); font-size: 0.72rem; cursor: pointer; text-decoration: none; display: inline-block; }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-ghost { padding: 0.4rem 0.875rem; background: none; border: 1px solid var(--border); color: var(--text-secondary); border-radius: 0.3rem; font-family: var(--font-mono); font-size: 0.72rem; cursor: pointer; }
+.btn-ghost:hover { border-color: var(--text-secondary); }
+.btn-ghost:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-teal { padding: 0.4rem 1rem; background: none; border: 1px solid var(--teal); color: var(--teal); border-radius: 0.3rem; font-family: var(--font-mono); font-size: 0.72rem; cursor: pointer; }
+.btn-teal:hover { background: rgba(74,141,131,0.08); }
+.btn-teal:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-publish { padding: 0.5rem 1.25rem; background: var(--teal); color: #fff; border: none; border-radius: 0.3rem; font-family: var(--font-mono); font-size: 0.8rem; font-weight: 600; cursor: pointer; }
+.btn-publish:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ── Source meta ─────────────────────────────────────────────── */
+.source-meta-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0.75rem; }
+.meta-item { display: flex; flex-direction: column; gap: 0.2rem; padding: 0.625rem 0.875rem; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 0.375rem; }
+.meta-label { font-family: var(--font-mono); font-size: 0.6rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.meta-value { font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-primary); }
+.source-type-badge { color: var(--gold); }
+.source-title-block { display: flex; flex-direction: column; gap: 0.25rem; }
+.source-title-text { font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-primary); margin: 0; line-height: 1.5; }
+.suggestion-block { display: flex; flex-direction: column; gap: 0.25rem; padding: 0.75rem 1rem; background: rgba(214,183,121,0.06); border: 1px solid rgba(214,183,121,0.2); border-radius: 0.375rem; }
+.suggestion-text { font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-secondary); margin: 0; line-height: 1.6; }
+
+/* ── VIRAL ENGINE audit ────────────────────────────────────── */
+.viral-engine-card { display: flex; flex-direction: column; gap: 0.85rem; padding: 1rem 1.1rem; background: linear-gradient(180deg, rgba(214,183,121,0.08), rgba(74,141,131,0.04)); border: 1px solid rgba(214,183,121,0.22); border-radius: 0.5rem; }
+.viral-engine-card__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.75rem; }
+.viral-engine-title-wrap { display: flex; flex-direction: column; gap: 0.15rem; }
+.viral-engine-title { margin: 0; font-family: var(--font-mono); font-size: 0.92rem; color: var(--text-primary); font-weight: 700; }
+.viral-engine-badge { font-family: var(--font-mono); font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.06em; padding: 0.2rem 0.45rem; border-radius: 999px; border: 1px solid; white-space: nowrap; }
+.viral-engine-badge--on { color: var(--teal); border-color: rgba(74,141,131,0.35); background: rgba(74,141,131,0.12); }
+.viral-engine-badge--off { color: #ef4444; border-color: rgba(239,68,68,0.35); background: rgba(239,68,68,0.1); }
+.viral-engine-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 0.6rem; }
+.viral-engine-item { display: flex; flex-direction: column; gap: 0.18rem; padding: 0.65rem 0.75rem; background: rgba(0,0,0,0.12); border: 1px solid rgba(255,255,255,0.06); border-radius: 0.375rem; }
+.viral-engine-item-label { font-family: var(--font-mono); font-size: 0.6rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.viral-engine-item-value { font-family: var(--font-mono); font-size: 0.74rem; color: var(--text-primary); line-height: 1.45; }
+.viral-engine-panel { display: flex; flex-direction: column; gap: 0.5rem; padding-top: 0.25rem; }
+.viral-engine-panel__top { display: flex; align-items: baseline; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; }
+.viral-engine-panel__label { font-family: var(--font-mono); font-size: 0.6rem; color: var(--gold); text-transform: uppercase; letter-spacing: 0.06em; }
+.viral-engine-panel__hint { font-family: var(--font-mono); font-size: 0.62rem; color: var(--text-muted); }
+.viral-engine-pcm-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.5rem; }
+.viral-engine-pcm-item { display: flex; flex-direction: column; gap: 0.18rem; padding: 0.6rem 0.7rem; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 0.35rem; }
+.viral-engine-pcm-key { font-family: var(--font-mono); font-size: 0.6rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+.viral-engine-pcm-value { font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-primary); line-height: 1.45; }
+.viral-engine-copy { margin: 0; font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-secondary); line-height: 1.7; white-space: pre-wrap; }
+.viral-engine-prompt { margin: 0; padding: 0.8rem 0.9rem; background: #0b1220; border: 1px solid rgba(148,163,184,0.2); border-radius: 0.4rem; color: #dbe4f0; font-family: var(--font-mono); font-size: 0.68rem; line-height: 1.7; white-space: pre-wrap; overflow-x: auto; }
+
+/* ── Generate panel (SSE console) ────────────────────────────── */
+.generate-panel { background: var(--bg-elevated); border: 1px solid rgba(74,141,131,0.3); border-radius: 0.5rem; overflow: hidden; }
+.generate-panel-top { display: flex; align-items: center; justify-content: space-between; padding: 0.625rem 1rem; background: rgba(74,141,131,0.05); border-bottom: 1px solid rgba(74,141,131,0.15); }
+.generate-status { font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-muted); }
+.generate-status.running { color: var(--teal); }
+.generate-status.done { color: #10b981; }
+.generate-status.error { color: #ef4444; }
+.generate-panel-actions { display: flex; gap: 0.5rem; align-items: center; }
+.generate-elapsed { font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-muted); }
+.generate-metrics { display: flex; gap: 1.5rem; padding: 0.5rem 1rem; border-bottom: 1px solid var(--border); font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-muted); }
+.generate-metrics .metric strong { color: var(--text-primary); }
+.scrape-log { height: 180px; overflow-y: auto; padding: 0.5rem 1rem; display: flex; flex-direction: column; gap: 0.15rem; }
+.scrape-log-line { font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-muted); line-height: 1.4; }
+.scrape-log-line.error { color: #ef4444; }
+.scrape-log-line.highlight { color: var(--teal); }
+.scrape-close-btn { font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-muted); background: none; border: 1px solid var(--border); border-radius: 0.2rem; padding: 0.2rem 0.5rem; cursor: pointer; }
+
+/* ── Empty state ─────────────────────────────────────────────── */
+.empty-state { padding: 2rem 1rem; text-align: center; background: var(--bg-elevated); border: 1px dashed var(--border); border-radius: 0.5rem; }
+.empty-text { font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-muted); margin: 0; }
+
+/* ── Copy tabs ───────────────────────────────────────────────── */
+.copy-tabs { display: flex; flex-direction: column; gap: 0; }
+.tab-nav { display: flex; gap: 0; border-bottom: 1px solid var(--border); overflow-x: auto; }
+.tab-btn { padding: 0.5rem 1.25rem; background: none; border: none; border-bottom: 2px solid transparent; margin-bottom: -1px; font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-muted); cursor: pointer; display: flex; align-items: center; gap: 0.5rem; white-space: nowrap; transition: color 0.15s, border-color 0.15s; }
+.tab-btn:hover { color: var(--text-secondary); }
+.tab-btn.active { color: var(--teal); border-bottom-color: var(--teal); }
+.tab-status-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.tab-panels { padding-top: 1rem; }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* ── Copy card ───────────────────────────────────────────────── */
+.copy-card { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 0.5rem; padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem; }
+.copy-card-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem; }
+.copy-status-row { display: flex; align-items: center; gap: 0.5rem; }
+.copy-status-badge { font-family: var(--font-mono); font-size: 0.65rem; padding: 0.15rem 0.5rem; border: 1px solid; border-radius: 0.2rem; text-transform: uppercase; letter-spacing: 0.06em; }
+.copy-model-badge { font-family: var(--font-mono); font-size: 0.6rem; color: var(--text-muted); background: rgba(255,255,255,0.04); border: 1px solid var(--border); padding: 0.1rem 0.4rem; border-radius: 0.2rem; }
+.copy-actions { display: flex; gap: 0.375rem; flex-wrap: wrap; }
+.btn-approve-copy { padding: 0.35rem 0.75rem; background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.35); color: #10b981; border-radius: 0.3rem; font-family: var(--font-mono); font-size: 0.7rem; cursor: pointer; }
+.btn-approve-copy:hover:not(:disabled) { background: rgba(16,185,129,0.2); }
+.btn-reject-copy { padding: 0.35rem 0.75rem; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); color: #ef4444; border-radius: 0.3rem; font-family: var(--font-mono); font-size: 0.7rem; cursor: pointer; }
+.btn-reject-copy:hover:not(:disabled) { background: rgba(239,68,68,0.18); }
+.copy-field { display: flex; flex-direction: column; gap: 0.3rem; }
+.copy-field-label { font-family: var(--font-mono); font-size: 0.6rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.copy-hook { font-family: var(--font-mono); font-size: 0.95rem; font-weight: 700; color: var(--text-primary); margin: 0; line-height: 1.4; }
+.copy-body { font-family: var(--font-mono); font-size: 0.78rem; color: var(--text-secondary); margin: 0; line-height: 1.7; white-space: pre-wrap; }
+.copy-cta { font-family: var(--font-mono); font-size: 0.78rem; color: var(--gold); margin: 0; font-weight: 600; }
+.field-edit { width: 100%; padding: 0.625rem 0.875rem; background: var(--bg-base); border: 1px solid var(--teal); border-radius: 0.3rem; color: var(--text-primary); font-family: var(--font-mono); font-size: 0.78rem; resize: vertical; line-height: 1.6; box-sizing: border-box; }
+.field-edit:focus { outline: none; }
+.edit-controls { display: flex; gap: 0.5rem; align-items: center; }
+.hashtag-chips { display: flex; gap: 0.375rem; flex-wrap: wrap; }
+.hashtag-chip { font-family: var(--font-mono); font-size: 0.65rem; color: var(--violet); background: rgba(138,78,100,0.1); border: 1px solid rgba(138,78,100,0.25); padding: 0.15rem 0.5rem; border-radius: 99px; }
+
+/* ── Media grid ──────────────────────────────────────────────── */
+.media-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem; }
+.media-card { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 0.5rem; overflow: hidden; display: flex; flex-direction: column; }
+.media-preview { aspect-ratio: 1; background: rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.media-image { width: 100%; height: 100%; object-fit: cover; }
+.media-video { width: 100%; height: 100%; object-fit: cover; }
+.media-placeholder { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; }
+.media-placeholder-icon { font-size: 2rem; }
+.media-placeholder-label { font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-muted); }
+.media-footer { padding: 0.75rem; display: flex; flex-direction: column; gap: 0.625rem; }
+.media-meta { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.media-type-badge { font-family: var(--font-mono); font-size: 0.6rem; color: var(--text-muted); background: rgba(255,255,255,0.05); border: 1px solid var(--border); padding: 0.1rem 0.35rem; border-radius: 0.2rem; text-transform: uppercase; }
+.media-status-badge { font-family: var(--font-mono); font-size: 0.6rem; padding: 0.1rem 0.35rem; border: 1px solid; border-radius: 0.2rem; text-transform: uppercase; }
+.media-dims { font-family: var(--font-mono); font-size: 0.6rem; color: var(--text-muted); margin-left: auto; }
+.media-actions { display: flex; gap: 0.375rem; flex-wrap: wrap; }
+.btn-approve-media { padding: 0.3rem 0.625rem; background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.35); color: #10b981; border-radius: 0.3rem; font-family: var(--font-mono); font-size: 0.65rem; cursor: pointer; }
+.btn-approve-media:hover:not(:disabled) { background: rgba(16,185,129,0.2); }
+
+/* ── Select input ────────────────────────────────────────────── */
+.select-input { padding: 0.375rem 0.625rem; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 0.3rem; color: var(--text-secondary); font-family: var(--font-mono); font-size: 0.72rem; cursor: pointer; }
+.select-input:focus { outline: none; border-color: var(--teal); }
+
+/* ── Publish ─────────────────────────────────────────────────── */
+.publish-layout { display: flex; flex-direction: column; gap: 1.25rem; }
+.publish-label { font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; margin: 0 0 0.5rem; }
+.accounts-list { display: flex; flex-direction: column; gap: 0.375rem; }
+.account-row { display: flex; align-items: center; gap: 0.625rem; padding: 0.5rem 0.75rem; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 0.3rem; cursor: pointer; font-family: var(--font-mono); }
+.account-row:hover { border-color: rgba(74,141,131,0.4); }
+.account-checkbox { accent-color: var(--teal); width: 14px; height: 14px; cursor: pointer; flex-shrink: 0; }
+.account-platform-badge { font-size: 0.6rem; color: var(--teal); background: rgba(74,141,131,0.1); border: 1px solid rgba(74,141,131,0.25); padding: 0.1rem 0.4rem; border-radius: 0.2rem; text-transform: uppercase; }
+.account-name { font-size: 0.75rem; color: var(--text-primary); }
+.account-handle { font-size: 0.65rem; color: var(--text-muted); }
+.account-inactive-badge { font-size: 0.6rem; color: #ef4444; border: 1px solid rgba(239,68,68,0.3); padding: 0.1rem 0.35rem; border-radius: 0.2rem; margin-left: auto; }
+.publish-schedule { display: flex; flex-direction: column; }
+.schedule-row { display: flex; flex-direction: column; gap: 0.375rem; }
+.datetime-input { padding: 0.5rem 0.75rem; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 0.3rem; color: var(--text-primary); font-family: var(--font-mono); font-size: 0.75rem; max-width: 280px; color-scheme: dark; }
+.datetime-input:focus { outline: none; border-color: var(--teal); }
+.schedule-hint { font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-muted); margin: 0; }
+.publish-actions { display: flex; gap: 0.625rem; align-items: center; flex-wrap: wrap; padding-top: 0.25rem; }
+.publish-results { border-top: 1px solid var(--border); padding-top: 1rem; }
+.publish-log-list { display: flex; flex-direction: column; gap: 0.375rem; }
+.publish-log-row { display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem 0.875rem; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 0.3rem; font-family: var(--font-mono); font-size: 0.72rem; flex-wrap: wrap; }
+.publish-log-platform { font-size: 0.6rem; color: var(--teal); background: rgba(74,141,131,0.1); border: 1px solid rgba(74,141,131,0.25); padding: 0.1rem 0.4rem; border-radius: 0.2rem; text-transform: uppercase; }
+.publish-log-status { font-size: 0.65rem; padding: 0.1rem 0.4rem; border: 1px solid; border-radius: 0.2rem; text-transform: uppercase; }
+.publish-log-link { color: var(--teal); text-decoration: none; font-size: 0.72rem; }
+.publish-log-link:hover { text-decoration: underline; }
+.publish-log-no-url { color: var(--text-muted); }
+.publish-log-scheduled { font-size: 0.65rem; color: #8b5cf6; margin-left: auto; }
+.publish-log-date { font-size: 0.65rem; color: var(--text-muted); margin-left: auto; }
+.publish-log-error { font-size: 0.65rem; color: #ef4444; width: 100%; }
+</style>
+</Base>
+

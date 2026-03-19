@@ -1,0 +1,519 @@
+---
+import Base from '@/components/layouts/Base.astro';
+
+const { id } = Astro.params;
+const projectId = parseInt(id || '0', 10);
+
+let project: any = null;
+try {
+  const response = await fetch(new URL(`/api/brand-clarity/projects/${projectId}`, Astro.url), {
+    headers: {
+      cookie: Astro.request.headers.get('cookie') ?? '',
+    },
+  });
+  if (response.ok) {
+    project = await response.json();
+  }
+} catch (e) {
+  console.error('[BC-Docs]', e);
+}
+
+if (!project) return Astro.redirect('/admin/brand-clarity');
+
+const wordCount = project.projectDocumentation
+  ? project.projectDocumentation.trim().split(/\s+/).length
+  : 0;
+
+const lpRawInput = project.lpRawInput || '';
+const lpWordCount = lpRawInput.trim() ? lpRawInput.trim().split(/\s+/).length : 0;
+---
+
+<Base title={`Project Documentation — ${project.name}`} description="Brand Clarity Stage 1.1 — project documentation">
+<div class="admin-layout">
+  <header class="admin-header">
+    <a href="/admin" class="admin-logo">FR</a>
+    <nav class="breadcrumb">
+      <a href="/admin/brand-clarity" class="bc-link">Brand Clarity</a>
+      <span class="bc-sep">›</span>
+      <a href={`/admin/brand-clarity/${projectId}/channels`} class="bc-link">{project.name}</a>
+      <span class="bc-sep">›</span>
+      <span class="bc-current">Documentation</span>
+    </nav>
+    <div class="header-actions">
+      <span class="project-status">{project.status}</span>
+      <a href="/api/logout" class="btn-logout">Logout</a>
+    </div>
+  </header>
+
+  <main class="admin-main">
+    <div class="stage-bar">
+      <span class="stage active">1. LP Parsed</span>
+      <span class="stage-arrow">→</span>
+      <a href={`/admin/brand-clarity/${projectId}/channels`} class="stage stage-link">2. Channels</a>
+      <span class="stage-arrow">→</span>
+      <a href={`/admin/brand-clarity/${projectId}/videos`} class="stage stage-link">3. Videos</a>
+      <span class="stage-arrow">→</span>
+      <a href={`/admin/brand-clarity/${projectId}/scrape`} class="stage stage-link">4–5. Pain Points Base</a>
+      <span class="stage-arrow">→</span>
+      <a href={`/admin/brand-clarity/${projectId}/variants`} class="stage stage-link">5. LP Variants</a>
+    </div>
+
+    <!-- ── LANDING PAGE CONTENT ───────────────────────────────────────────── -->
+    <section class="form-section">
+      <div class="form-header">
+        <h2 class="form-title">Landing Page Content</h2>
+        <p class="form-subtitle">
+          Pobierz prompt, wgraj go razem z plikami LP do <em>Claude lub ChatGPT</em> — agent przeanalizuje pliki i zwróci ustrukturyzowany YAML.
+          Wgraj odpowiedź agenta tutaj. Brand Clarity dostaje <em>twoje dokładne słowa</em>, nie zgadywanie ze scrape'a.
+        </p>
+        {lpWordCount > 0 && (
+          <div class="docs-saved">
+            ✓ LP content saved ({lpWordCount.toLocaleString()} words).
+          </div>
+        )}
+      </div>
+
+      <div class="lp-content-panel">
+        <!-- Download template -->
+        <div class="lp-actions-row">
+          <button type="button" id="download-template-btn" class="btn-download">
+            ↓ Download AI Agent Prompt (.md)
+          </button>
+          <span class="lp-actions-hint">Wgraj prompt + pliki LP do Claude/ChatGPT → odpowiedź wgraj poniżej →</span>
+        </div>
+
+        <!-- Upload zone -->
+        <div id="upload-zone" class="upload-zone">
+          <div class="upload-zone-inner">
+            <div class="upload-icon">↑</div>
+            <p class="upload-label">Drop the AI agent's response here <code>.md</code> / <code>.txt</code></p>
+            <p class="upload-sub">or <label for="lp-file-input" class="upload-browse">browse files</label></p>
+            <input type="file" id="lp-file-input" accept=".yaml,.yml,.md,.txt" style="display:none" />
+          </div>
+        </div>
+
+        <!-- Preview -->
+        <div id="lp-preview-wrap" style="display:none" class="lp-preview-wrap">
+          <div class="label-row">
+            <label class="form-label">Preview — Landing Page Content</label>
+            <span id="lp-word-count" class="word-count">{lpWordCount} words</span>
+          </div>
+          <textarea id="lp-preview-textarea" class="form-textarea lp-textarea" rows={20}>{lpRawInput}</textarea>
+          <div class="lp-save-row">
+            <button type="button" id="lp-save-btn" class="btn-save">Save Landing Page Content</button>
+            <button type="button" id="lp-clear-btn" class="btn-skip">Clear</button>
+          </div>
+        </div>
+
+        {lpWordCount > 0 && (
+          <div id="lp-preview-wrap-existing" class="lp-preview-wrap">
+            <div class="label-row">
+              <label class="form-label">Current Landing Page Content</label>
+              <span class="word-count">{lpWordCount} words</span>
+            </div>
+            <textarea id="lp-existing-textarea" class="form-textarea lp-textarea" rows={12}>{lpRawInput}</textarea>
+            <div class="lp-save-row">
+              <button type="button" id="lp-existing-save-btn" class="btn-save">Update</button>
+            </div>
+          </div>
+        )}
+
+        <div id="lp-status-msg" class="status-msg" style="display:none"></div>
+      </div>
+    </section>
+
+    <!-- ── PROJECT DOCUMENTATION ───────────────────────────────────────────── -->
+    <section class="form-section">
+      <div class="form-header">
+        <h2 class="form-title">Step 1.1 — Project Documentation</h2>
+        <p class="form-subtitle">
+          Paste everything that describes <em>what your product actually IS</em> — README, product spec, feature list, how-it-works guide.
+          This will be used to ground all AI-generated landing pages in factual accuracy.
+        </p>
+        {!project.projectDocumentation && (
+          <div class="skip-warning">
+            ⚠ No documentation saved yet. Skipping this step may reduce LP accuracy — LPs will be based only on your landing page and founder description.
+          </div>
+        )}
+        {project.projectDocumentation && (
+          <div class="docs-saved">
+            ✓ Documentation saved ({wordCount.toLocaleString()} words). You can update it below.
+          </div>
+        )}
+      </div>
+
+      <form id="docs-form" class="docs-form">
+        <div class="form-group">
+          <div class="label-row">
+            <label class="form-label" for="docs-textarea">Project Documentation</label>
+            <span id="word-count" class="word-count">{wordCount} words</span>
+          </div>
+          <textarea
+            id="docs-textarea"
+            name="projectDocumentation"
+            class="form-textarea"
+            rows={40}
+            placeholder="Paste README, product spec, feature list, or any documentation here...
+
+Examples of what to paste:
+• README.md content
+• Feature descriptions
+• Technical architecture notes
+• Onboarding guide
+• 'How it works' internal document
+• Any text describing your product's real mechanics"
+          >{project.projectDocumentation || ''}</textarea>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" id="save-btn" class="btn-save">Save & Continue to Channel Discovery →</button>
+          <button type="button" id="skip-btn" class="btn-skip">Skip this step →</button>
+          <a href={`/admin/brand-clarity/${projectId}/channels`} class="btn-ghost-sm">Back to Channels</a>
+        </div>
+      </form>
+
+      <div id="status-msg" class="status-msg" style="display:none"></div>
+    </section>
+  </main>
+</div>
+
+<script define:vars={{ projectId, projectName: project.name, projectUrl: project.lpRawInput }}>
+  const PROJECT_ID = projectId;
+
+  // ── LP Content: AI agent prompt download ───────────────────────────────
+  const LP_URL = projectUrl?.startsWith('http') ? projectUrl : '';
+  const TEMPLATE = `# AI Agent Prompt — Landing Page Analysis
+# Project: ${projectName}
+#
+# HOW TO USE:
+# 1. Zbierz pliki swojego landing page (HTML, MD, Notion export, Google Docs export, screenshot — cokolwiek masz)
+# 2. Otwórz Claude.ai lub ChatGPT
+# 3. Wgraj pliki LP + ten plik jako kontekst
+# 4. Wyślij — agent przeanalizuje pliki i zwróci gotowy YAML
+# 5. Skopiuj odpowiedź agenta, zapisz jako plik (.txt lub .md)
+# 6. Wgraj ten plik z powrotem do Brand Clarity
+
+---
+
+You are a senior conversion copywriter and UX analyst.
+
+I am attaching files that contain my landing page content — this may include HTML files, exported documents, screenshots, or plain text copies of my landing page.
+
+Your task: read every attached file carefully, find all landing page content, and extract it into a structured YAML format. This output will be used by an AI pipeline to generate better-converting landing page variants.
+
+${LP_URL ? `The landing page is for: ${LP_URL}` : `Project: ${projectName}`}
+
+---
+
+## Rules
+
+- Extract EXACT language from the files — do not rewrite, summarize, or improve the copy
+- If a section is not present in the files, write: null
+- Preserve original capitalization, punctuation, and sentence structure
+- If you find multiple versions of the same section, pick the most complete one
+- Do not add anything that is not in the source files
+
+---
+
+## Output format
+
+Return ONLY the YAML block below, filled with real content from the files. No explanations before or after.
+
+\`\`\`yaml
+url: "${LP_URL}"
+
+hero:
+  headline: "EXACT headline text from the page"
+  subheadline: "EXACT subheadline or descriptor text"
+  cta_primary: "EXACT primary CTA button text"
+  cta_secondary: "EXACT secondary link or button text, or null"
+  hero_body: |
+    Any additional text in the hero section, word for word.
+
+problem:
+  headline: "Section headline if present, or null"
+  body: |
+    EXACT text describing the problem being solved.
+    Every sentence, word for word.
+  who_it_affects: "EXACT text about who the target customer is, or null"
+
+solution:
+  headline: "EXACT section headline, or null"
+  what_it_is: |
+    EXACT text explaining what the product is.
+  how_it_works: |
+    EXACT text from the how-it-works section (steps, process, etc.)
+
+features:
+  - name: "EXACT feature name"
+    description: "EXACT feature description, word for word"
+    benefit: "EXACT benefit statement if present, or null"
+  - name: "..."
+    description: "..."
+    benefit: "..."
+
+social_proof:
+  testimonials:
+    - quote: "EXACT testimonial text"
+      author: "EXACT author name and role"
+    - quote: "..."
+      author: "..."
+  stats: "EXACT stats or trust signals, e.g. '2,400 users · 4.9★'"
+  logos: "List of brand/client logos shown, or null"
+
+pricing:
+  model: "free | paid | freemium | waitlist — pick one"
+  tiers:
+    - name: "EXACT tier name"
+      price: "EXACT price shown"
+      what_you_get: "EXACT list of what's included"
+    - name: "..."
+      price: "..."
+      what_you_get: "..."
+  pricing_notes: "Any additional pricing copy, guarantees, or null"
+
+faq:
+  - question: "EXACT question"
+    answer: "EXACT answer"
+  - question: "..."
+    answer: "..."
+
+footer_cta:
+  headline: "EXACT bottom-of-page CTA headline, or null"
+  body: "EXACT body copy, or null"
+  cta_button: "EXACT CTA button text, or null"
+
+target_audience:
+  description: "EXACT text describing who this product is for"
+  pain_described: "EXACT language used to describe the customer's pain or desire"
+
+unique_selling_point: "EXACT text that explains why this is different from alternatives"
+
+tone_of_voice: |
+  Describe the brand voice in 2-3 sentences based on how the page reads.
+  e.g. "Direct and confident. Uses second person throughout. Short sentences. No jargon."
+\`\`\`
+`;
+
+  document.getElementById('download-template-btn')?.addEventListener('click', () => {
+    const blob = new Blob([TEMPLATE], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `lp-agent-prompt-${PROJECT_ID}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  // ── LP Content: upload zone ─────────────────────────────────────────────
+  const uploadZone = document.getElementById('upload-zone');
+  const fileInput = document.getElementById('lp-file-input');
+  const previewWrap = document.getElementById('lp-preview-wrap');
+  const previewTextarea = document.getElementById('lp-preview-textarea');
+  const lpWordCountEl = document.getElementById('lp-word-count');
+  const lpStatusMsg = document.getElementById('lp-status-msg');
+
+  function showPreview(text) {
+    previewTextarea.value = text;
+    const count = text.trim() ? text.trim().split(/\s+/).length : 0;
+    if (lpWordCountEl) lpWordCountEl.textContent = `${count.toLocaleString()} words`;
+    previewWrap.style.display = 'block';
+    uploadZone.style.borderColor = 'var(--teal)';
+  }
+
+  function readFile(file) {
+    const reader = new FileReader();
+    reader.onload = (e) => showPreview(e.target.result);
+    reader.readAsText(file, 'UTF-8');
+  }
+
+  uploadZone?.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    uploadZone.classList.add('upload-zone--over');
+  });
+  uploadZone?.addEventListener('dragleave', () => uploadZone.classList.remove('upload-zone--over'));
+  uploadZone?.addEventListener('drop', (e) => {
+    e.preventDefault();
+    uploadZone.classList.remove('upload-zone--over');
+    const file = e.dataTransfer?.files?.[0];
+    if (file) readFile(file);
+  });
+  fileInput?.addEventListener('change', () => {
+    if (fileInput.files?.[0]) readFile(fileInput.files[0]);
+  });
+
+  // ── LP Content: live word count on preview edit ─────────────────────────
+  previewTextarea?.addEventListener('input', () => {
+    const count = previewTextarea.value.trim() ? previewTextarea.value.trim().split(/\s+/).length : 0;
+    if (lpWordCountEl) lpWordCountEl.textContent = `${count.toLocaleString()} words`;
+  });
+
+  document.getElementById('lp-clear-btn')?.addEventListener('click', () => {
+    previewTextarea.value = '';
+    if (lpWordCountEl) lpWordCountEl.textContent = '0 words';
+    uploadZone.style.borderColor = '';
+  });
+
+  // ── LP Content: save ────────────────────────────────────────────────────
+  async function saveLpContent(text) {
+    if (!text?.trim()) { alert('Content is empty.'); return; }
+    lpStatusMsg.style.display = 'none';
+    const btn = event?.target;
+    if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+
+    try {
+      const res = await fetch(`/api/brand-clarity/projects/${PROJECT_ID}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lpRawInput: text }),
+      });
+      if (!res.ok) { const e = await res.json(); throw new Error(e.error || `HTTP ${res.status}`); }
+      lpStatusMsg.style.display = 'block';
+      lpStatusMsg.className = 'status-msg status-msg--success';
+      lpStatusMsg.textContent = '✓ Landing page content saved.';
+    } catch (err) {
+      lpStatusMsg.style.display = 'block';
+      lpStatusMsg.className = 'status-msg status-msg--error';
+      lpStatusMsg.textContent = `Error: ${err.message}`;
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = 'Save Landing Page Content'; }
+    }
+  }
+
+  document.getElementById('lp-save-btn')?.addEventListener('click', (e) => {
+    saveLpContent(previewTextarea?.value);
+  });
+  document.getElementById('lp-existing-save-btn')?.addEventListener('click', (e) => {
+    const ta = document.getElementById('lp-existing-textarea');
+    saveLpContent(ta?.value);
+  });
+
+  // ── Project Docs ────────────────────────────────────────────────────────
+  const textarea = document.getElementById('docs-textarea');
+  const wordCountEl = document.getElementById('word-count');
+  const saveBtn = document.getElementById('save-btn');
+  const skipBtn = document.getElementById('skip-btn');
+  const statusMsg = document.getElementById('status-msg');
+
+  // Live word count
+  textarea?.addEventListener('input', () => {
+    const text = textarea.value.trim();
+    const count = text ? text.split(/\s+/).length : 0;
+    if (wordCountEl) wordCountEl.textContent = `${count.toLocaleString()} words`;
+  });
+
+  // Save
+  document.getElementById('docs-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const docs = textarea.value.trim();
+
+    if (!docs) {
+      if (!confirm('Documentation is empty. Save anyway? (LPs may be less accurate)')) return;
+    }
+
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Saving & re-parsing LP…';
+    statusMsg.style.display = 'none';
+
+    try {
+      const res = await fetch(`/api/brand-clarity/projects/${PROJECT_ID}/documentation`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectDocumentation: docs }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || `HTTP ${res.status}`);
+      }
+
+      statusMsg.style.display = 'block';
+      statusMsg.className = 'status-msg status-msg--success';
+      statusMsg.textContent = 'Saved! LP is being re-parsed with your documentation… redirecting to channels.';
+
+      setTimeout(() => {
+        window.location.href = `/admin/brand-clarity/${PROJECT_ID}/channels`;
+      }, 2000);
+
+    } catch (err) {
+      statusMsg.style.display = 'block';
+      statusMsg.className = 'status-msg status-msg--error';
+      statusMsg.textContent = `Error: ${err.message}`;
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'Save & Continue to Channel Discovery →';
+    }
+  });
+
+  // Skip
+  skipBtn?.addEventListener('click', async () => {
+    if (!confirm('Skip project documentation? LPs will be based on your landing page and founder description only.')) return;
+    window.location.href = `/admin/brand-clarity/${PROJECT_ID}/channels`;
+  });
+</script>
+
+<style>
+.admin-layout { min-height: 100vh; background: var(--bg-base); }
+.admin-header { display: flex; align-items: center; gap: 1.25rem; padding: 0.875rem 1.5rem; background: var(--bg-elevated); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 20; }
+.admin-logo { font-family: var(--font-mono); font-weight: 700; color: var(--teal); text-decoration: none; font-size: 1.1rem; }
+.breadcrumb { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-secondary); display: flex; gap: 0.4rem; align-items: center; }
+.bc-link { color: var(--text-muted); text-decoration: none; }
+.bc-link:hover { color: var(--teal); }
+.bc-sep { color: var(--text-muted); }
+.bc-current { color: var(--text-secondary); }
+.header-actions { margin-left: auto; display: flex; gap: 0.5rem; align-items: center; }
+.project-status { font-family: var(--font-mono); font-size: 0.65rem; color: var(--gold); padding: 0.2rem 0.5rem; background: rgba(214,183,121,0.1); border-radius: 0.2rem; }
+.btn-logout { padding: 0.35rem 0.75rem; color: var(--text-muted); border: 1px solid var(--border); border-radius: 0.25rem; font-family: var(--font-mono); font-size: var(--text-xs); text-decoration: none; }
+.admin-main { max-width: 860px; margin: 0 auto; padding: 1.75rem 1.5rem 4rem; display: flex; flex-direction: column; gap: 2rem; }
+.stage-bar { display: flex; align-items: center; gap: 0.5rem; font-family: var(--font-mono); font-size: 0.65rem; padding: 0.625rem 1rem; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 0.375rem; overflow-x: auto; }
+.stage { color: var(--text-muted); white-space: nowrap; }
+.stage.done { color: var(--teal); }
+.stage.active { color: var(--gold); font-weight: 700; }
+.stage-link { text-decoration: none; padding: 0.1rem 0.3rem; border-radius: 0.2rem; }
+.stage-link:hover { background: rgba(255,255,255,0.06); color: var(--text-secondary); }
+.stage-arrow { color: var(--border); }
+.form-section { display: flex; flex-direction: column; gap: 1.5rem; }
+.form-header { display: flex; flex-direction: column; gap: 0.5rem; }
+.form-title { font-family: var(--font-mono); font-size: 1.125rem; font-weight: 700; color: var(--text-primary); margin: 0; }
+.form-subtitle { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); margin: 0; line-height: 1.6; }
+.form-subtitle em { color: var(--teal); font-style: normal; font-weight: 600; }
+.skip-warning { padding: 0.625rem 0.875rem; background: rgba(239,68,68,0.06); border: 1px solid rgba(239,68,68,0.2); border-radius: 0.375rem; font-family: var(--font-mono); font-size: var(--text-xs); color: rgba(239,68,68,0.85); }
+.docs-saved { padding: 0.625rem 0.875rem; background: rgba(74,141,131,0.06); border: 1px solid rgba(74,141,131,0.2); border-radius: 0.375rem; font-family: var(--font-mono); font-size: var(--text-xs); color: var(--teal); }
+.docs-form { display: flex; flex-direction: column; gap: 1.25rem; }
+.form-group { display: flex; flex-direction: column; gap: 0.5rem; }
+.label-row { display: flex; align-items: center; justify-content: space-between; }
+.form-label { font-family: var(--font-mono); font-size: var(--text-xs); font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em; }
+.word-count { font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-muted); }
+.form-textarea { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 0.375rem; color: var(--text-primary); font-family: var(--font-mono); font-size: var(--text-xs); padding: 0.75rem 0.875rem; outline: none; width: 100%; resize: vertical; line-height: 1.6; }
+.form-textarea:focus { border-color: var(--teal); }
+.form-actions { display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap; }
+.btn-save { padding: 0.625rem 1.5rem; background: var(--teal); color: #fff; border: none; border-radius: 0.375rem; font-family: var(--font-mono); font-size: var(--text-sm); font-weight: 600; cursor: pointer; }
+.btn-save:disabled { opacity: 0.6; cursor: not-allowed; }
+.btn-skip { padding: 0.5rem 1rem; background: none; border: 1px solid var(--border); color: var(--text-muted); border-radius: 0.375rem; font-family: var(--font-mono); font-size: var(--text-xs); cursor: pointer; }
+.btn-skip:hover { border-color: var(--gold); color: var(--gold); }
+.btn-ghost-sm { padding: 0.35rem 0.75rem; background: none; color: var(--text-secondary); border: 1px solid var(--border); border-radius: 0.25rem; font-family: var(--font-mono); font-size: var(--text-xs); cursor: pointer; text-decoration: none; }
+.status-msg { padding: 0.75rem 1rem; border-radius: 0.375rem; font-family: var(--font-mono); font-size: var(--text-xs); }
+.status-msg--success { background: rgba(74,141,131,0.1); border: 1px solid rgba(74,141,131,0.3); color: var(--teal); }
+.status-msg--error   { background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.25); color: #ef4444; }
+
+/* ── LP Content panel ─────────────────────────────────────────────────── */
+.lp-content-panel { display: flex; flex-direction: column; gap: 1rem; }
+.lp-actions-row { display: flex; align-items: center; gap: 1rem; }
+.btn-download { padding: 0.5rem 1.1rem; background: var(--bg-elevated); border: 1px solid var(--teal); color: var(--teal); border-radius: 0.375rem; font-family: var(--font-mono); font-size: var(--text-xs); font-weight: 600; cursor: pointer; transition: background 0.15s; }
+.btn-download:hover { background: rgba(74,141,131,0.1); }
+.lp-actions-hint { font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-muted); }
+
+.upload-zone { border: 2px dashed var(--border); border-radius: 0.5rem; padding: 2rem 1.5rem; text-align: center; cursor: pointer; transition: border-color 0.15s, background 0.15s; }
+.upload-zone:hover, .upload-zone--over { border-color: var(--teal); background: rgba(74,141,131,0.04); }
+.upload-zone-inner { display: flex; flex-direction: column; align-items: center; gap: 0.35rem; }
+.upload-icon { font-size: 1.75rem; color: var(--text-muted); }
+.upload-label { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-secondary); margin: 0; }
+.upload-label code { color: var(--gold); }
+.upload-sub { font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-muted); margin: 0; }
+.upload-browse { color: var(--teal); cursor: pointer; text-decoration: underline; }
+
+.lp-preview-wrap { display: flex; flex-direction: column; gap: 0.5rem; }
+.lp-textarea { min-height: 12rem; }
+.lp-save-row { display: flex; gap: 0.75rem; align-items: center; }
+</style>
+</Base>
+

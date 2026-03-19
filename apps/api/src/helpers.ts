@@ -102,7 +102,7 @@ export function toNonNegativeInt(value: string | null, fallback: number, max = N
 }
 
 export function normalizeSiteSlug(value: unknown) {
-  return typeof value === 'string' && value.trim() ? value.trim() : DEFAULT_SITE_SLUG;
+  return typeof value === 'string' && value.trim() ? value.trim() : '';
 }
 
 export function firstQueryValue(url: URL, ...keys: string[]) {

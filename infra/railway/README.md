@@ -41,3 +41,5 @@ Ważne:
 - `worker-general`, `worker-bc`, `worker-reddit`, `worker-youtube`, `worker-sh-copy` i `worker-sh-video` są dziś cienkimi runtime wrapperami nad wspólnym `workers/runner/src/index.ts`
 - to jest poprawny stan deployowy, ale nie należy opisywać tych workspace'ów jako całkowicie niezależnych codebase'ów
 - ownership topiców powinien pozostać rozłączny: `worker-general` nie powinien konsumować `bc-*`
+- wszystkie trzy klienty HTTP (`client-przemyslawfilipiak`, `client-focusequalsfreedom`, `client-frinter`) są pełnymi appami Astro
+- wszystkie trzy klienty używają wspólnego `apps/api` i wspólnej bazy danych; tenant scope wynika z `SITE_SLUG`

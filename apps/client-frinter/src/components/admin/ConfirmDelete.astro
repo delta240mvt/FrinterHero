@@ -1,0 +1,21 @@
+---
+export interface Props {
+  itemName: string;
+  articleId: number;
+}
+const { itemName, articleId } = Astro.props;
+---
+<div class="confirm-dialog" role="dialog" aria-modal="true">
+  <p class="confirm-text">Delete "<strong>{itemName}</strong>"?</p>
+  <div class="confirm-actions">
+    <button class="btn-confirm-delete" data-id={articleId}>Delete</button>
+    <button class="btn-cancel-delete">Cancel</button>
+  </div>
+</div>
+<style>
+  .confirm-dialog { padding: 1.5rem; background: var(--bg-surface); border: 1px solid var(--border); border-radius: 0.5rem; }
+  .confirm-text { color: var(--text-primary); margin-bottom: 1rem; }
+  .confirm-actions { display: flex; gap: 0.75rem; }
+  .btn-confirm-delete { padding: 0.5rem 1rem; background: none; border: 1px solid #ef4444; color: #ef4444; border-radius: 0.25rem; cursor: pointer; font-family: var(--font-mono); font-size: var(--text-sm); }
+  .btn-cancel-delete { padding: 0.5rem 1rem; background: none; border: 1px solid var(--border); color: var(--text-secondary); border-radius: 0.25rem; cursor: pointer; font-family: var(--font-mono); font-size: var(--text-sm); }
+</style>

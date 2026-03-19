@@ -1,0 +1,566 @@
+---
+import Base from '@/components/layouts/Base.astro';
+---
+
+<Base title="Templates — Social Hub" description="Manage Satori visual templates for Social Hub post generation">
+<div class="admin-layout">
+  <header class="admin-header">
+    <a href="/admin" class="admin-logo">FR</a>
+    <nav class="breadcrumb">
+      <a href="/admin" class="bc-link">Admin</a>
+      <span class="bc-sep">›</span>
+      <a href="/admin/social-hub" class="bc-link">Social Hub</a>
+      <span class="bc-sep">›</span>
+      <span class="bc-current">Templates</span>
+    </nav>
+    <div class="header-actions">
+      <a href="/api/logout" class="btn-logout">Logout</a>
+    </div>
+  </header>
+
+  <main class="admin-main">
+    <section class="admin-section">
+      <div class="section-header-row">
+        <div class="section-title-block">
+          <h2 class="section-title">Satori Templates</h2>
+          <p class="section-subtitle">Visual post templates rendered with Satori · JSX-based layouts · multiple aspect ratios</p>
+        </div>
+        <button class="btn-primary" id="new-template-btn">+ New Template</button>
+      </div>
+
+      <!-- Loading state -->
+      <div id="templates-loading" class="empty-state">
+        <span class="empty-icon">⋯</span>
+        <p>Loading templates…</p>
+      </div>
+
+      <!-- Empty state -->
+      <div id="templates-empty" class="empty-state" style="display:none">
+        <span class="empty-icon">◻</span>
+        <p>No templates yet. Create your first Satori template.</p>
+        <button class="btn-primary" id="new-template-btn-empty">+ New Template</button>
+      </div>
+
+      <!-- Templates grid -->
+      <div id="templates-grid" class="templates-grid" style="display:none"></div>
+    </section>
+  </main>
+</div>
+
+<!-- Editor Modal -->
+<div id="editor-modal" class="modal-overlay" style="display:none" role="dialog" aria-modal="true" aria-labelledby="editor-modal-title">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 class="modal-title" id="editor-modal-title">New Template</h3>
+      <button class="modal-close" id="editor-close" aria-label="Close editor">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="editor-fields">
+        <input type="hidden" id="editor-id" value="" />
+
+        <div class="field-row">
+          <label class="field-label" for="editor-name">Name</label>
+          <input type="text" id="editor-name" class="field-input-text" placeholder="e.g. Quote Card 1:1" />
+        </div>
+
+        <div class="field-row">
+          <label class="field-label" for="editor-category">Category</label>
+          <select id="editor-category" class="field-select">
+            <option value="quote">Quote</option>
+            <option value="tip">Tip</option>
+            <option value="stat">Stat</option>
+            <option value="announcement">Announcement</option>
+            <option value="thread">Thread</option>
+            <option value="custom">Custom</option>
+          </select>
+        </div>
+
+        <div class="field-row">
+          <label class="field-label" for="editor-aspect">Aspect Ratio</label>
+          <select id="editor-aspect" class="field-select">
+            <option value="1:1">1:1 — Square (1080×1080)</option>
+            <option value="9:16">9:16 — Story / Reel (1080×1920)</option>
+            <option value="16:9">16:9 — Landscape (1920×1080)</option>
+            <option value="4:5">4:5 — Portrait (1080×1350)</option>
+          </select>
+        </div>
+
+        <div class="field-row field-row--textarea">
+          <label class="field-label field-label--top" for="editor-jsx">JSX Template</label>
+          <div class="textarea-wrap">
+            <textarea id="editor-jsx" class="field-textarea field-textarea--code" rows="14" spellcheck="false" placeholder={`// JSX template — props available: title, body, author, logo, colors\n<div style={{ display: 'flex', width: '100%', height: '100%', background: '#1e293b', padding: 48, alignItems: 'center', justifyContent: 'center' }}>\n  <h1 style={{ color: '#4a8d83', fontSize: 72, fontWeight: 700, textAlign: 'center' }}>{title}</h1>\n</div>`}></textarea>
+            <span class="textarea-lang">JSX</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" id="editor-preview-btn">Preview</button>
+      <div class="modal-footer-right">
+        <button class="btn-ghost" id="editor-cancel">Cancel</button>
+        <button class="btn-primary" id="editor-save-btn">Save Template</button>
+        <span id="editor-status" class="save-status"></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Preview Modal -->
+<div id="preview-modal" class="modal-overlay" style="display:none" role="dialog" aria-modal="true" aria-labelledby="preview-modal-title">
+  <div class="modal modal--preview">
+    <div class="modal-header">
+      <h3 class="modal-title" id="preview-modal-title">Template Preview</h3>
+      <button class="modal-close" id="preview-close" aria-label="Close preview">✕</button>
+    </div>
+    <div class="modal-body modal-body--preview">
+      <div id="preview-loading" class="preview-loading">Rendering…</div>
+      <img id="preview-img" class="preview-img" src="" alt="Template preview" style="display:none" />
+      <p id="preview-error" class="preview-error" style="display:none"></p>
+    </div>
+  </div>
+</div>
+</Base>
+
+<script>
+  // ─── Types ───────────────────────────────────────────────────────────────────
+  interface Template {
+    id: string;
+    name: string;
+    category: string;
+    aspectRatio: string;
+    jsxTemplate: string;
+    createdAt?: string;
+    updatedAt?: string;
+  }
+
+  // ─── DOM refs ─────────────────────────────────────────────────────────────────
+  const templatesLoading = document.getElementById('templates-loading') as HTMLElement;
+  const templatesEmpty   = document.getElementById('templates-empty') as HTMLElement;
+  const templatesGrid    = document.getElementById('templates-grid') as HTMLElement;
+
+  const editorModal      = document.getElementById('editor-modal') as HTMLElement;
+  const editorId         = document.getElementById('editor-id') as HTMLInputElement;
+  const editorName       = document.getElementById('editor-name') as HTMLInputElement;
+  const editorCategory   = document.getElementById('editor-category') as HTMLSelectElement;
+  const editorAspect     = document.getElementById('editor-aspect') as HTMLSelectElement;
+  const editorJsx        = document.getElementById('editor-jsx') as HTMLTextAreaElement;
+  const editorTitle      = document.getElementById('editor-modal-title') as HTMLElement;
+  const editorStatus     = document.getElementById('editor-status') as HTMLSpanElement;
+  const editorSaveBtn    = document.getElementById('editor-save-btn') as HTMLButtonElement;
+  const editorPreviewBtn = document.getElementById('editor-preview-btn') as HTMLButtonElement;
+
+  const previewModal     = document.getElementById('preview-modal') as HTMLElement;
+  const previewLoading   = document.getElementById('preview-loading') as HTMLElement;
+  const previewImg       = document.getElementById('preview-img') as HTMLImageElement;
+  const previewError     = document.getElementById('preview-error') as HTMLElement;
+  const previewTitle     = document.getElementById('preview-modal-title') as HTMLElement;
+
+  const CATEGORY_COLORS: Record<string, string> = {
+    quote:        'var(--teal)',
+    tip:          'var(--gold)',
+    stat:         '#818cf8',
+    announcement: '#fb923c',
+    thread:       '#34d399',
+    custom:       'var(--text-muted)',
+  };
+
+  // ─── Render grid ─────────────────────────────────────────────────────────────
+  function renderGrid(templates: Template[]) {
+    templatesLoading.style.display = 'none';
+
+    if (templates.length === 0) {
+      templatesEmpty.style.display = 'flex';
+      templatesGrid.style.display  = 'none';
+      return;
+    }
+
+    templatesEmpty.style.display = 'none';
+    templatesGrid.style.display  = 'grid';
+
+    templatesGrid.innerHTML = templates.map(t => {
+      const color = CATEGORY_COLORS[t.category] ?? 'var(--text-muted)';
+      const updated = t.updatedAt ? new Date(t.updatedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+      return `
+        <div class="template-card" data-id="${t.id}">
+          <div class="template-preview-thumb">
+            <div class="thumb-aspect thumb-aspect--${t.aspectRatio.replace(':','-')}">
+              <div class="thumb-inner">
+                <span class="thumb-ratio">${t.aspectRatio}</span>
+              </div>
+            </div>
+          </div>
+          <div class="template-info">
+            <div class="template-name">${escHtml(t.name)}</div>
+            <div class="template-meta">
+              <span class="category-badge" style="color:${color};border-color:${color}20;background:${color}10">${escHtml(t.category)}</span>
+              <span class="template-date">${updated}</span>
+            </div>
+          </div>
+          <div class="template-actions">
+            <button class="btn-card btn-preview" data-id="${t.id}" title="Preview template">Preview</button>
+            <button class="btn-card btn-edit" data-id="${t.id}" title="Edit template">Edit</button>
+            <button class="btn-card btn-delete" data-id="${t.id}" title="Delete template">Delete</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    // Attach card-action listeners
+    templatesGrid.querySelectorAll('.btn-preview').forEach(btn => {
+      btn.addEventListener('click', () => handlePreview(btn.getAttribute('data-id')!, templates));
+    });
+    templatesGrid.querySelectorAll('.btn-edit').forEach(btn => {
+      btn.addEventListener('click', () => openEditor(btn.getAttribute('data-id')!, templates));
+    });
+    templatesGrid.querySelectorAll('.btn-delete').forEach(btn => {
+      btn.addEventListener('click', () => handleDelete(btn.getAttribute('data-id')!));
+    });
+  }
+
+  function escHtml(s: string) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // ─── Load templates ───────────────────────────────────────────────────────────
+  let allTemplates: Template[] = [];
+
+  async function loadTemplates() {
+    templatesLoading.style.display = 'flex';
+    templatesGrid.style.display    = 'none';
+    templatesEmpty.style.display   = 'none';
+    try {
+      const res = await fetch('/api/social-hub/templates');
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      allTemplates = await res.json();
+      renderGrid(allTemplates);
+    } catch (err: any) {
+      templatesLoading.style.display = 'none';
+      templatesEmpty.style.display   = 'flex';
+      templatesEmpty.querySelector('p')!.textContent = `Failed to load templates: ${err.message}`;
+    }
+  }
+
+  loadTemplates();
+
+  // ─── Editor open/close ────────────────────────────────────────────────────────
+  function resetEditor() {
+    editorId.value       = '';
+    editorName.value     = '';
+    editorCategory.value = 'quote';
+    editorAspect.value   = '1:1';
+    editorJsx.value      = '';
+    editorStatus.textContent = '';
+    editorStatus.className   = 'save-status';
+  }
+
+  function openEditor(id: string | null, templates: Template[]) {
+    resetEditor();
+    if (id) {
+      const t = templates.find(t => t.id === id);
+      if (!t) return;
+      editorId.value       = t.id;
+      editorName.value     = t.name;
+      editorCategory.value = t.category;
+      editorAspect.value   = t.aspectRatio;
+      editorJsx.value      = t.jsxTemplate;
+      editorTitle.textContent = 'Edit Template';
+    } else {
+      editorTitle.textContent = 'New Template';
+    }
+    editorModal.style.display = 'flex';
+    editorName.focus();
+  }
+
+  function closeEditor() {
+    editorModal.style.display = 'none';
+  }
+
+  document.getElementById('new-template-btn')!.addEventListener('click', () => openEditor(null, allTemplates));
+  document.getElementById('new-template-btn-empty')!.addEventListener('click', () => openEditor(null, allTemplates));
+  document.getElementById('editor-close')!.addEventListener('click', closeEditor);
+  document.getElementById('editor-cancel')!.addEventListener('click', closeEditor);
+  editorModal.addEventListener('click', (e) => { if (e.target === editorModal) closeEditor(); });
+
+  // ─── Save template ────────────────────────────────────────────────────────────
+  editorSaveBtn.addEventListener('click', async () => {
+    const name = editorName.value.trim();
+    const jsx  = editorJsx.value.trim();
+    if (!name || !jsx) {
+      editorStatus.textContent = 'Name and JSX template are required.';
+      editorStatus.className   = 'save-status error';
+      return;
+    }
+
+    editorSaveBtn.disabled = true;
+    editorStatus.textContent = 'Saving…';
+    editorStatus.className   = 'save-status saving';
+
+    const isEdit = editorId.value.length > 0;
+    const payload = {
+      name,
+      category:    editorCategory.value,
+      aspectRatio: editorAspect.value,
+      jsxTemplate: jsx,
+    };
+
+    try {
+      const res = await fetch(
+        isEdit ? `/api/social-hub/templates/${editorId.value}` : '/api/social-hub/templates',
+        {
+          method: isEdit ? 'PUT' : 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        }
+      );
+      if (res.ok) {
+        editorStatus.textContent = '✓ Saved';
+        editorStatus.className   = 'save-status ok';
+        await loadTemplates();
+        setTimeout(closeEditor, 800);
+      } else {
+        const err = await res.json().catch(() => ({}));
+        editorStatus.textContent = `Error: ${(err as any).error || res.status}`;
+        editorStatus.className   = 'save-status error';
+      }
+    } catch (err: any) {
+      editorStatus.textContent = `Error: ${err.message}`;
+      editorStatus.className   = 'save-status error';
+    } finally {
+      editorSaveBtn.disabled = false;
+    }
+  });
+
+  // ─── Delete template ──────────────────────────────────────────────────────────
+  async function handleDelete(id: string) {
+    const t = allTemplates.find(t => t.id === id);
+    if (!t) return;
+    if (!confirm(`Delete template "${t.name}"? This cannot be undone.`)) return;
+
+    try {
+      const res = await fetch(`/api/social-hub/templates/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        await loadTemplates();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(`Error: ${(err as any).error || res.status}`);
+      }
+    } catch (err: any) {
+      alert(`Error: ${err.message}`);
+    }
+  }
+
+  // ─── Preview ──────────────────────────────────────────────────────────────────
+  function closePreview() {
+    previewModal.style.display = 'none';
+    previewImg.src = '';
+  }
+
+  document.getElementById('preview-close')!.addEventListener('click', closePreview);
+  previewModal.addEventListener('click', (e) => { if (e.target === previewModal) closePreview(); });
+
+  async function handlePreview(id: string, templates: Template[]) {
+    const t = templates.find(t => t.id === id);
+    if (!t) return;
+    previewTitle.textContent      = `Preview — ${t.name}`;
+    previewLoading.style.display  = 'flex';
+    previewImg.style.display      = 'none';
+    previewError.style.display    = 'none';
+    previewModal.style.display    = 'flex';
+
+    try {
+      const res = await fetch('/api/social-hub/templates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'preview', templateId: id }),
+      });
+
+      if (res.ok) {
+        const contentType = res.headers.get('content-type') ?? '';
+        if (contentType.startsWith('image/')) {
+          const blob = await res.blob();
+          previewImg.src          = URL.createObjectURL(blob);
+          previewImg.style.display  = 'block';
+        } else {
+          const data = await res.json();
+          if (data.imageUrl) {
+            previewImg.src         = data.imageUrl;
+            previewImg.style.display = 'block';
+          } else {
+            throw new Error('No image returned');
+          }
+        }
+      } else {
+        const err = await res.json().catch(() => ({}));
+        throw new Error((err as any).error || `HTTP ${res.status}`);
+      }
+    } catch (err: any) {
+      previewError.textContent   = `Preview failed: ${err.message}`;
+      previewError.style.display = 'block';
+    } finally {
+      previewLoading.style.display = 'none';
+    }
+  }
+
+  // ─── Editor preview button ────────────────────────────────────────────────────
+  editorPreviewBtn.addEventListener('click', async () => {
+    const jsx = editorJsx.value.trim();
+    if (!jsx) return;
+
+    previewTitle.textContent      = `Preview — ${editorName.value || 'Draft'}`;
+    previewLoading.style.display  = 'flex';
+    previewImg.style.display      = 'none';
+    previewError.style.display    = 'none';
+    previewModal.style.display    = 'flex';
+
+    try {
+      const res = await fetch('/api/social-hub/templates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action:      'preview',
+          jsxTemplate: jsx,
+          aspectRatio: editorAspect.value,
+        }),
+      });
+
+      if (res.ok) {
+        const contentType = res.headers.get('content-type') ?? '';
+        if (contentType.startsWith('image/')) {
+          const blob = await res.blob();
+          previewImg.src          = URL.createObjectURL(blob);
+          previewImg.style.display  = 'block';
+        } else {
+          const data = await res.json();
+          if (data.imageUrl) {
+            previewImg.src         = data.imageUrl;
+            previewImg.style.display = 'block';
+          } else {
+            throw new Error('No image returned');
+          }
+        }
+      } else {
+        const err = await res.json().catch(() => ({}));
+        throw new Error((err as any).error || `HTTP ${res.status}`);
+      }
+    } catch (err: any) {
+      previewError.textContent   = `Preview failed: ${err.message}`;
+      previewError.style.display = 'block';
+    } finally {
+      previewLoading.style.display = 'none';
+    }
+  });
+
+  // ─── Keyboard shortcuts ───────────────────────────────────────────────────────
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      if (previewModal.style.display !== 'none') { closePreview(); return; }
+      if (editorModal.style.display  !== 'none') { closeEditor();  return; }
+    }
+  });
+</script>
+
+<style>
+.admin-layout { min-height: 100vh; background: var(--bg-base); }
+.admin-header { display: flex; align-items: center; gap: 1.25rem; padding: 0.875rem 1.5rem; background: var(--bg-elevated); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 20; }
+.admin-logo   { font-family: var(--font-mono); font-weight: 700; color: var(--teal); text-decoration: none; font-size: 1.1rem; }
+.breadcrumb   { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-secondary); display: flex; gap: 0.4rem; align-items: center; }
+.bc-link  { color: var(--text-muted); text-decoration: none; }
+.bc-link:hover { color: var(--teal); }
+.bc-sep   { color: var(--text-muted); }
+.bc-current { color: var(--text-secondary); }
+.header-actions { margin-left: auto; }
+.btn-logout  { padding: 0.35rem 0.75rem; color: var(--text-muted); border: 1px solid var(--border); border-radius: 0.25rem; font-family: var(--font-mono); font-size: var(--text-xs); text-decoration: none; }
+.admin-main  { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+
+.admin-section { display: flex; flex-direction: column; gap: 1.5rem; }
+.section-header-row { display: flex; align-items: flex-end; justify-content: space-between; padding-bottom: 0.875rem; border-bottom: 1px solid var(--border); }
+.section-title-block { display: flex; flex-direction: column; gap: 0.2rem; }
+.section-title { font-family: var(--font-mono); font-size: 1rem; color: var(--text-primary); font-weight: 700; margin: 0; }
+.section-subtitle { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); margin: 0; }
+
+.btn-primary { padding: 0.5rem 1.25rem; background: var(--teal); color: #fff; border: none; border-radius: 0.375rem; font-family: var(--font-mono); font-size: var(--text-sm); font-weight: 600; cursor: pointer; transition: opacity 0.15s; white-space: nowrap; }
+.btn-primary:hover { opacity: 0.9; }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-secondary { padding: 0.45rem 1rem; background: transparent; color: var(--gold); border: 1px solid var(--gold); border-radius: 0.375rem; font-family: var(--font-mono); font-size: var(--text-xs); font-weight: 600; cursor: pointer; transition: opacity 0.15s; }
+.btn-secondary:hover { opacity: 0.8; }
+.btn-ghost { padding: 0.45rem 1rem; background: transparent; color: var(--text-muted); border: 1px solid var(--border); border-radius: 0.375rem; font-family: var(--font-mono); font-size: var(--text-xs); cursor: pointer; transition: color 0.15s; }
+.btn-ghost:hover { color: var(--text-primary); }
+
+/* ─── Empty / loading states ─────────────────────────────── */
+.empty-state { display: flex; flex-direction: column; align-items: center; gap: 0.75rem; padding: 4rem 2rem; color: var(--text-muted); font-family: var(--font-mono); font-size: var(--text-sm); text-align: center; }
+.empty-icon  { font-size: 2.5rem; opacity: 0.35; }
+
+/* ─── Templates grid ─────────────────────────────────────── */
+.templates-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem; }
+
+.template-card { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 0.625rem; overflow: hidden; display: flex; flex-direction: column; transition: border-color 0.15s; }
+.template-card:hover { border-color: var(--teal); }
+
+.template-preview-thumb { background: var(--bg-base); border-bottom: 1px solid var(--border); padding: 0.75rem; display: flex; align-items: center; justify-content: center; min-height: 100px; }
+.thumb-aspect { display: flex; align-items: center; justify-content: center; border: 1px dashed var(--border); border-radius: 0.25rem; }
+.thumb-aspect--1-1  { width: 80px;  height: 80px; }
+.thumb-aspect--9-16 { width: 50px;  height: 88px; }
+.thumb-aspect--16-9 { width: 100px; height: 56px; }
+.thumb-aspect--4-5  { width: 72px;  height: 90px; }
+.thumb-inner { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; }
+.thumb-ratio { font-family: var(--font-mono); font-size: 0.6rem; color: var(--text-muted); }
+
+.template-info { padding: 0.75rem 0.875rem; flex: 1; display: flex; flex-direction: column; gap: 0.4rem; }
+.template-name { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--text-primary); font-weight: 600; }
+.template-meta { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.category-badge { font-family: var(--font-mono); font-size: 0.6rem; padding: 1px 6px; border-radius: 0.2rem; border: 1px solid; font-weight: 500; text-transform: capitalize; }
+.template-date  { font-family: var(--font-mono); font-size: 0.6rem; color: var(--text-muted); }
+
+.template-actions { display: flex; gap: 0.4rem; padding: 0.625rem 0.875rem; border-top: 1px solid var(--border); }
+.btn-card { flex: 1; padding: 0.35rem 0; background: var(--bg-base); border: 1px solid var(--border); border-radius: 0.25rem; font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-secondary); cursor: pointer; transition: border-color 0.15s, color 0.15s; }
+.btn-card:hover { color: var(--text-primary); border-color: var(--text-secondary); }
+.btn-preview:hover { border-color: var(--gold); color: var(--gold); }
+.btn-edit:hover   { border-color: var(--teal); color: var(--teal); }
+.btn-delete:hover { border-color: #ef4444; color: #ef4444; }
+
+/* ─── Modal overlay ──────────────────────────────────────── */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 50; padding: 1rem; }
+.modal { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 0.75rem; width: 100%; max-width: 680px; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; }
+.modal--preview { max-width: 560px; }
+
+.modal-header { display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.25rem; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.modal-title  { font-family: var(--font-mono); font-size: var(--text-sm); font-weight: 700; color: var(--text-primary); margin: 0; }
+.modal-close  { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 1rem; padding: 0; line-height: 1; transition: color 0.15s; }
+.modal-close:hover { color: var(--text-primary); }
+
+.modal-body { padding: 1.25rem; overflow-y: auto; flex: 1; }
+.modal-body--preview { display: flex; align-items: center; justify-content: center; min-height: 200px; }
+
+.modal-footer { display: flex; align-items: center; justify-content: space-between; padding: 0.875rem 1.25rem; border-top: 1px solid var(--border); flex-shrink: 0; gap: 0.75rem; }
+.modal-footer-right { display: flex; align-items: center; gap: 0.75rem; }
+
+/* ─── Editor fields ──────────────────────────────────────── */
+.editor-fields { display: flex; flex-direction: column; gap: 0.75rem; }
+.field-row  { display: flex; align-items: center; gap: 1rem; }
+.field-row--textarea { align-items: flex-start; }
+.field-label { width: 140px; flex-shrink: 0; font-family: var(--font-mono); color: var(--text-secondary); font-size: var(--text-xs); }
+.field-label--top { padding-top: 0.4rem; }
+
+.field-select { flex: 1; background: var(--bg-base); border: 1px solid var(--border); color: var(--text-primary); padding: 0.4rem 0.625rem; border-radius: 0.375rem; font-family: var(--font-mono); font-size: var(--text-xs); outline: none; }
+.field-select:focus { border-color: var(--teal); }
+
+.field-input-text { flex: 1; background: var(--bg-base); border: 1px solid var(--border); color: var(--text-primary); padding: 0.4rem 0.625rem; border-radius: 0.375rem; font-family: var(--font-mono); font-size: var(--text-xs); outline: none; }
+.field-input-text:focus { border-color: var(--teal); }
+
+.textarea-wrap { flex: 1; position: relative; }
+.field-textarea { width: 100%; background: var(--bg-base); border: 1px solid var(--border); color: var(--text-primary); padding: 0.5rem 0.625rem; border-radius: 0.375rem; font-family: var(--font-mono); font-size: var(--text-xs); outline: none; resize: vertical; line-height: 1.6; box-sizing: border-box; }
+.field-textarea:focus { border-color: var(--teal); }
+.field-textarea--code { font-size: 0.7rem; line-height: 1.7; tab-size: 2; }
+.textarea-lang { position: absolute; top: 0.5rem; right: 0.625rem; font-family: var(--font-mono); font-size: 0.55rem; color: var(--text-muted); background: var(--bg-elevated); padding: 1px 5px; border-radius: 0.2rem; pointer-events: none; }
+
+/* ─── Preview modal content ──────────────────────────────── */
+.preview-loading { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); display: flex; align-items: center; gap: 0.5rem; }
+.preview-img { max-width: 100%; max-height: 60vh; border-radius: 0.375rem; display: block; }
+.preview-error { font-family: var(--font-mono); font-size: var(--text-xs); color: #ef4444; text-align: center; padding: 1rem; }
+
+.save-status { font-family: var(--font-mono); font-size: var(--text-xs); }
+.save-status.ok     { color: var(--teal); }
+.save-status.error  { color: #ef4444; }
+.save-status.saving { color: var(--text-muted); }
+</style>
+

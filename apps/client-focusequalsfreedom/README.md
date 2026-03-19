@@ -1,9 +1,9 @@
 # apps/client-focusequalsfreedom
 
-BFF shell workspace for client2.
+Primary Astro client for tenant `focusequalsfreedom`.
 
 Current state:
 
-- starts through `scripts/monorepo/client-bff.mjs`
-- `SITE_SLUG=focusequalsfreedom` is injected during launch
-- proxies to the central API and can still use transitional fallback routes where needed
+- this is now the real `client2` app runtime
+- public assets, pages, components, styles, middleware and Astro config live here
+- shared domain/backend code stays in repo-root `src/db`, `src/lib` and `src/utils`

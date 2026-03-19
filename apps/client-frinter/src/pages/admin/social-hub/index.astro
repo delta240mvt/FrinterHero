@@ -1,0 +1,350 @@
+---
+import Base from '@/components/layouts/Base.astro';
+const headers = { cookie: Astro.request.headers.get('cookie') ?? '' };
+const response = await fetch(new URL('/api/social-hub/briefs?limit=50', Astro.url), { headers });
+const briefsData = response.ok ? await response.json() : { results: [], total: 0, statusSummary: {} };
+const briefs = briefsData.results ?? [];
+const statusSummary = briefsData.statusSummary ?? {};
+
+const statusCount = (s: string) => statusSummary[s] ?? 0;
+const totalPosts   = briefsData.total ?? briefs.length;
+const published    = statusCount('published') + statusCount('done');
+const pendingReview = statusCount('copy_review') + statusCount('render_review');
+const inQueue      = statusCount('generating') + statusCount('rendering') + statusCount('scheduled');
+
+const statusColors: Record<string, string> = {
+  draft:         'var(--text-muted)',
+  generating:    'var(--gold)',
+  copy_review:   '#a78bfa',
+  rendering:     'var(--gold)',
+  render_review: '#a78bfa',
+  published:     'var(--teal)',
+  done:          'var(--teal)',
+};
+
+const formatIcon: Record<string, string> = {
+  image: '📷',
+  video: '🎬',
+  text:  '📝',
+};
+---
+
+<Base title="Social Hub — Admin" description="Social Hub content briefs">
+<div class="admin-layout">
+  <header class="admin-header">
+    <a href="/admin" class="admin-logo">FR</a>
+    <nav class="breadcrumb">
+      <a href="/admin" class="bc-link">Admin</a>
+      <span class="bc-sep">›</span>
+      <span class="bc-current">Social Hub</span>
+    </nav>
+    <div class="header-actions">
+      <a href="/admin/social-hub/new" class="btn-primary">+ New Post</a>
+      <a href="/admin/social-hub/settings" class="btn-settings">⚙ Settings</a>
+      <a href="/api/logout" class="btn-logout">Logout</a>
+    </div>
+  </header>
+
+  <main class="admin-main">
+
+    <!-- Stats row -->
+    <div class="stats-row">
+      <div class="stat-card">
+        <span class="stat-label">Total Posts</span>
+        <span class="stat-value">{totalPosts}</span>
+      </div>
+      <div class="stat-card stat-card--teal">
+        <span class="stat-label">Published</span>
+        <span class="stat-value">{published}</span>
+      </div>
+      <div class="stat-card stat-card--violet">
+        <span class="stat-label">Pending Review</span>
+        <span class="stat-value">{pendingReview}</span>
+      </div>
+      <div class="stat-card stat-card--gold">
+        <span class="stat-label">Queue</span>
+        <span class="stat-value">{inQueue}</span>
+      </div>
+    </div>
+
+    <!-- Quick nav -->
+    <nav class="quick-nav">
+      <a href="/admin/social-hub" class="qnav-pill qnav-pill--active">Posts</a>
+      <a href="/admin/social-hub/accounts" class="qnav-pill">Accounts</a>
+      <a href="/admin/social-hub/templates" class="qnav-pill">Templates</a>
+      <a href="/admin/social-hub/analytics" class="qnav-pill">Analytics</a>
+      <a href="/admin/social-hub/settings" class="qnav-pill">Settings</a>
+    </nav>
+
+    <section class="admin-section">
+      <div class="section-header-row">
+        <div class="section-title-block">
+          <h2 class="section-title">📋 Content Briefs</h2>
+          <p class="section-subtitle">Source → Format → Platforms → Copy → Render → Publish</p>
+        </div>
+      </div>
+
+      <!-- Filter bar -->
+      <div class="filter-bar">
+        <div class="filter-group">
+          <label class="filter-label" for="status-filter">Status</label>
+          <select id="status-filter" class="filter-select">
+            <option value="">All</option>
+            <option value="draft">Draft</option>
+            <option value="generating">Generating</option>
+            <option value="copy_review">Copy Review</option>
+            <option value="rendering">Rendering</option>
+            <option value="render_review">Render Review</option>
+            <option value="published">Published</option>
+            <option value="done">Done</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <span class="filter-label">Format</span>
+          <div class="format-pills" id="format-pills">
+            <button class="fpill fpill--active" data-format="">All</button>
+            <button class="fpill" data-format="image">📷 Image</button>
+            <button class="fpill" data-format="video">🎬 Video</button>
+            <button class="fpill" data-format="text">📝 Text</button>
+          </div>
+        </div>
+      </div>
+
+      {briefs.length === 0 ? (
+        <div class="empty-state">
+          <p>No content briefs yet.</p>
+          <a href="/admin/social-hub/new" class="btn-primary">Create first post</a>
+        </div>
+      ) : (
+        <div class="table-wrap">
+          <table class="briefs-table" id="briefs-table">
+            <thead>
+              <tr>
+                <th class="th-id">#ID</th>
+                <th>Source</th>
+                <th class="th-format">Format</th>
+                <th>Platforms</th>
+                <th>Status</th>
+                <th class="th-date">Date</th>
+                <th class="th-actions">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {briefs.map(b => (
+                <tr class="brief-row" data-status={b.status} data-format={b.outputFormat}>
+                  <td class="td-id">#{b.id}</td>
+                  <td class="td-source">
+                    <span class="source-type">{b.sourceType}</span>
+                    {b.sourceTitle && (
+                      <span class="source-title" title={b.sourceTitle}>
+                        {b.sourceTitle.length > 48 ? b.sourceTitle.slice(0, 48) + '…' : b.sourceTitle}
+                      </span>
+                    )}
+                  </td>
+                  <td class="td-format">
+                    <span class="format-icon" title={b.outputFormat}>
+                      {formatIcon[b.outputFormat] ?? '❓'}
+                    </span>
+                  </td>
+                  <td class="td-platforms">
+                    <div class="platform-chips">
+                      {(b.targetPlatforms as string[]).map((p: string) => (
+                        <span class="platform-chip">{p}</span>
+                      ))}
+                    </div>
+                  </td>
+                  <td class="td-status">
+                    <span class="status-badge" style={`color:${statusColors[b.status] || 'var(--text-muted)'}`}>
+                      {b.status}
+                    </span>
+                  </td>
+                  <td class="td-date">
+                    {new Date(b.createdAt).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: '2-digit' })}
+                  </td>
+                  <td class="td-actions">
+                    <a href={`/admin/social-hub/${b.id}`} class="action-btn action-btn--primary">View</a>
+                    <button class="action-btn action-btn--delete" data-delete-id={b.id} data-delete-title={b.sourceTitle || `#${b.id}`}>Delete</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  </main>
+</div>
+
+<div id="delete-modal" class="modal-backdrop" style="display:none">
+  <div class="modal-box">
+    <h3 class="modal-title">Delete Brief</h3>
+    <p class="modal-desc">Delete brief: <strong id="delete-modal-title"></strong>?</p>
+    <p class="modal-warn">All generated copy, renders, and scheduled posts will be removed.</p>
+    <div class="modal-actions">
+      <button id="delete-confirm-btn" class="btn-danger">Delete</button>
+      <button id="delete-cancel-btn" class="btn-ghost-sm">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Filter logic
+  let activeStatus = '';
+  let activeFormat = '';
+
+  const statusSelect = document.getElementById('status-filter') as HTMLSelectElement;
+  const formatPills  = document.querySelectorAll<HTMLButtonElement>('[data-format]');
+  const rows         = document.querySelectorAll<HTMLTableRowElement>('.brief-row');
+
+  function applyFilters() {
+    rows.forEach(row => {
+      const matchStatus = !activeStatus || row.dataset.status === activeStatus;
+      const matchFormat = !activeFormat || row.dataset.format === activeFormat;
+      row.style.display = matchStatus && matchFormat ? '' : 'none';
+    });
+  }
+
+  statusSelect?.addEventListener('change', () => {
+    activeStatus = statusSelect.value;
+    applyFilters();
+  });
+
+  formatPills.forEach(pill => {
+    pill.addEventListener('click', () => {
+      formatPills.forEach(p => p.classList.remove('fpill--active'));
+      pill.classList.add('fpill--active');
+      activeFormat = pill.dataset.format || '';
+      applyFilters();
+    });
+  });
+
+  // Delete modal
+  let pendingId: number | null = null;
+  const modal      = document.getElementById('delete-modal')!;
+  const titleEl    = document.getElementById('delete-modal-title')!;
+  const confirmBtn = document.getElementById('delete-confirm-btn')!;
+  const cancelBtn  = document.getElementById('delete-cancel-btn')!;
+
+  document.addEventListener('click', e => {
+    const btn = (e.target as HTMLElement).closest('[data-delete-id]') as HTMLElement | null;
+    if (btn) {
+      pendingId = parseInt(btn.dataset.deleteId || '0');
+      titleEl.textContent = btn.dataset.deleteTitle || '';
+      modal.style.display = 'flex';
+    }
+  });
+
+  cancelBtn.addEventListener('click', () => { modal.style.display = 'none'; pendingId = null; });
+  confirmBtn.addEventListener('click', async () => {
+    if (!pendingId) return;
+    confirmBtn.textContent = 'Deleting…';
+    (confirmBtn as HTMLButtonElement).disabled = true;
+    const res = await fetch(`/api/social-hub/briefs/${pendingId}`, { method: 'DELETE' });
+    if (res.ok) window.location.reload();
+    else { alert('Failed to delete'); confirmBtn.textContent = 'Delete'; (confirmBtn as HTMLButtonElement).disabled = false; }
+  });
+
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') { modal.style.display = 'none'; pendingId = null; } });
+</script>
+
+<style>
+.admin-layout { min-height: 100vh; background: var(--bg-base); }
+.admin-header { display: flex; align-items: center; gap: 1.25rem; padding: 0.875rem 1.5rem; background: var(--bg-elevated); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 20; }
+.admin-logo   { font-family: var(--font-mono); font-weight: 700; color: var(--teal); text-decoration: none; font-size: 1.1rem; }
+.breadcrumb   { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-secondary); display: flex; gap: 0.4rem; align-items: center; }
+.bc-link      { color: var(--text-muted); text-decoration: none; }
+.bc-link:hover { color: var(--teal); }
+.bc-sep       { color: var(--text-muted); }
+.bc-current   { color: var(--text-secondary); }
+.header-actions { margin-left: auto; display: flex; gap: 0.5rem; }
+.btn-primary  { padding: 0.4rem 1rem; background: var(--teal); color: #fff; border: none; border-radius: 0.3rem; font-family: var(--font-mono); font-size: var(--text-xs); text-decoration: none; cursor: pointer; }
+.btn-logout   { padding: 0.35rem 0.75rem; color: var(--text-muted); border: 1px solid var(--border); border-radius: 0.25rem; font-family: var(--font-mono); font-size: var(--text-xs); text-decoration: none; }
+.btn-settings { background: transparent; border: 1px solid #334155; color: #94a3b8; padding: 0.45rem 1rem; border-radius: 8px; font-size: 0.82rem; text-decoration: none; transition: all 0.15s; }
+.btn-settings:hover { border-color: var(--gold); color: var(--gold); }
+.btn-ghost-sm { padding: 0.35rem 0.75rem; background: none; color: var(--text-secondary); border: 1px solid var(--border); border-radius: 0.25rem; font-family: var(--font-mono); font-size: var(--text-xs); cursor: pointer; }
+.admin-main   { max-width: 1200px; margin: 0 auto; padding: 1.75rem 1.5rem 3rem; display: flex; flex-direction: column; gap: 1.5rem; }
+
+/* Stats */
+.stats-row    { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; }
+.stat-card    { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 0.625rem; padding: 1rem 1.25rem; display: flex; flex-direction: column; gap: 0.35rem; }
+.stat-card--teal   { border-color: rgba(74,141,131,0.3); }
+.stat-card--violet { border-color: rgba(167,139,250,0.3); }
+.stat-card--gold   { border-color: rgba(214,183,121,0.3); }
+.stat-label   { font-family: var(--font-mono); font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
+.stat-value   { font-family: var(--font-mono); font-size: 1.6rem; font-weight: 700; color: var(--text-primary); }
+.stat-card--teal .stat-value   { color: var(--teal); }
+.stat-card--violet .stat-value { color: #a78bfa; }
+.stat-card--gold .stat-value   { color: var(--gold); }
+
+/* Quick nav */
+.quick-nav    { display: flex; gap: 0.375rem; flex-wrap: wrap; }
+.qnav-pill    { padding: 0.375rem 0.875rem; font-family: var(--font-mono); font-size: var(--text-xs); border: 1px solid var(--border); border-radius: 999px; background: none; color: var(--text-secondary); text-decoration: none; transition: all 0.15s; white-space: nowrap; }
+.qnav-pill:hover      { border-color: rgba(74,141,131,0.4); color: var(--teal); }
+.qnav-pill--active    { background: rgba(74,141,131,0.12); border-color: rgba(74,141,131,0.4); color: var(--teal); }
+
+/* Section */
+.admin-section { display: flex; flex-direction: column; gap: 1rem; }
+.section-header-row { display: flex; align-items: center; justify-content: space-between; padding-bottom: 0.875rem; border-bottom: 1px solid var(--border); }
+.section-title-block { display: flex; flex-direction: column; gap: 0.2rem; }
+.section-title   { font-family: var(--font-mono); font-size: 1rem; color: var(--text-primary); font-weight: 700; margin: 0; }
+.section-subtitle { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); margin: 0; }
+
+/* Filter bar */
+.filter-bar   { display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap; }
+.filter-group { display: flex; align-items: center; gap: 0.625rem; }
+.filter-label { font-family: var(--font-mono); font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); white-space: nowrap; }
+.filter-select { background: var(--bg-elevated); border: 1px solid var(--border); color: var(--text-secondary); border-radius: 0.3rem; padding: 0.3rem 0.625rem; font-family: var(--font-mono); font-size: var(--text-xs); cursor: pointer; }
+.format-pills { display: flex; gap: 0.25rem; }
+.fpill        { padding: 0.25rem 0.625rem; font-family: var(--font-mono); font-size: var(--text-xs); border: 1px solid var(--border); border-radius: 999px; background: none; color: var(--text-muted); cursor: pointer; transition: all 0.15s; }
+.fpill:hover        { border-color: rgba(74,141,131,0.4); color: var(--text-secondary); }
+.fpill--active      { background: rgba(74,141,131,0.12); border-color: rgba(74,141,131,0.4); color: var(--teal); }
+
+/* Empty state */
+.empty-state  { padding: 3rem; text-align: center; font-family: var(--font-mono); color: var(--text-muted); display: flex; flex-direction: column; align-items: center; gap: 1rem; }
+
+/* Table */
+.table-wrap   { overflow-x: auto; border: 1px solid var(--border); border-radius: 0.625rem; }
+.briefs-table { width: 100%; border-collapse: collapse; font-family: var(--font-mono); font-size: var(--text-xs); }
+.briefs-table thead { background: rgba(255,255,255,0.02); }
+.briefs-table th    { padding: 0.625rem 0.875rem; text-align: left; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); font-weight: 600; border-bottom: 1px solid var(--border); white-space: nowrap; }
+.briefs-table td    { padding: 0.625rem 0.875rem; border-bottom: 1px solid rgba(255,255,255,0.04); vertical-align: middle; }
+.brief-row:last-child td { border-bottom: none; }
+.brief-row:hover    { background: rgba(255,255,255,0.02); }
+.th-id, .td-id      { width: 52px; color: var(--text-muted); }
+.th-format, .td-format { width: 60px; text-align: center; }
+.th-date, .td-date  { width: 88px; white-space: nowrap; color: var(--text-muted); }
+.th-actions, .td-actions { width: 120px; white-space: nowrap; }
+
+.td-source    { max-width: 240px; }
+.source-type  { display: block; font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 0.15rem; }
+.source-title { display: block; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.format-icon  { font-size: 1rem; }
+
+.platform-chips { display: flex; flex-wrap: wrap; gap: 0.25rem; }
+.platform-chip  { padding: 0.1rem 0.375rem; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 0.2rem; font-size: 0.6rem; color: var(--text-muted); white-space: nowrap; }
+
+.status-badge   { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.04em; font-weight: 600; }
+
+.td-actions     { display: flex; gap: 0.375rem; align-items: center; }
+.action-btn     { padding: 0.25rem 0.5rem; font-family: var(--font-mono); font-size: var(--text-xs); border: 1px solid var(--border); border-radius: 0.25rem; background: none; color: var(--text-secondary); cursor: pointer; text-decoration: none; white-space: nowrap; }
+.action-btn--primary { background: rgba(74,141,131,0.12); border-color: rgba(74,141,131,0.3); color: var(--teal); }
+.action-btn--delete  { color: rgba(239,68,68,0.7); border-color: rgba(239,68,68,0.2); }
+.action-btn--delete:hover { color: #ef4444; border-color: rgba(239,68,68,0.5); }
+
+/* Modal */
+.modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 200; display: flex; align-items: center; justify-content: center; }
+.modal-box   { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 0.625rem; padding: 2rem; max-width: 420px; width: 90%; display: flex; flex-direction: column; gap: 0.75rem; }
+.modal-title { font-family: var(--font-mono); font-size: 1.1rem; color: var(--text-primary); margin: 0; }
+.modal-desc  { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--text-secondary); margin: 0; }
+.modal-warn  { font-family: var(--font-mono); font-size: var(--text-xs); color: #ef4444; margin: 0; }
+.modal-actions { display: flex; gap: 0.75rem; padding-top: 0.5rem; }
+.btn-danger  { padding: 0.5rem 1.25rem; background: #ef4444; color: #fff; border: none; border-radius: 0.3rem; font-family: var(--font-mono); font-size: var(--text-sm); cursor: pointer; }
+
+@media (max-width: 768px) {
+  .stats-row { grid-template-columns: repeat(2, 1fr); }
+  .admin-main { padding: 1rem; }
+}
+</style>
+</Base>
+

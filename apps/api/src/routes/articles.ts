@@ -123,7 +123,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
     const title = typeof body.title === 'string' ? body.title.trim() : '';
     if (!title) return json(res, 400, { error: 'title is required' }), true;
     const slug = typeof body.slug === 'string' && body.slug.trim() ? body.slug.trim() : generateSlug(title);
-    const [existing] = await db.select({ id: articles.id }).from(articles).where(eq(articles.slug, slug)).limit(1);
+    const [existing] = await db.select({ id: articles.id }).from(articles).where(and(eq(articles.slug, slug), eq(articles.siteId, site.id))).limit(1);
     if (existing) return json(res, 409, { error: 'Article slug already exists' }), true;
     const htmlContent = parseMarkdown(typeof body.content === 'string' ? body.content : '');
     const status = typeof body.status === 'string' && body.status.trim() ? body.status.trim() : 'draft';
@@ -157,7 +157,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
     if (body.title !== undefined) updates.title = String(body.title).trim();
     if (body.slug !== undefined) {
       const slug = String(body.slug).trim() || generateSlug(String(body.title ?? existing.title));
-      const [collision] = await db.select({ id: articles.id }).from(articles).where(and(eq(articles.slug, slug), sql`${articles.id} <> ${articleId}`)).limit(1);
+      const [collision] = await db.select({ id: articles.id }).from(articles).where(and(eq(articles.slug, slug), eq(articles.siteId, site.id), sql`${articles.id} <> ${articleId}`)).limit(1);
       if (collision) return json(res, 409, { error: 'Article slug already exists' }), true;
       updates.slug = slug;
     }
@@ -175,7 +175,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
       updates.status = nextStatus;
       updates.publishedAt = nextStatus === 'published' ? (existing.publishedAt ?? new Date()) : null;
     }
-    const [updated] = await db.update(articles).set(updates).where(eq(articles.id, articleId)).returning();
+    const [updated] = await db.update(articles).set(updates).where(and(eq(articles.id, articleId), articleScope(site.id))).returning();
     json(res, 200, updated);
     return true;
   }
@@ -188,7 +188,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
     const { site } = context;
     const [existing] = await db.select({ id: articles.id }).from(articles).where(and(articleScope(site.id), eq(articles.id, articleId))).limit(1);
     if (!existing) return json(res, 404, { error: 'Article not found' }), true;
-    await db.delete(articles).where(eq(articles.id, articleId));
+    await db.delete(articles).where(and(eq(articles.id, articleId), articleScope(site.id)));
     json(res, 200, { success: true, deletedId: articleId });
     return true;
   }
@@ -202,7 +202,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
     if (ids.length === 0) return json(res, 400, { error: 'ids are required' }), true;
     const existing = await db.select({ id: articles.id }).from(articles).where(and(articleScope(site.id), inArray(articles.id, ids)));
     if (existing.length === 0) return json(res, 404, { error: 'No matching articles found' }), true;
-    await db.delete(articles).where(inArray(articles.id, existing.map((row) => row.id)));
+    await db.delete(articles).where(and(articleScope(site.id), inArray(articles.id, existing.map((row) => row.id))));
     json(res, 200, { success: true, deletedIds: existing.map((row) => row.id), deletedCount: existing.length });
     return true;
   }
@@ -218,8 +218,8 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
     if (!article) return json(res, 404, { error: 'Article not found' }), true;
     if (article.status === 'published') return json(res, 409, { error: 'Article already published' }), true;
     const publishedAt = body.publishedAt ? new Date(String(body.publishedAt)) : new Date();
-    const [updated] = await db.update(articles).set({ status: 'published', publishedAt, updatedAt: new Date() }).where(eq(articles.id, articleId)).returning();
-    if (article.sourceGapId) await db.update(contentGaps).set({ status: 'acknowledged', acknowledgedAt: new Date() }).where(eq(contentGaps.id, article.sourceGapId));
+    const [updated] = await db.update(articles).set({ status: 'published', publishedAt, updatedAt: new Date() }).where(and(eq(articles.id, articleId), articleScope(site.id))).returning();
+    if (article.sourceGapId) await db.update(contentGaps).set({ status: 'acknowledged', acknowledgedAt: new Date() }).where(and(eq(contentGaps.id, article.sourceGapId), eq(contentGaps.siteId, site.id)));
     const [generation] = await db.select({ id: articleGenerations.id, originalContent: articleGenerations.originalContent }).from(articleGenerations).where(eq(articleGenerations.articleId, articleId)).limit(1);
     if (generation) {
       await db.update(articleGenerations).set({ publicationTimestamp: new Date(), finalContent: updated.content, contentChanged: generation.originalContent !== updated.content }).where(eq(articleGenerations.id, generation.id));

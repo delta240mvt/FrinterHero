@@ -1,0 +1,174 @@
+---
+interface Props {
+  gap: {
+    id: number;
+    gapTitle: string;
+    gapDescription: string;
+    confidenceScore: number;
+    suggestedAngle?: string | null;
+    relatedQueries?: string[];
+    sourceModels?: string[];
+    authorNotes?: string | null;
+    knowledge_base_hints?: Array<{ id: number; title: string; importanceScore: number; type: string }>;
+  };
+}
+
+const { gap } = Astro.props;
+const kbHints = gap.knowledge_base_hints || [];
+const confidenceColor = gap.confidenceScore >= 70 ? 'var(--teal)' : gap.confidenceScore >= 40 ? 'var(--gold)' : 'var(--violet)';
+---
+
+<div class="expanded-card" id={`expanded-${gap.id}`}>
+  <div class="exp-header">
+    <div class="exp-title-row">
+      <h2 class="exp-title">{gap.gapTitle}</h2>
+      <div class="exp-confidence">
+        <div class="conf-bar">
+          <div class="conf-fill" style={`width:${gap.confidenceScore}%;background:${confidenceColor}`}></div>
+        </div>
+        <span class="conf-label" style={`color:${confidenceColor}`}>{gap.confidenceScore}%</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="exp-section">
+    <h4 class="exp-section-label">Gap Description</h4>
+    <p class="exp-description">{gap.gapDescription}</p>
+  </div>
+
+  {gap.suggestedAngle && (
+    <div class="exp-section highlight-section">
+      <h4 class="exp-section-label">Suggested Angle</h4>
+      <p class="exp-angle">{gap.suggestedAngle}</p>
+    </div>
+  )}
+
+  {gap.relatedQueries && gap.relatedQueries.length > 0 && (
+    <div class="exp-section">
+      <h4 class="exp-section-label">Voice of Customer</h4>
+      <div class="vocab-chips">
+        {gap.relatedQueries.map(q => <span class="vocab-chip">"{q}"</span>)}
+      </div>
+    </div>
+  )}
+
+  {kbHints.length > 0 && (
+    <div class="exp-section">
+      <h4 class="exp-section-label">Knowledge Base Hints</h4>
+      <div class="kb-hints">
+        {kbHints.map(h => (
+          <div class="kb-hint">
+            <span class="hint-title">{h.title}</span>
+            <span class="hint-score">({h.importanceScore})</span>
+            <span class={`hint-type type-${h.type}`}>{h.type.replace('_', ' ')}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )}
+
+  <div class="exp-section">
+    <h4 class="exp-section-label">Your Custom Notes</h4>
+    <textarea
+      id={`notes-${gap.id}`}
+      class="notes-textarea"
+      rows={4}
+      placeholder="Add custom requirements: focus on founders, mention FrinterFlow, include personal story from..."
+    >{gap.authorNotes || ''}</textarea>
+  </div>
+
+  <div class="exp-section">
+    <h4 class="exp-section-label">Select AI Model</h4>
+    <div class="model-selector" id={`model-${gap.id}`}>
+      <label class="model-option">
+        <input type="radio" name={`model-${gap.id}`} value="anthropic/claude-sonnet-4-6" checked />
+        <span class="model-name">Claude Sonnet 4.6</span>
+        <span class="model-hint">Recommended for long-form</span>
+      </label>
+      <label class="model-option">
+        <input type="radio" name={`model-${gap.id}`} value="openai/gpt-4.1-mini" />
+        <span class="model-name">OpenAI GPT-4.1</span>
+        <span class="model-hint">Fast generation</span>
+      </label>
+      <label class="model-option">
+        <input type="radio" name={`model-${gap.id}`} value="google/gemini-3.1-pro-preview" />
+        <span class="model-name">Gemini</span>
+        <span class="model-hint">Multilingual</span>
+      </label>
+    </div>
+  </div>
+
+  <div class="exp-actions">
+    <button class="btn-generate" id={`gen-btn-${gap.id}`} onclick={`generateDraft(${gap.id})`}>
+      Approve & Generate Draft
+    </button>
+    <button class="btn-snooze" onclick={`snoozeGap(${gap.id})`}>Snooze 14 days</button>
+    <button class="btn-arch" onclick={`archiveGap(${gap.id})`}>Archive</button>
+    <button class="btn-close" onclick={`closeExpanded(${gap.id})`}>&#x2715; Close</button>
+  </div>
+
+  <div id={`gen-console-${gap.id}`} class="gen-console" style="display:none">
+    <div class="console-header">
+      <span class="console-title">Draft Generation Logs</span>
+      <div class="console-status-group">
+        <span class="console-status" id={`console-status-${gap.id}`}>Running...</span>
+        <button id={`btn-abort-${gap.id}`} class="btn-abort-link" onclick={`abortDraft(${gap.id})`} style="display:none">(Abort)</button>
+      </div>
+    </div>
+    <div class="console-body" id={`console-body-${gap.id}`}></div>
+    <div class="console-footer" id={`console-footer-${gap.id}`} style="display:none">
+       <a id={`console-link-${gap.id}`} href="#" class="btn-edit-article">Touch me Gently →</a>
+    </div>
+  </div>
+</div>
+
+<style>
+  .expanded-card { background: var(--bg-surface); border: 1px solid rgba(74,141,131,0.3); border-radius: 0.5rem; overflow: hidden; }
+  .exp-header { padding: 1.25rem 1.5rem 0.875rem; border-bottom: 1px solid var(--border); }
+  .exp-title-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+  .exp-title { font-family: var(--font-mono); font-size: var(--text-base); color: var(--text-primary); font-weight: 700; flex: 1; }
+  .exp-confidence { display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; }
+  .conf-bar { width: 100px; height: 8px; background: rgba(255,255,255,0.08); border-radius: 4px; overflow: hidden; }
+  .conf-fill { height: 100%; border-radius: 4px; }
+  .conf-label { font-family: var(--font-mono); font-size: var(--text-sm); font-weight: 700; }
+  .exp-section { padding: 0.875rem 1.5rem; border-bottom: 1px solid rgba(255,255,255,0.04); }
+  .exp-section.highlight-section { background: rgba(74,141,131,0.04); }
+  .exp-section-label { font-family: var(--font-mono); font-size: 0.65rem; color: #ffffff; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.5rem; }
+  .exp-description { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--text-secondary); line-height: 1.6; white-space: pre-wrap; }
+  .exp-angle { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--teal); line-height: 1.6; font-style: italic; white-space: pre-wrap; }
+  .kb-hints { display: flex; flex-direction: column; gap: 0.375rem; }
+  .kb-hint { display: flex; align-items: center; gap: 0.5rem; padding: 0.4rem 0.75rem; background: rgba(255,255,255,0.04); border-radius: 0.25rem; }
+  .vocab-chips { display: flex; flex-wrap: wrap; gap: 0.375rem; }
+  .vocab-chip { padding: 0.2rem 0.5rem; background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.2); color: rgba(239,68,68,0.8); border-radius: 0.25rem; font-family: var(--font-mono); font-size: 0.65rem; font-style: italic; }
+  .hint-title { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-primary); flex: 1; }
+  .hint-score { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--gold); }
+  .hint-type { padding: 0.1rem 0.35rem; border-radius: 0.2rem; font-family: var(--font-mono); font-size: 0.65rem; background: rgba(255,255,255,0.06); color: var(--text-muted); }
+  .notes-textarea { width: 100%; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 0.375rem; color: var(--text-primary); font-family: var(--font-mono); font-size: var(--text-sm); padding: 0.625rem; outline: none; resize: vertical; line-height: 1.5; }
+  .notes-textarea:focus { border-color: var(--teal); }
+  .model-selector { display: flex; flex-direction: column; gap: 0.5rem; }
+  .model-option { display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem 0.75rem; background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 0.25rem; cursor: pointer; transition: border-color 0.15s; }
+  .model-option:has(input:checked) { border-color: rgba(74,141,131,0.4); background: rgba(74,141,131,0.06); }
+  .model-option input { accent-color: var(--teal); }
+  .model-name { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-primary); }
+  .model-hint { font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-muted); margin-left: auto; }
+  .exp-actions { padding: 0.875rem 1.5rem; display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
+  .btn-generate { padding: 0.5rem 1.25rem; background: var(--teal); border: none; color: #fff; border-radius: 0.375rem; font-family: var(--font-mono); font-size: var(--text-sm); cursor: pointer; font-weight: 600; }
+  .btn-generate:hover { opacity: 0.85; }
+  .btn-generate:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-snooze { padding: 0.5rem 0.875rem; background: none; border: 1px solid var(--border); color: var(--text-secondary); border-radius: 0.375rem; font-family: var(--font-mono); font-size: var(--text-xs); cursor: pointer; }
+  .btn-arch { padding: 0.5rem 0.875rem; background: none; border: 1px solid rgba(239,68,68,0.2); color: rgba(239,68,68,0.7); border-radius: 0.375rem; font-family: var(--font-mono); font-size: var(--text-xs); cursor: pointer; }
+  .btn-close { padding: 0.5rem 0.875rem; background: none; border: 1px solid var(--border); color: var(--text-muted); border-radius: 0.375rem; font-family: var(--font-mono); font-size: var(--text-xs); cursor: pointer; margin-left: auto; }
+  
+  .gen-console { margin: 0 1.5rem 1.5rem; background: #000; border: 1px solid var(--border); border-radius: 0.5rem; overflow: hidden; display: flex; flex-direction: column; }
+  .console-header { padding: 0.5rem 1rem; background: #111; border-bottom: 1px solid #222; display: flex; justify-content: space-between; align-items: center; }
+  .console-title { font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; }
+  .console-status-group { display: flex; align-items: center; gap: 0.5rem; }
+  .console-status { font-family: var(--font-mono); font-size: 0.65rem; color: var(--teal); }
+  .btn-abort-link { background: none; border: none; color: #ef4444; font-family: var(--font-mono); font-size: 0.65rem; cursor: pointer; padding: 0; text-decoration: underline; }
+  .btn-abort-link:hover { color: #f87171; }
+  .console-body { padding: 0.75rem 1rem; font-family: var(--font-mono); font-size: 0.7rem; color: #a1a1aa; max-height: 200px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.25rem; line-height: 1.4; }
+  .console-line { white-space: pre-wrap; word-break: break-all; }
+  .console-line--ts { color: #52525b; margin-right: 0.5rem; }
+  .console-footer { padding: 0.75rem 1rem; background: #111; border-top: 1px solid #222; text-align: center; }
+  .btn-edit-article { display: inline-block; padding: 0.5rem 1rem; background: var(--teal); color: #fff; border-radius: 0.25rem; font-family: var(--font-mono); font-size: var(--text-xs); text-decoration: none; font-weight: 600; }
+</style>
