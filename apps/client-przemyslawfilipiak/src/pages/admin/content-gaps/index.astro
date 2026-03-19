@@ -328,21 +328,13 @@ function lastRunLabel(d: any) {
     if (statusEl) statusEl.textContent = 'Initializing...';
 
     try {
-      // Mark as in_progress in DB
-      await fetch(`/api/content-gaps/${gapId}/acknowledge`, {
+      const acknowledgeRes = await fetch(`/api/content-gaps/${gapId}/acknowledge`, {
         method: 'POST', 
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'generate_draft', author_notes: notes }),
+        body: JSON.stringify({ action: 'generate_draft', author_notes: notes, model }),
       });
-
-      const res = await fetch('/api/generate-draft', {
-        method: 'POST', 
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ gap_id: gapId, author_notes: notes, model }),
-      });
-
-      if (!res.ok) {
-        const err = await res.json();
+      if (!acknowledgeRes.ok) {
+        const err = await acknowledgeRes.json();
         throw new Error(err.error || 'Failed to start');
       }
 
