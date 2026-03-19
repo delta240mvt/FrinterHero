@@ -63,7 +63,7 @@ try {
   };
   kbTotal = kbCount.pagination?.total || 0;
   recentRuns = runs.runs || [];
-  redditPending = redditPendingData.pagination?.total || 0;
+  redditPending = redditPendingData.pagination?.total || redditPendingData.total || 0;
 } catch (e) {
   console.error('[Admin]', e);
 }
