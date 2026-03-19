@@ -1,28 +1,29 @@
 ---
 import BlogCard from './BlogCard.astro';
 import { getCurrentSiteSlug } from '@/lib/site-config';
+import { getInternalApiBaseUrl } from '@/lib/internal-api';
 
 let articles: any[] = [];
 try {
-  const { db } = await import('@/db/client');
-  const { articles: articlesTable, sites } = await import('@/db/schema');
-  const { and, eq, desc, or, isNull } = await import('drizzle-orm');
   const siteSlug = getCurrentSiteSlug();
-  const [siteRow] = await db.select({ id: sites.id }).from(sites).where(eq(sites.slug, siteSlug)).limit(1);
-  const siteCondition = siteRow
-    ? (siteSlug === 'przemyslawfilipiak'
-        ? or(eq(articlesTable.siteId, siteRow.id), isNull(articlesTable.siteId))
-        : eq(articlesTable.siteId, siteRow.id))
-    : isNull(articlesTable.siteId);
-
-  articles = await db
-    .select()
-    .from(articlesTable)
-    .where(and(eq(articlesTable.status, 'published'), siteCondition))
-    .orderBy(desc(articlesTable.publishedAt))
-    .limit(3);
+  const apiBase = getInternalApiBaseUrl();
+  const params = new URLSearchParams({
+    siteSlug,
+    status: 'published',
+    limit: '3',
+  });
+  const response = await fetch(`${apiBase}/v1/articles?${params}`);
+  if (response.ok) {
+    const payload = await response.json();
+    articles = Array.isArray(payload?.results)
+      ? payload.results.map((article: any) => ({
+          ...article,
+          publishedAt: article.publishedAt ? new Date(article.publishedAt) : null,
+        }))
+      : [];
+  }
 } catch {
-  // DB not available during build - show empty state
+  // API not available during build - show empty state
 }
 ---
 
