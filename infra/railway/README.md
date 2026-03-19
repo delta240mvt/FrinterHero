@@ -43,3 +43,6 @@ Ważne:
 - ownership topiców powinien pozostać rozłączny: `worker-general` nie powinien konsumować `bc-*`
 - wszystkie trzy klienty HTTP (`client-przemyslawfilipiak`, `client-focusequalsfreedom`, `client-frinter`) są pełnymi appami Astro
 - wszystkie trzy klienty używają wspólnego `apps/api` i wspólnej bazy danych; tenant scope wynika z `SITE_SLUG`
+- migracja `migrations/0010_articles_site_slug_scope.sql` została wdrożona i wymusza unikalność artykułów per `(site_id, slug)`
+- legacy rekordy biznesowe z `site_id IS NULL` zostały już przypięte do `site_id = 1`; wyjątkiem pozostają tylko sesje
+- ostatni smoke HTTP dał `200` dla `api`, `client-focusequalsfreedom`, `client-frinter`; `client-przemyslawfilipiak` na publicznej domenie nadal wymaga potwierdzenia/redeployu

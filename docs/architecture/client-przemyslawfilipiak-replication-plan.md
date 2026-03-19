@@ -2,6 +2,38 @@
 
 Data: `2026-03-19`
 
+## Status wykonania
+
+Stan na `2026-03-20`:
+
+- `apps/client-focusequalsfreedom` i `apps/client-frinter` zostały doprowadzone do pełnego app shape `apps/client-przemyslawfilipiak`
+- wszystkie trzy klienty budują się poprawnie lokalnie:
+  - `npm run build:client1`
+  - `npm run build:client2`
+  - `npm run build:client3`
+- wdrożono healthcheck route `/health` dla wszystkich trzech klientów
+- wdrożono tenant-local slug uniqueness dla artykułów przez `migrations/0010_articles_site_slug_scope.sql`
+- tabela `sites` zawiera wymagane rekordy:
+  - `1 / przemyslawfilipiak`
+  - `2 / focusequalsfreedom`
+  - `3 / frinter`
+- legacy rekordy biznesowe z `site_id IS NULL` zostały przypięte do `site_id = 1` dla:
+  - `articles`
+  - `article_generations`
+  - `content_gaps`
+  - `geo_queries`
+  - `geo_runs`
+  - `knowledge_entries`
+  - `knowledge_sources`
+- smoke HTTP na środowisku Railway potwierdził `200` dla:
+  - `api`
+  - `client-focusequalsfreedom`
+  - `client-frinter`
+
+Pozostały otwarty punkt operacyjny:
+
+- `client-przemyslawfilipiak` wymaga jeszcze potwierdzenia na live/custom domain, bo `https://przemyslawfilipiak.com/health` zwróciło `404` podczas ostatniego smoke testu
+
 ## 0. Kontekst wykonawczy
 
 Ten dokument ma służyć nie tylko jako plan architektoniczny, ale też jako instrukcja wykonawcza dla autonomicznych agentów pracujących równolegle w repo.

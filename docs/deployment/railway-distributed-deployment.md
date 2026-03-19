@@ -2,6 +2,23 @@
 
 This is the current deployment reference for the distributed monorepo.
 
+## 0. Current rollout status
+
+As of `2026-03-20`:
+
+- `client-przemyslawfilipiak`, `client-focusequalsfreedom` and `client-frinter` exist in repo as full Astro apps
+- article slug uniqueness has been migrated to tenant-local scope via `migrations/0010_articles_site_slug_scope.sql`
+- legacy business rows for `articles`, `article_generations`, `content_gaps`, `geo_queries`, `geo_runs`, `knowledge_entries` and `knowledge_sources` were backfilled from `site_id IS NULL` to `site_id = 1`
+- `sites` contains:
+  - `1 -> przemyslawfilipiak`
+  - `2 -> focusequalsfreedom`
+  - `3 -> frinter`
+- smoke HTTP checks passed for:
+  - `api`
+  - `client-focusequalsfreedom`
+  - `client-frinter`
+- `client-przemyslawfilipiak` still needs final verification on its live public/custom domain because `https://przemyslawfilipiak.com/health` returned `404` during the last smoke pass
+
 ## 1. Service matrix
 
 | Service | Type | Build | Start | Public URL |
@@ -171,3 +188,4 @@ Workers:
 - all three clients must deploy the same Astro app shape in separate workspace services
 - `client1` remains the reference runtime, but fixes affecting shared frontend behavior should be propagated to all three clients
 - `Social Hub` is site-scoped end-to-end; deploy `SITE_SLUG` consistently across clients and seed scripts
+- `sessions.site_id IS NULL` may still exist for legacy session rows; this was intentionally not backfilled because sessions are ephemeral
