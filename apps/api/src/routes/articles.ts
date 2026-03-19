@@ -1,11 +1,22 @@
 import type { RouteContext } from '../helpers.js';
 import {
   json, readJsonBody, normalizeSiteSlug, toPositiveInt, toNonNegativeInt, firstQueryValue, parseTags,
-  getSiteBySlug, resolveAuthedSite, enqueueDraftJob, articleScope,
-  db, and, desc, eq, ilike, inArray, sql, articles, articleGenerations, contentGaps,
+  getSiteBySlug, resolveAuthedSite, enqueueDraftJob, articleScope, kbScope,
+  db, and, desc, eq, ilike, inArray, sql, articles, articleGenerations, contentGaps, knowledgeEntries,
 } from '../helpers.js';
 import { generateSlug } from '../../../../src/utils/slug';
 import { calculateReadingTime, parseMarkdown } from '../../../../src/utils/markdown';
+
+function extractBlogSlugFromSourceUrl(sourceUrl: string | null | undefined) {
+  if (!sourceUrl) return null;
+  try {
+    const url = new URL(sourceUrl);
+    const match = url.pathname.match(/^\/blog\/([^/]+)$/);
+    return match?.[1] ? decodeURIComponent(match[1]) : null;
+  } catch {
+    return null;
+  }
+}
 
 export async function handle(ctx: RouteContext): Promise<boolean> {
   const { req, res, method, url, pathname, segments } = ctx;
@@ -28,7 +39,44 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
     if (!site) return json(res, 404, { error: 'Site not found' }), true;
     const [article] = await db.select().from(articles).where(and(articleScope(site.id), eq(articles.slug, decodeURIComponent(segments[2])))).limit(1);
     if (!article) return json(res, 404, { error: 'Article not found' }), true;
-    json(res, 200, article);
+
+    let relatedArticles: Array<typeof articles.$inferSelect> = [];
+
+    const [generation] = await db.select({
+      kbEntriesUsed: articleGenerations.kbEntriesUsed,
+    }).from(articleGenerations).where(eq(articleGenerations.articleId, article.id)).limit(1);
+
+    const kbEntryIds = Array.isArray(generation?.kbEntriesUsed)
+      ? generation.kbEntriesUsed.map((entry) => Number(entry)).filter(Boolean)
+      : [];
+
+    if (kbEntryIds.length > 0) {
+      const kbRows = await db.select({
+        title: knowledgeEntries.title,
+        sourceUrl: knowledgeEntries.sourceUrl,
+        type: knowledgeEntries.type,
+      }).from(knowledgeEntries).where(and(kbScope(site.id), inArray(knowledgeEntries.id, kbEntryIds)));
+
+      const relatedSlugs = Array.from(new Set(
+        kbRows
+          .filter((entry) => entry.type === 'published_article')
+          .map((entry) => extractBlogSlugFromSourceUrl(entry.sourceUrl))
+          .filter((slug): slug is string => Boolean(slug) && slug !== article.slug),
+      ));
+
+      if (relatedSlugs.length > 0) {
+        relatedArticles = await db.select()
+          .from(articles)
+          .where(and(articleScope(site.id), eq(articles.status, 'published'), inArray(articles.slug, relatedSlugs)))
+          .orderBy(desc(articles.publishedAt), desc(articles.createdAt))
+          .limit(3);
+      }
+    }
+
+    json(res, 200, {
+      ...article,
+      relatedArticles,
+    });
     return true;
   }
 

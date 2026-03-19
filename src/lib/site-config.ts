@@ -104,7 +104,7 @@ export function getSitePresentation(): SitePresentation {
       'https://github.com/delta240mvt',
       'https://www.linkedin.com/in/przemyslaw-filipiak-8a9b77113/',
     ],
-    heroTagline: 'High Performer. Deep Focus Founder. Wholebeing Maximizer.',
+    heroTagline: 'AI Product Engineer. Deep Focus Founder. Wholebeing Maximizer.',
     llmsSummary: 'Przemysław Filipiak is a Polish AI developer and founder focused on deep work systems, GEO, and WholeBeing performance.',
   };
 }

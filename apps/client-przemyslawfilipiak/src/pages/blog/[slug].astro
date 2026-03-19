@@ -28,15 +28,22 @@ try {
   if (articleResponse.ok) {
     article = await articleResponse.json();
     if (article) {
+      const apiRelated = Array.isArray(article.relatedArticles) ? article.relatedArticles : [];
       article = {
         ...article,
         publishedAt: toValidDate(article.publishedAt),
         updatedAt: toValidDate(article.updatedAt),
+        relatedArticles: apiRelated.map((entry: any) => ({
+          ...entry,
+          publishedAt: toValidDate(entry.publishedAt),
+        })),
       };
     }
   }
 
-  if (article?.tags?.length > 0) {
+  if (Array.isArray(article?.relatedArticles) && article.relatedArticles.length > 0) {
+    relatedArticles = article.relatedArticles.slice(0, 3);
+  } else if (article?.tags?.length > 0) {
     const listParams = new URLSearchParams({ siteSlug, status: 'published', limit: '20' });
     const listResponse = await fetch(`${apiBase}/v1/articles?${listParams}`);
     if (listResponse.ok) {
