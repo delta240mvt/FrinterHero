@@ -1,33 +1,10 @@
 ---
 import BlogPost from '@/components/layouts/BlogPost.astro';
 import BlogCard from '@/components/BlogCard.astro';
-import { db } from '@/db/client';
-import { articles, articleGenerations, knowledgeEntries, sites } from '@/db/schema';
 import { getCurrentSiteSlug } from '@/lib/site-config';
-import { eq, and, ne, sql, inArray, or, isNull } from 'drizzle-orm';
+import { getInternalApiBaseUrl } from '@/lib/internal-api';
 
-export const prerender = true;
 const siteSlug = getCurrentSiteSlug();
-
-export async function getStaticPaths() {
-  try {
-    const [siteRow] = await db.select({ id: sites.id }).from(sites).where(eq(sites.slug, siteSlug)).limit(1);
-    const siteCondition = siteRow
-      ? (siteSlug === 'przemyslawfilipiak'
-          ? or(eq(articles.siteId, siteRow.id), isNull(articles.siteId))
-          : eq(articles.siteId, siteRow.id))
-      : isNull(articles.siteId);
-    const published = await db
-      .select({ slug: articles.slug })
-      .from(articles)
-      .where(and(eq(articles.status, 'published'), siteCondition));
-
-    return published.map(({ slug }) => ({ params: { slug } }));
-  } catch {
-    return [];
-  }
-}
-
 const { slug } = Astro.params;
 
 if (!slug) {
@@ -36,70 +13,29 @@ if (!slug) {
 
 let article: any = null;
 let relatedArticles: any[] = [];
-let kbLinkedArticles: { slug: string; title: string }[] = [];
 
 try {
-  const [siteRow] = await db.select({ id: sites.id }).from(sites).where(eq(sites.slug, siteSlug)).limit(1);
-  const siteCondition = siteRow
-    ? (siteSlug === 'przemyslawfilipiak'
-        ? or(eq(articles.siteId, siteRow.id), isNull(articles.siteId))
-        : eq(articles.siteId, siteRow.id))
-    : isNull(articles.siteId);
+  const apiBase = getInternalApiBaseUrl();
+  const articleParams = new URLSearchParams({ siteSlug });
+  const articleResponse = await fetch(`${apiBase}/v1/articles/${encodeURIComponent(slug)}?${articleParams}`);
 
-  const [result] = await db
-    .select()
-    .from(articles)
-    .where(and(eq(articles.slug, slug), eq(articles.status, 'published'), siteCondition))
-    .limit(1);
-
-  article = result;
+  if (articleResponse.ok) {
+    article = await articleResponse.json();
+  }
 
   if (article?.tags?.length > 0) {
-    relatedArticles = await db
-      .select()
-      .from(articles)
-      .where(
-        and(
-          eq(articles.status, 'published'),
-          ne(articles.id, article.id),
-          siteCondition,
-          sql`${articles.tags} && ARRAY[${sql.join(article.tags.map((t: string) => sql`${t}`), sql`, `)}]::text[]`
-        )
-      )
-      .limit(3);
-  }
-
-  // KB-based internal links
-  const [gen] = await db
-    .select({ kbEntriesUsed: articleGenerations.kbEntriesUsed })
-    .from(articleGenerations)
-    .where(eq(articleGenerations.articleId, article.id))
-    .limit(1);
-
-  if (gen?.kbEntriesUsed?.length > 0) {
-    const kbEntries = await db
-      .select({ sourceUrl: knowledgeEntries.sourceUrl, title: knowledgeEntries.title })
-      .from(knowledgeEntries)
-      .where(
-        and(
-          inArray(knowledgeEntries.id, gen.kbEntriesUsed),
-          eq(knowledgeEntries.type, 'published_article')
-        )
-      );
-
-    kbLinkedArticles = kbEntries
-      .map(e => {
-        const match = e.sourceUrl?.match(/\/blog\/([^/?#]+)/);
-        return {
-          slug: match ? match[1] : '',
-          title: e.title
-        };
-      })
-      .filter(a => a.slug && a.slug !== slug)
-      .slice(0, 4);
+    const listParams = new URLSearchParams({ siteSlug, status: 'published', limit: '20' });
+    const listResponse = await fetch(`${apiBase}/v1/articles?${listParams}`);
+    if (listResponse.ok) {
+      const listData = await listResponse.json();
+      const articleTags = new Set(article.tags as string[]);
+      relatedArticles = (listData.results ?? [])
+        .filter((a: any) => a.id !== article.id && a.tags?.some((t: string) => articleTags.has(t)))
+        .slice(0, 3);
+    }
   }
 } catch {
-  // DB error
+  // API not available
 }
 
 if (!article) {
@@ -118,17 +54,6 @@ if (!article) {
   slug={article.slug}
 >
   <div set:html={article.content} />
-
-  {kbLinkedArticles.length > 0 && (
-    <nav class="also-reading" aria-label="See also">
-      <span class="also-reading-label">See also</span>
-      <ul class="also-reading-list">
-        {kbLinkedArticles.map(a => (
-          <li><a href={`/blog/${a.slug}`}>{a.title}</a></li>
-        ))}
-      </ul>
-    </nav>
-  )}
 
   {relatedArticles.length > 0 && (
     <aside class="related-articles">
@@ -150,43 +75,6 @@ if (!article) {
 </BlogPost>
 
 <style>
-  .also-reading {
-    margin-top: 2.5rem;
-    padding: 1rem 1.25rem;
-    border-left: 2px solid var(--border);
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 0.5rem 1rem;
-  }
-  .also-reading-label {
-    font-family: var(--font-mono);
-    font-size: 0.65rem;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--text-muted);
-    white-space: nowrap;
-  }
-  .also-reading-list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.25rem 1.5rem;
-  }
-  .also-reading-list a {
-    font-size: var(--text-sm);
-    color: var(--text-secondary);
-    text-decoration: none;
-    border-bottom: 1px solid transparent;
-    transition: color 0.15s, border-color 0.15s;
-  }
-  .also-reading-list a:hover {
-    color: var(--teal);
-    border-bottom-color: var(--teal);
-  }
-
   .related-articles {
     margin-top: 3rem;
     padding-top: 2rem;

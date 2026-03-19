@@ -7,8 +7,10 @@ export type JobTopic =
   | 'bc-scrape'
   | 'bc-generate'
   | 'bc-selector'
+  | 'bc-cluster'
   | 'sh-copy'
-  | 'sh-video';
+  | 'sh-video'
+  | 'sh-publish';
 
 export type JobStatus =
   | 'pending'

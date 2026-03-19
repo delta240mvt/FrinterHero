@@ -1,7 +1,5 @@
 import type { APIRoute } from 'astro';
-import { db } from '@/db/client';
-import { articles, sites } from '@/db/schema';
-import { eq, desc, and, or, isNull } from 'drizzle-orm';
+import { getInternalApiBaseUrl } from '@/lib/internal-api';
 import { absoluteUrl, getCurrentSiteSlug, getSitePresentation } from '@/lib/site-config';
 
 export const GET: APIRoute = async () => {
@@ -10,21 +8,15 @@ export const GET: APIRoute = async () => {
   let posts: any[] = [];
 
   try {
-    const [siteRow] = await db.select({ id: sites.id }).from(sites).where(eq(sites.slug, siteSlug)).limit(1);
-    const siteCondition = siteRow
-      ? (siteSlug === 'przemyslawfilipiak'
-          ? or(eq(articles.siteId, siteRow.id), isNull(articles.siteId))
-          : eq(articles.siteId, siteRow.id))
-      : isNull(articles.siteId);
-
-    posts = await db
-      .select()
-      .from(articles)
-      .where(and(eq(articles.status, 'published'), siteCondition))
-      .orderBy(desc(articles.publishedAt))
-      .limit(50);
+    const apiBase = getInternalApiBaseUrl();
+    const params = new URLSearchParams({ siteSlug, status: 'published', limit: '50' });
+    const response = await fetch(`${apiBase}/v1/articles?${params}`);
+    if (response.ok) {
+      const data = await response.json();
+      posts = data.results ?? [];
+    }
   } catch {
-    // DB unavailable
+    // API unavailable
   }
 
   const items = posts.map(post => `

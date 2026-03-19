@@ -1,27 +1,24 @@
 import type { APIRoute } from 'astro';
-import { db } from '@/db/client';
-import { articles, sites } from '@/db/schema';
-import { eq, and, or, isNull } from 'drizzle-orm';
+import { getInternalApiBaseUrl } from '@/lib/internal-api';
 import { absoluteUrl, getCurrentSiteSlug } from '@/lib/site-config';
 
 export const GET: APIRoute = async () => {
   const siteSlug = getCurrentSiteSlug();
-  let publishedArticles: { slug: string; updatedAt: Date }[] = [];
+  let publishedArticles: { slug: string; updatedAt: string }[] = [];
 
   try {
-    const [siteRow] = await db.select({ id: sites.id }).from(sites).where(eq(sites.slug, siteSlug)).limit(1);
-    const siteCondition = siteRow
-      ? (siteSlug === 'przemyslawfilipiak'
-          ? or(eq(articles.siteId, siteRow.id), isNull(articles.siteId))
-          : eq(articles.siteId, siteRow.id))
-      : isNull(articles.siteId);
-
-    publishedArticles = await db
-      .select({ slug: articles.slug, updatedAt: articles.updatedAt })
-      .from(articles)
-      .where(and(eq(articles.status, 'published'), siteCondition));
+    const apiBase = getInternalApiBaseUrl();
+    const params = new URLSearchParams({ siteSlug, status: 'published', limit: '100' });
+    const response = await fetch(`${apiBase}/v1/articles?${params}`);
+    if (response.ok) {
+      const data = await response.json();
+      publishedArticles = (data.results ?? []).map((a: any) => ({
+        slug: a.slug,
+        updatedAt: a.updatedAt,
+      }));
+    }
   } catch {
-    // DB unavailable
+    // API unavailable
   }
 
   const today = new Date().toISOString().split('T')[0];
@@ -36,7 +33,7 @@ export const GET: APIRoute = async () => {
 
   const articleUrls = publishedArticles.map(a => ({
     loc: absoluteUrl(`/blog/${a.slug}`),
-    lastmod: a.updatedAt?.toISOString().split('T')[0] || today,
+    lastmod: a.updatedAt ? new Date(a.updatedAt).toISOString().split('T')[0] : today,
   }));
 
   const allUrls = [...staticUrls, ...articleUrls];

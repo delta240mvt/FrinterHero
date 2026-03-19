@@ -1,7 +1,5 @@
 import { defineMiddleware } from 'astro:middleware';
-import { db } from '@/db/client';
-import { sessions } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { getInternalApiBaseUrl } from '@/lib/internal-api';
 
 export const onRequest = defineMiddleware(async (context: any, next: any) => {
   const pathname = context.url.pathname;
@@ -14,13 +12,18 @@ export const onRequest = defineMiddleware(async (context: any, next: any) => {
     }
 
     try {
-      const [session] = await db
-        .select()
-        .from(sessions)
-        .where(eq(sessions.token, token))
-        .limit(1);
+      const apiBase = getInternalApiBaseUrl();
+      const response = await fetch(`${apiBase}/v1/auth/me`, {
+        headers: { cookie: `session=${encodeURIComponent(token)}` },
+      });
 
-      if (!session || session.expiresAt < new Date()) {
+      if (!response.ok) {
+        context.cookies.delete('session', { path: '/' });
+        return context.redirect('/admin/login');
+      }
+
+      const data = await response.json();
+      if (!data.authenticated) {
         context.cookies.delete('session', { path: '/' });
         return context.redirect('/admin/login');
       }
