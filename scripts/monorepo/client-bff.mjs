@@ -240,11 +240,20 @@ function jobLinesFromSnapshot(job) {
   const lines = [];
   const createdTs = job?.createdAt ? Date.parse(job.createdAt) : Date.now();
   const startedTs = job?.startedAt ? Date.parse(job.startedAt) : createdTs;
+  const progressLogs = Array.isArray(job?.progress?.logs)
+    ? job.progress.logs
+        .filter((entry) => entry && typeof entry.line === 'string')
+        .map((entry) => ({
+          line: entry.line,
+          ts: typeof entry.ts === 'number' ? entry.ts : startedTs,
+        }))
+    : [];
   if (job) {
     lines.push({ line: `[JOB] Created ${job.topic} job #${job.id}`, ts: createdTs });
     if (job.status === 'pending' || job.status === 'running') {
       lines.push({ line: '[JOB] Running in distributed worker...', ts: startedTs });
     }
+    lines.push(...progressLogs);
     if (job.error) {
       lines.push({ line: `[JOB] ${job.error}`, ts: job.finishedAt ? Date.parse(job.finishedAt) : Date.now() });
     }

@@ -21,9 +21,43 @@ let currentJobId: number | null = null;
 let currentTopic: string | null = null;
 let lastLoopAt: string | null = null;
 let processedJobs = 0;
+const MAX_JOB_LOG_LINES = 200;
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function appendJobLog(jobId: number, line: string) {
+  const trimmed = line.trim();
+  if (!trimmed) return;
+
+  const [job] = await db
+    .select({ progress: appJobs.progress })
+    .from(appJobs)
+    .where(eq(appJobs.id, jobId))
+    .limit(1);
+
+  const progress = (job?.progress ?? {}) as Record<string, unknown>;
+  const existingLogs = Array.isArray(progress.logs) ? progress.logs : [];
+  const nextLogs = [
+    ...existingLogs,
+    {
+      line: trimmed,
+      ts: Date.now(),
+    },
+  ].slice(-MAX_JOB_LOG_LINES);
+
+  await db
+    .update(appJobs)
+    .set({
+      progress: {
+        ...progress,
+        logs: nextLogs,
+        lastLogAt: new Date().toISOString(),
+      },
+      updatedAt: new Date(),
+    })
+    .where(eq(appJobs.id, jobId));
 }
 
 async function reserveNextJob() {
@@ -49,6 +83,7 @@ async function reserveNextJob() {
       workerName,
       lockedAt: new Date(),
       startedAt: new Date(),
+      progress: {},
       updatedAt: new Date(),
       attemptCount: (candidate.attemptCount ?? 0) + 1,
     })
@@ -78,7 +113,7 @@ async function recoverStaleJobs() {
     );
 }
 
-function runScript(scriptPath: string, extraEnv: Record<string, string> = {}) {
+function runScript(jobId: number, scriptPath: string, extraEnv: Record<string, string> = {}) {
   return new Promise<{ ok: boolean; stdout: string; stderr: string; code: number | null }>((resolve) => {
     const child = spawn('npx', ['tsx', scriptPath], {
       cwd: rootDir,
@@ -91,18 +126,37 @@ function runScript(scriptPath: string, extraEnv: Record<string, string> = {}) {
 
     let stdout = '';
     let stderr = '';
+    let stdoutBuffer = '';
+    let stderrBuffer = '';
 
-    child.stdout.on('data', (chunk) => {
-      stdout += chunk.toString();
+    const flushBuffer = async (buffer: string, sink: 'stdout' | 'stderr') => {
+      const parts = buffer.split(/\r?\n/);
+      const remainder = parts.pop() ?? '';
+      for (const part of parts) {
+        await appendJobLog(jobId, sink === 'stderr' ? `[stderr] ${part}` : part);
+      }
+      return remainder;
+    };
+
+    child.stdout.on('data', async (chunk) => {
+      const text = chunk.toString();
+      stdout += text;
+      stdoutBuffer += text;
       process.stdout.write(chunk);
+      stdoutBuffer = await flushBuffer(stdoutBuffer, 'stdout');
     });
 
-    child.stderr.on('data', (chunk) => {
-      stderr += chunk.toString();
+    child.stderr.on('data', async (chunk) => {
+      const text = chunk.toString();
+      stderr += text;
+      stderrBuffer += text;
       process.stderr.write(chunk);
+      stderrBuffer = await flushBuffer(stderrBuffer, 'stderr');
     });
 
-    child.on('close', (code) => {
+    child.on('close', async (code) => {
+      if (stdoutBuffer.trim()) await appendJobLog(jobId, stdoutBuffer);
+      if (stderrBuffer.trim()) await appendJobLog(jobId, `[stderr] ${stderrBuffer}`);
       resolve({ ok: code === 0, stdout, stderr, code });
     });
   });
@@ -149,7 +203,7 @@ async function processJob(job: typeof appJobs.$inferSelect) {
   const payload = (job.payload ?? {}) as Record<string, unknown>;
 
   if (job.topic === 'geo') {
-    return runScript('scripts/geo-monitor.ts');
+    return runScript(job.id, 'scripts/geo-monitor.ts');
   }
 
   if (job.topic === 'draft') {
@@ -163,7 +217,7 @@ async function processJob(job: typeof appJobs.$inferSelect) {
       };
     }
 
-    return runScript('scripts/draft-bridge.ts', {
+    return runScript(job.id, 'scripts/draft-bridge.ts', {
       GAP_ID: String(gapId),
       MODEL: String(payload.model ?? 'anthropic/claude-sonnet-4-6'),
       AUTHOR_NOTES: String(payload.authorNotes ?? ''),
@@ -185,7 +239,7 @@ async function processJob(job: typeof appJobs.$inferSelect) {
       };
     }
 
-    return runScript('scripts/reddit-scraper.ts', {
+    return runScript(job.id, 'scripts/reddit-scraper.ts', {
       SCRAPE_RUN_ID: String(runId),
       SCRAPE_TARGETS: targets.join(','),
       SITE_ID: String(payload.siteId ?? ''),
@@ -207,7 +261,7 @@ async function processJob(job: typeof appJobs.$inferSelect) {
       };
     }
 
-    return runScript('scripts/yt-scraper.ts', {
+    return runScript(job.id, 'scripts/yt-scraper.ts', {
       SCRAPE_RUN_ID: String(runId),
       SCRAPE_TARGET_IDS: targetIds.join(','),
       SITE_ID: String(payload.siteId ?? ''),
@@ -227,7 +281,7 @@ async function processJob(job: typeof appJobs.$inferSelect) {
       };
     }
 
-    return runScript('scripts/bc-scraper.ts', {
+    return runScript(job.id, 'scripts/bc-scraper.ts', {
       BC_PROJECT_ID: String(projectId),
       BC_VIDEO_ID: videoId ? String(videoId) : '',
       SITE_ID: String(payload.siteId ?? ''),
@@ -245,7 +299,7 @@ async function processJob(job: typeof appJobs.$inferSelect) {
       };
     }
 
-    return runScript('scripts/bc-lp-parser.ts', {
+    return runScript(job.id, 'scripts/bc-lp-parser.ts', {
       BC_PROJECT_ID: String(projectId),
       SITE_ID: String(payload.siteId ?? ''),
     });
@@ -263,7 +317,7 @@ async function processJob(job: typeof appJobs.$inferSelect) {
       };
     }
 
-    return runScript('scripts/bc-pain-selector.ts', {
+    return runScript(job.id, 'scripts/bc-pain-selector.ts', {
       BC_PROJECT_ID: String(projectId),
       BC_ITERATION_ID: String(iterationId),
       SITE_ID: String(payload.siteId ?? ''),
@@ -282,7 +336,7 @@ async function processJob(job: typeof appJobs.$inferSelect) {
       };
     }
 
-    return runScript('scripts/bc-pain-clusterer.ts', {
+    return runScript(job.id, 'scripts/bc-pain-clusterer.ts', {
       BC_PROJECT_ID: String(projectId),
       BC_ITERATION_ID: iterationId ? String(iterationId) : '',
       SITE_ID: String(payload.siteId ?? ''),
@@ -301,7 +355,7 @@ async function processJob(job: typeof appJobs.$inferSelect) {
       };
     }
 
-    return runScript('scripts/bc-lp-generator.ts', {
+    return runScript(job.id, 'scripts/bc-lp-generator.ts', {
       BC_PROJECT_ID: String(projectId),
       BC_ITERATION_ID: iterationId ? String(iterationId) : '',
       SITE_ID: String(payload.siteId ?? ''),
@@ -319,7 +373,7 @@ async function processJob(job: typeof appJobs.$inferSelect) {
       };
     }
 
-    return runScript('scripts/sh-copywriter.ts', {
+    return runScript(job.id, 'scripts/sh-copywriter.ts', {
       SH_BRIEF_ID: String(briefId),
       SITE_ID: String(payload.siteId ?? ''),
     });
@@ -337,7 +391,7 @@ async function processJob(job: typeof appJobs.$inferSelect) {
       };
     }
 
-    return runScript('scripts/sh-video-render.ts', {
+    return runScript(job.id, 'scripts/sh-video-render.ts', {
       SH_BRIEF_ID: String(briefId),
       SH_COPY_ID: String(copyId),
       SITE_ID: String(payload.siteId ?? ''),
@@ -359,7 +413,7 @@ async function processJob(job: typeof appJobs.$inferSelect) {
       ? payload.accountIds.map((entry) => String(entry).trim()).filter(Boolean)
       : [];
 
-    return runScript('scripts/sh-publish.ts', {
+    return runScript(job.id, 'scripts/sh-publish.ts', {
       SH_BRIEF_ID: String(briefId),
       SH_ACCOUNT_IDS: accountIds.join(','),
       SH_SCHEDULED_FOR: String(payload.scheduledFor ?? ''),
