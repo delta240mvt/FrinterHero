@@ -1,6 +1,14 @@
 [build]
 builder = "NIXPACKS"
 buildCommand = "npm install && npm run build:client2"
+watchPatterns = [
+  "apps/client-focusequalsfreedom/**",
+  "package.json",
+  "package-lock.json",
+  "infra/railway/client-focusequalsfreedom.toml",
+  "scripts/monorepo/client-bff.mjs",
+  "scripts/monorepo/noop-build.mjs",
+]
 
 [deploy]
 startCommand = "npm run start:client2"

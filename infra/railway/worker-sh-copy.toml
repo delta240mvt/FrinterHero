@@ -1,6 +1,16 @@
 [build]
 builder = "NIXPACKS"
 buildCommand = "npm install && npm run build:workers"
+watchPatterns = [
+  "workers/runner/**",
+  "workers/worker-sh-copy/**",
+  "scripts/sh-copywriter.ts",
+  "package.json",
+  "package-lock.json",
+  "src/**",
+  "infra/railway/worker-sh-copy.toml",
+  "scripts/monorepo/noop-build.mjs",
+]
 
 [deploy]
 startCommand = "npm run start:worker:sh-copy"

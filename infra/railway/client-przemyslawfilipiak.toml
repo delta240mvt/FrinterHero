@@ -1,6 +1,16 @@
 [build]
 builder = "NIXPACKS"
 buildCommand = "npm install && npm run build:client1"
+watchPatterns = [
+  "apps/client-przemyslawfilipiak/**",
+  "src/lib/**",
+  "src/utils/**",
+  "package.json",
+  "package-lock.json",
+  "infra/railway/client-przemyslawfilipiak.toml",
+  "scripts/monorepo/noop-build.mjs",
+  "scripts/monorepo/start-client-app.mjs",
+]
 
 [deploy]
 startCommand = "npm run start:client1"

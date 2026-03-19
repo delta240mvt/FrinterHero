@@ -1,6 +1,23 @@
 [build]
 builder = "NIXPACKS"
 buildCommand = "npm install && npm run build:workers"
+watchPatterns = [
+  "workers/runner/**",
+  "scripts/analysis.ts",
+  "scripts/draft-bridge.ts",
+  "scripts/draft-generator.ts",
+  "scripts/draft-validator.ts",
+  "scripts/gap-analysis.ts",
+  "scripts/geo-monitor.ts",
+  "scripts/reddit-scraper.ts",
+  "scripts/sh-publish.ts",
+  "scripts/yt-scraper.ts",
+  "package.json",
+  "package-lock.json",
+  "src/**",
+  "infra/railway/worker-general.toml",
+  "scripts/monorepo/noop-build.mjs",
+]
 
 [deploy]
 startCommand = "npm run start:worker:general"

@@ -1,6 +1,16 @@
 [build]
 builder = "NIXPACKS"
 buildCommand = "npm install && npm run build:workers"
+watchPatterns = [
+  "workers/runner/**",
+  "workers/worker-sh-video/**",
+  "scripts/sh-video-render.ts",
+  "package.json",
+  "package-lock.json",
+  "src/**",
+  "infra/railway/worker-sh-video.toml",
+  "scripts/monorepo/noop-build.mjs",
+]
 
 [deploy]
 startCommand = "npm run start:worker:sh-video"

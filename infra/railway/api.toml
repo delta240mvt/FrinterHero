@@ -1,6 +1,14 @@
 [build]
 builder = "NIXPACKS"
 buildCommand = "npm install && npm run build:api"
+watchPatterns = [
+  "apps/api/**",
+  "src/**",
+  "package.json",
+  "package-lock.json",
+  "infra/railway/api.toml",
+  "scripts/monorepo/noop-build.mjs",
+]
 
 [deploy]
 startCommand = "npm run start:api"
