@@ -26,6 +26,55 @@ This means:
 
 ## 2. Runtime Topology
 
+```text
+                             FRINTERHERO RUNTIME
+
+  ┌──────────────────────┐
+  │       Browser        │
+  │  admin + public UI   │
+  └──────────┬───────────┘
+             │
+             v
+  ┌──────────────────────────────────────────────────────────────────────┐
+  │                               Clients                               │
+  │                                                                      │
+  │  apps/client-przemyslawfilipiak   apps/client-focusequalsfreedom     │
+  │  apps/client-frinter              thin BFF + SSR layer               │
+  └───────────────────────────────┬──────────────────────────────────────┘
+                                  │ cookies + siteSlug
+                                  v
+  ┌──────────────────────────────────────────────────────────────────────┐
+  │                              apps/api                               │
+  │                                                                      │
+  │  auth · tenant resolution · CRUD · orchestration · job enqueue       │
+  │  job status/result reads · public DB-backed backend                  │
+  └───────────────────────┬───────────────────────────────┬──────────────┘
+                          │                               │
+                          │ SQL                           │ app_jobs
+                          v                               v
+               ┌────────────────────┐         ┌──────────────────────────┐
+               │     PostgreSQL     │         │      Queue Topics        │
+               │ sites + app data   │         │ geo · draft · reddit     │
+               │ app_jobs + sh_*    │         │ youtube · bc-* · sh-*    │
+               └─────────┬──────────┘         └────────────┬─────────────┘
+                         │                                 │
+                         │ reads / writes                  │ consumed by
+                         │                                 v
+   ┌────────────────────────────┬──────────────────────────┬───────────────────────┐
+   │       worker-general       │        worker-bc         │  worker-sh-copy/video │
+   │ geo · draft · reddit       │ bc-scrape · bc-parse    │ sh-copy · sh-video    │
+   │ youtube · sh-publish       │ bc-selector · bc-*      │                       │
+   └──────────────┬─────────────┴──────────────┬───────────┴────────────┬──────────┘
+                  │                            │                         │
+                  └────────────────────────────┴─────────────────────────┘
+                                               │
+                                               v
+                                  ┌────────────────────────┐
+                                  │  shared root src/*     │
+                                  │ db · lib · utils       │
+                                  └────────────────────────┘
+```
+
 ### Core services
 
 - `apps/api`
