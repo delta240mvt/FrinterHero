@@ -1,0 +1,11 @@
+{
+  "name": "railway-przemyslawfilipiak-nightly-rebuild",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node index.mjs"
+  },
+  "dependencies": {
+    "@railway/cli": "^4.8.6"
+  }
+}
