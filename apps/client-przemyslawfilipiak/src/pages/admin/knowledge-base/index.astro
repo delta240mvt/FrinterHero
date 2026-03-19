@@ -13,13 +13,6 @@ const offset    = (page - 1) * LIMIT;
 
 const KB_TYPES = ['project_spec', 'external_research', 'personal_note'];
 
-const orderByMap: Record<string, any> = {
-  importance : desc(knowledgeEntries.importanceScore),
-  date_desc  : desc(knowledgeEntries.createdAt),
-  date_asc   : asc(knowledgeEntries.createdAt),
-  title_asc  : asc(knowledgeEntries.title),
-};
-
 let entries: any[]     = [];
 let projects: string[] = [];
 let total    = 0;

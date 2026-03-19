@@ -14,6 +14,12 @@ if (!slug) {
 let article: any = null;
 let relatedArticles: any[] = [];
 
+function toValidDate(value: unknown) {
+  if (!value) return null;
+  const date = value instanceof Date ? value : new Date(String(value));
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
 try {
   const apiBase = getInternalApiBaseUrl();
   const articleParams = new URLSearchParams({ siteSlug });
@@ -21,6 +27,13 @@ try {
 
   if (articleResponse.ok) {
     article = await articleResponse.json();
+    if (article) {
+      article = {
+        ...article,
+        publishedAt: toValidDate(article.publishedAt),
+        updatedAt: toValidDate(article.updatedAt),
+      };
+    }
   }
 
   if (article?.tags?.length > 0) {
@@ -31,7 +44,11 @@ try {
       const articleTags = new Set(article.tags as string[]);
       relatedArticles = (listData.results ?? [])
         .filter((a: any) => a.id !== article.id && a.tags?.some((t: string) => articleTags.has(t)))
-        .slice(0, 3);
+        .slice(0, 3)
+        .map((a: any) => ({
+          ...a,
+          publishedAt: toValidDate(a.publishedAt),
+        }));
     }
   }
 } catch {
