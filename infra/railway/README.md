@@ -10,7 +10,14 @@ Sposób użycia:
    - `buildCommand`
    - `startCommand`
    - `healthcheckPath` dla HTTP runtime
-4. Ustaw env vars zgodnie z [docs/railway-distributed-deployment.md](/C:/Users/delta/Desktop/FRINTER.APP%20+%20PERSONAL%20BRAND/FRINTER%20-%20CURSOR%20-%2026.11.25/FrinterHero/docs/railway-distributed-deployment.md).
+4. Ustaw env vars zgodnie z typem runtime:
+   - `api` i klienci: `infra/railway/env/api.env.example`, `client-*.env.example`
+   - `worker-general`: `infra/railway/env/worker-general.env.example`
+   - `worker-bc`: `infra/railway/env/worker-bc.env.example`
+   - `worker-sh-copy`: `infra/railway/env/worker-sh-copy.env.example`
+   - `worker-sh-video`: `infra/railway/env/worker-sh-video.env.example`
+   - `worker-reddit`: `infra/railway/env/worker-reddit.env.example`
+   - `worker-youtube`: `infra/railway/env/worker-youtube.env.example`
 5. Dla wygody skopiuj bazowy profil env z `infra/railway/env/*.env.example`.
 
 Docelowy zestaw runtime:
@@ -20,7 +27,7 @@ Docelowy zestaw runtime:
 - `client-focusequalsfreedom`
 - `client-frinter`
 - `worker-general`
-- `worker-bc`
+- `worker-bc` - sole BC worker for `bc-scrape`, `bc-parse`, `bc-selector`, `bc-cluster`, `bc-generate`
 - `worker-sh-copy`
 - `worker-sh-video`
 
@@ -28,3 +35,9 @@ Opcjonalne później:
 
 - `worker-reddit`
 - `worker-youtube`
+
+Ważne:
+
+- `worker-general`, `worker-bc`, `worker-reddit`, `worker-youtube`, `worker-sh-copy` i `worker-sh-video` są dziś cienkimi runtime wrapperami nad wspólnym `workers/runner/src/index.ts`
+- to jest poprawny stan deployowy, ale nie należy opisywać tych workspace'ów jako całkowicie niezależnych codebase'ów
+- ownership topiców powinien pozostać rozłączny: `worker-general` nie powinien konsumować `bc-*`

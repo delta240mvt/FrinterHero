@@ -21,7 +21,7 @@ dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
 
 import { db } from '../src/db/client';
 import { shContentBriefs, shGeneratedCopy, shMediaAssets } from '../src/db/schema';
-import { eq } from 'drizzle-orm';
+import { and, eq, isNull, or } from 'drizzle-orm';
 import {
   generateTtsAudio,
   buildVideoRenderLogLines,
@@ -36,6 +36,7 @@ import { getShSettings } from '../src/lib/sh-settings';
 
 const SH_BRIEF_ID      = parseInt(process.env.SH_BRIEF_ID || '0', 10);
 const SH_COPY_ID       = parseInt(process.env.SH_COPY_ID || '0', 10);
+const SITE_ID          = parseInt(process.env.SITE_ID || '0', 10) || null;
 const SH_AVATAR_URL    = process.env.SH_AVATAR_URL || '';
 const SH_VIDEO_MODEL   = process.env.SH_VIDEO_MODEL || 'wan-2.2-ultra-fast';
 const SH_TTS_PROVIDER  = (process.env.SH_TTS_PROVIDER || 'elevenlabs') as 'elevenlabs' | 'kokoro';
@@ -106,7 +107,7 @@ async function run() {
   const [copyRow] = await db
     .select()
     .from(shGeneratedCopy)
-    .where(eq(shGeneratedCopy.id, SH_COPY_ID));
+    .where(and(eq(shGeneratedCopy.id, SH_COPY_ID), SITE_ID ? or(eq(shGeneratedCopy.siteId, SITE_ID), isNull(shGeneratedCopy.siteId)) : undefined));
 
   if (!copyRow) fatal(`shGeneratedCopy id=${SH_COPY_ID} not found`);
 
@@ -116,12 +117,13 @@ async function run() {
   const [briefRow] = await db
     .select()
     .from(shContentBriefs)
-    .where(eq(shContentBriefs.id, SH_BRIEF_ID));
+    .where(and(eq(shContentBriefs.id, SH_BRIEF_ID), SITE_ID ? or(eq(shContentBriefs.siteId, SITE_ID), isNull(shContentBriefs.siteId)) : undefined));
 
   if (!briefRow) fatal(`shContentBriefs id=${SH_BRIEF_ID} not found`);
+  const resolvedSiteId = briefRow.siteId ?? copyRow.siteId ?? SITE_ID;
 
   // 2. Resolve avatar image URL (env override or from ShSettings)
-  const settings = await getShSettings();
+  const settings = await getShSettings(resolvedSiteId);
 
   const selectedVideoFormatSlug =
     copyRow.videoFormatSlug ??
@@ -195,6 +197,7 @@ async function run() {
 
   // 7. Insert shMediaAssets record
   await db.insert(shMediaAssets).values({
+    siteId: resolvedSiteId,
     briefId: SH_BRIEF_ID,
     copyId: SH_COPY_ID,
     type: 'video',
@@ -214,7 +217,7 @@ async function run() {
       videoFormatSlug: selectedVideoFormat?.slug ?? selectedVideoFormatSlug,
       updatedAt: new Date(),
     })
-    .where(eq(shContentBriefs.id, SH_BRIEF_ID));
+    .where(and(eq(shContentBriefs.id, SH_BRIEF_ID), SITE_ID ? or(eq(shContentBriefs.siteId, SITE_ID), isNull(shContentBriefs.siteId)) : undefined));
 
   // 9. Done
   process.stdout.write(`SH_RENDER_DONE:${videoUrl}\n`);

@@ -3,9 +3,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node ../../scripts/monorepo/run-legacy-client.mjs dev przemyslawfilipiak",
-    "build": "node ../../scripts/monorepo/run-legacy-client.mjs build przemyslawfilipiak",
-    "start": "node ../../scripts/monorepo/run-legacy-client.mjs start przemyslawfilipiak",
-    "preview": "node ../../scripts/monorepo/run-legacy-client.mjs preview przemyslawfilipiak"
+    "dev": "astro dev",
+    "build": "astro build",
+    "start": "node ../../scripts/monorepo/start-client-app.mjs",
+    "preview": "astro preview"
   }
 }

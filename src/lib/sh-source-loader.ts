@@ -1,5 +1,5 @@
 import { db } from '@/db/client';
-import { eq } from 'drizzle-orm';
+import { and, eq, isNull, or } from 'drizzle-orm';
 import {
   articles,
   bcExtractedPainPoints,
@@ -28,13 +28,17 @@ function makePreview(text: string, maxLen = 200): string {
 export async function loadSource(
   sourceType: string,
   sourceId: number,
+  siteId?: number | null,
 ): Promise<ShSourceData | null> {
+  const siteScoped = <T extends { siteId: unknown }>(column: T['siteId']) =>
+    siteId ? or(eq(column as never, siteId), isNull(column as never)) : undefined;
+
   switch (sourceType) {
     case 'article': {
       const [row] = await db
         .select()
         .from(articles)
-        .where(eq(articles.id, sourceId))
+        .where(and(eq(articles.id, sourceId), siteScoped(articles.siteId)))
         .limit(1);
       if (!row) return null;
       const content = [row.title, row.description, row.content]
@@ -60,7 +64,7 @@ export async function loadSource(
       const [row] = await db
         .select()
         .from(bcExtractedPainPoints)
-        .where(eq(bcExtractedPainPoints.id, sourceId))
+        .where(and(eq(bcExtractedPainPoints.id, sourceId), siteScoped(bcExtractedPainPoints.siteId)))
         .limit(1);
       if (!row) return null;
       const content = [
@@ -97,7 +101,7 @@ export async function loadSource(
       const [row] = await db
         .select()
         .from(bcPainClusters)
-        .where(eq(bcPainClusters.id, sourceId))
+        .where(and(eq(bcPainClusters.id, sourceId), siteScoped(bcPainClusters.siteId)))
         .limit(1);
       if (!row) return null;
       const content = [
@@ -135,7 +139,7 @@ export async function loadSource(
       const [row] = await db
         .select()
         .from(contentGaps)
-        .where(eq(contentGaps.id, sourceId))
+        .where(and(eq(contentGaps.id, sourceId), siteScoped(contentGaps.siteId)))
         .limit(1);
       if (!row) return null;
       const content = [
@@ -166,7 +170,7 @@ export async function loadSource(
       const [row] = await db
         .select()
         .from(knowledgeEntries)
-        .where(eq(knowledgeEntries.id, sourceId))
+        .where(and(eq(knowledgeEntries.id, sourceId), siteScoped(knowledgeEntries.siteId)))
         .limit(1);
       if (!row) return null;
       return {
@@ -189,7 +193,7 @@ export async function loadSource(
       const [row] = await db
         .select()
         .from(redditExtractedGaps)
-        .where(eq(redditExtractedGaps.id, sourceId))
+        .where(and(eq(redditExtractedGaps.id, sourceId), siteScoped(redditExtractedGaps.siteId)))
         .limit(1);
       if (!row) return null;
       const content = [
@@ -224,7 +228,7 @@ export async function loadSource(
       const [row] = await db
         .select()
         .from(ytExtractedGaps)
-        .where(eq(ytExtractedGaps.id, sourceId))
+        .where(and(eq(ytExtractedGaps.id, sourceId), siteScoped(ytExtractedGaps.siteId)))
         .limit(1);
       if (!row) return null;
       const content = [

@@ -3,6 +3,8 @@ dist/
 .env*
 !.env.example
 .astro/
+apps/*/dist/
+apps/*/.astro/
 .DS_Store
 .claude/
 

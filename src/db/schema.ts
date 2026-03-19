@@ -584,6 +584,7 @@ export const bcPainClusters = pgTable('bc_pain_clusters', {
 
 export const shSettings = pgTable('sh_settings', {
   id: serial('id').primaryKey(),
+  siteId: integer('site_id').references(() => sites.id, { onDelete: 'restrict' }),
   config: jsonb('config').notNull().$type<{
     copywriterModel: string;
     copywriterThinkingBudget: number;
@@ -606,6 +607,7 @@ export const shSettings = pgTable('sh_settings', {
 
 export const shSocialAccounts = pgTable('sh_social_accounts', {
   id: serial('id').primaryKey(),
+  siteId: integer('site_id').references(() => sites.id, { onDelete: 'restrict' }),
   platform: varchar('platform', { length: 30 }).notNull(),
   accountName: varchar('account_name', { length: 255 }).notNull(),
   accountHandle: varchar('account_handle', { length: 255 }),
@@ -618,6 +620,7 @@ export const shSocialAccounts = pgTable('sh_social_accounts', {
 
 export const shContentBriefs = pgTable('sh_content_briefs', {
   id: serial('id').primaryKey(),
+  siteId: integer('site_id').references(() => sites.id, { onDelete: 'restrict' }),
   sourceType: varchar('source_type', { length: 30 }).notNull(),
   sourceId: integer('source_id').notNull(),
   sourceTitle: varchar('source_title', { length: 500 }),
@@ -644,6 +647,7 @@ export const shContentBriefs = pgTable('sh_content_briefs', {
 
 export const shGeneratedCopy = pgTable('sh_generated_copy', {
   id: serial('id').primaryKey(),
+  siteId: integer('site_id').references(() => sites.id, { onDelete: 'restrict' }),
   briefId: integer('brief_id').notNull().references(() => shContentBriefs.id, { onDelete: 'cascade' }),
   hookLine: text('hook_line').notNull(),
   bodyText: text('body_text').notNull(),
@@ -669,18 +673,22 @@ export const shGeneratedCopy = pgTable('sh_generated_copy', {
 
 export const shTemplates = pgTable('sh_templates', {
   id: serial('id').primaryKey(),
+  siteId: integer('site_id').references(() => sites.id, { onDelete: 'restrict' }),
   name: varchar('name', { length: 100 }).notNull(),
-  slug: varchar('slug', { length: 100 }).notNull().unique(),
+  slug: varchar('slug', { length: 100 }).notNull(),
   category: varchar('category', { length: 50 }).notNull(),
   aspectRatio: varchar('aspect_ratio', { length: 10 }).notNull(),
   jsxTemplate: text('jsx_template').notNull(),
   previewUrl: text('preview_url'),
   isActive: boolean('is_active').notNull().default(true),
   createdAt: timestamp('created_at').notNull().defaultNow(),
-});
+}, (t) => ({
+  slugIdx: uniqueIndex('uq_sh_templates_site_slug').on(t.siteId, t.slug),
+}));
 
 export const shMediaAssets = pgTable('sh_media_assets', {
   id: serial('id').primaryKey(),
+  siteId: integer('site_id').references(() => sites.id, { onDelete: 'restrict' }),
   briefId: integer('brief_id').notNull().references(() => shContentBriefs.id, { onDelete: 'cascade' }),
   copyId: integer('copy_id').references(() => shGeneratedCopy.id),
   templateId: integer('template_id').references(() => shTemplates.id),
@@ -705,6 +713,7 @@ export const shMediaAssets = pgTable('sh_media_assets', {
 
 export const shPublishLog = pgTable('sh_publish_log', {
   id: serial('id').primaryKey(),
+  siteId: integer('site_id').references(() => sites.id, { onDelete: 'restrict' }),
   briefId: integer('brief_id').notNull().references(() => shContentBriefs.id, { onDelete: 'cascade' }),
   mediaAssetId: integer('media_asset_id').references(() => shMediaAssets.id),
   accountId: integer('account_id').notNull().references(() => shSocialAccounts.id),
@@ -724,6 +733,7 @@ export const shPublishLog = pgTable('sh_publish_log', {
 
 export const shPostMetrics = pgTable('sh_post_metrics', {
   id: serial('id').primaryKey(),
+  siteId: integer('site_id').references(() => sites.id, { onDelete: 'restrict' }),
   publishLogId: integer('publish_log_id').notNull().references(() => shPublishLog.id, { onDelete: 'cascade' }),
   views: integer('views').notNull().default(0),
   likes: integer('likes').notNull().default(0),
@@ -736,6 +746,7 @@ export const shPostMetrics = pgTable('sh_post_metrics', {
 
 export const shQueue = pgTable('sh_queue', {
   id: serial('id').primaryKey(),
+  siteId: integer('site_id').references(() => sites.id, { onDelete: 'restrict' }),
   briefId: integer('brief_id').notNull().references(() => shContentBriefs.id, { onDelete: 'cascade' }),
   priority: integer('priority').notNull().default(50),
   status: varchar('status', { length: 20 }).notNull().default('pending'),

@@ -85,4 +85,4 @@ Frinter uses a **Reverse RAG Loop** to build AI visibility:
 3. Generate high-density knowledge articles to fill gaps
 4. Publish to locations AI crawlers index (`llms.txt`, blog, GitHub, Reddit)
 
-Priority files to create in `apps/web/public/`: `llms.txt`, `llms-full.txt`, `robots.txt` (extended for GPTBot/Claude-Web/PerplexityBot), `sitemap.xml`. Schema markup (JSON-LD `SoftwareApplication`) goes in `apps/web/index.html`.
+Priority metadata files live per client app, for example in `apps/client-przemyslawfilipiak/public/`: `llms.txt`, `llms-full.txt`, `robots.txt`, `site.webmanifest`. Schema markup belongs in the client app layout and public routes, not in a non-existent `apps/web` root.

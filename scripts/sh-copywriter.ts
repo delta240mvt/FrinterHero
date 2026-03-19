@@ -8,7 +8,7 @@
 import * as dotenv from 'dotenv';
 import * as path from 'path';
 import { readFileSync } from 'fs';
-import { eq } from 'drizzle-orm';
+import { and, eq, isNull, or } from 'drizzle-orm';
 import { db } from '../src/db/client';
 import { shContentBriefs, shGeneratedCopy } from '../src/db/schema';
 import { getShSettings } from '../src/lib/sh-settings';
@@ -20,6 +20,7 @@ import { resolveShViralEngine } from '../src/lib/sh-viral-engine';
 dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
 
 const briefIdRaw = process.env.SH_BRIEF_ID;
+const siteId = Number.parseInt(process.env.SITE_ID ?? '0', 10) || null;
 const model = process.env.SH_COPYWRITER_MODEL || 'claude-sonnet-4-6';
 const thinkingBudget = process.env.SH_COPYWRITER_THINKING_BUDGET
   ? parseInt(process.env.SH_COPYWRITER_THINKING_BUDGET, 10)
@@ -79,10 +80,12 @@ async function run() {
   }
 
   log('Loading brief and settings...');
-  const [brief] = await db.select().from(shContentBriefs).where(eq(shContentBriefs.id, briefId)).limit(1);
+  const briefScope = siteId ? or(eq(shContentBriefs.siteId, siteId), isNull(shContentBriefs.siteId)) : undefined;
+  const [brief] = await db.select().from(shContentBriefs).where(and(eq(shContentBriefs.id, briefId), briefScope)).limit(1);
   if (!brief) shError(`Brief ${briefId} not found`);
 
-  const settings = await getShSettings();
+  const resolvedSiteId = brief.siteId ?? siteId;
+  const settings = await getShSettings(resolvedSiteId);
   const targetPlatforms = Array.isArray(brief.targetPlatforms) ? brief.targetPlatforms.map(String) : [];
   const defaultHashtags = normalizeHashtags(settings.defaultHashtags, []);
   const toneOverrides = settings.toneOverrides?.trim() || '';
@@ -191,6 +194,7 @@ async function run() {
 
   for (const variant of variants) {
     await db.insert(shGeneratedCopy).values({
+      siteId: resolvedSiteId,
       briefId,
       hookLine: String(variant.hookLine || ''),
       bodyText: String(variant.bodyText || ''),
@@ -212,7 +216,7 @@ async function run() {
   await db
     .update(shContentBriefs)
     .set({ status: 'copy_review', updatedAt: new Date() })
-    .where(eq(shContentBriefs.id, briefId));
+    .where(and(eq(shContentBriefs.id, briefId), briefScope));
 
   log('Done.');
   process.stdout.write(`variantsCreated:${variants.length}\n`);

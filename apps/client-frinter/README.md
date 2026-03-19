@@ -1,9 +1,9 @@
 # apps/client-frinter
 
-Bootstrap workspace for client3.
+BFF shell workspace for client3.
 
 Current state:
 
-- delegates to the root legacy app
+- starts through `scripts/monorepo/client-bff.mjs`
 - `SITE_SLUG=frinter` is injected during launch
-- will be replaced by a dedicated extracted client app
+- proxies to the central API and can still use transitional fallback routes where needed

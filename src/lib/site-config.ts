@@ -34,7 +34,7 @@ function normalizeSiteSlug(value: string | undefined): SiteSlug {
 }
 
 export function getCurrentSiteSlug(): SiteSlug {
-  return normalizeSiteSlug(import.meta.env.SITE_SLUG);
+  return normalizeSiteSlug(process.env.SITE_SLUG);
 }
 
 export function getCurrentSiteConfig(): DefaultSiteConfig {

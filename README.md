@@ -49,6 +49,21 @@ The internet has changed. Traditional search is dying. **FrinterHero** is an ope
 
 ---
 
+## Runtime Shape
+
+Current runtime truth:
+
+- `apps/api` is the central DB-backed backend
+- `apps/client-przemyslawfilipiak` is the primary Astro client
+- `apps/client-focusequalsfreedom` and `apps/client-frinter` are site-scoped BFF clients
+- workers live in `workers/*` and share `workers/runner/src/index.ts`
+
+Current source-of-truth docs:
+
+- [docs/architecture/monolith-to-api-clients-railway-plan.md](C:/Users/delta/Desktop/FRINTER.APP%20+%20PERSONAL%20BRAND/FRINTER%20-%20CURSOR%20-%2026.11.25/FrinterHero/docs/architecture/monolith-to-api-clients-railway-plan.md)
+- [docs/deployment/railway-distributed-deployment.md](C:/Users/delta/Desktop/FRINTER.APP%20+%20PERSONAL%20BRAND/FRINTER%20-%20CURSOR%20-%2026.11.25/FrinterHero/docs/deployment/railway-distributed-deployment.md)
+- [docs/audits/monorepo-split-audit-2026-03-19.md](C:/Users/delta/Desktop/FRINTER.APP%20+%20PERSONAL%20BRAND/FRINTER%20-%20CURSOR%20-%2026.11.25/FrinterHero/docs/audits/monorepo-split-audit-2026-03-19.md)
+
 ## Installation
 
 ### Fastest: One-Click Deploy (Railway)
@@ -86,6 +101,7 @@ Provide your `DATABASE_URL` in `.env.local`, then push the schema:
 
 ```bash
 npm run db:push
+npm run seed:sites
 npm run dev
 ```
 
@@ -179,7 +195,7 @@ Niche subreddits searched on keyword targets: `productivity`, `Entrepreneur`, `s
 
 | Input | Source |
 |---|---|
-| **Author identity** | `public/llms-full.txt` — who you are, your philosophy, voice rules |
+| **Author identity** | `apps/client-przemyslawfilipiak/public/llms-full.txt` — who you are, your philosophy, voice rules |
 | **Gap context** | DB — what AI models said instead of mentioning you |
 | **Reddit pain points** | DB — real user language, emotional intensity, vocabulary quotes |
 | **Author notes** | Manual input in admin panel — your angle on the topic |
@@ -323,8 +339,10 @@ npm run dev
 
 | Action | Command |
 |--------|-----|
-| Start dev server | `npm run dev` |
+| Start primary client dev server | `npm run dev` |
+| Start API dev server | `npm run dev:api` |
 | Sync DB schema | `npm run db:push` |
+| Seed sites + Social Hub site backfill | `npm run migrate` |
 | Build for production | `npm run build` |
 | Start production server | `npm run start` |
 
@@ -460,7 +478,7 @@ Railway provisions a fresh PostgreSQL database instance, clones the repository, 
 
 **Q: How do I change the text in the Hero section?**
 
-The text is currently configured in `src/components/Hero.astro`. You can update the typewriter text directly in the JavaScript block at the bottom of the file.
+The text is currently configured in `apps/client-przemyslawfilipiak/src/components/Hero.astro`. You can update the typewriter text directly in the JavaScript block at the bottom of the file.
 
 **Q: Can I use MySQL or SQLite instead of PostgreSQL?**
 

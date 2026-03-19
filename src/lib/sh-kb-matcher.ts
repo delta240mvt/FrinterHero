@@ -1,6 +1,6 @@
 import { db } from '@/db/client';
 import { knowledgeEntries } from '@/db/schema';
-import { or, ilike, desc } from 'drizzle-orm';
+import { and, desc, eq, ilike, isNull, or } from 'drizzle-orm';
 
 /**
  * Match knowledge-base entries relevant to the given text.
@@ -11,7 +11,11 @@ import { or, ilike, desc } from 'drizzle-orm';
  *  3. Run ILIKE OR queries against knowledgeEntries.title and .content.
  *  4. Sort by importanceScore DESC and return up to `limit` results.
  */
-export async function matchKbEntries(text: string, limit = 3): Promise<any[]> {
+function kbScope(siteId?: number | null) {
+  return siteId ? or(eq(knowledgeEntries.siteId, siteId), isNull(knowledgeEntries.siteId)) : undefined;
+}
+
+export async function matchKbEntries(text: string, limit = 3, siteId?: number | null): Promise<any[]> {
   const keywords = text
     .split(/\s+/)
     .map(w => w.replace(/[^a-zA-Z0-9]/g, ''))
@@ -23,6 +27,7 @@ export async function matchKbEntries(text: string, limit = 3): Promise<any[]> {
     return db
       .select()
       .from(knowledgeEntries)
+      .where(kbScope(siteId))
       .orderBy(desc(knowledgeEntries.importanceScore))
       .limit(limit);
   }
@@ -35,7 +40,7 @@ export async function matchKbEntries(text: string, limit = 3): Promise<any[]> {
   return db
     .select()
     .from(knowledgeEntries)
-    .where(or(...conditions))
+    .where(and(kbScope(siteId), or(...conditions)))
     .orderBy(desc(knowledgeEntries.importanceScore))
     .limit(limit);
 }

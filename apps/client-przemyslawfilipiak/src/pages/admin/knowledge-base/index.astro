@@ -1,0 +1,894 @@
+---
+import Base from '@/components/layouts/Base.astro';
+
+const url = new URL(Astro.request.url);
+const tab       = url.searchParams.get('tab') || 'kb';       // 'kb' | 'articles' | 'folders'
+const search    = url.searchParams.get('search') || '';
+const typeFilter= url.searchParams.get('type') || '';
+const project   = url.searchParams.get('project') || '';
+const sort      = url.searchParams.get('sort') || 'importance';
+const page      = Math.max(1, parseInt(url.searchParams.get('page') || '1', 10));
+const LIMIT     = 25;
+const offset    = (page - 1) * LIMIT;
+
+const KB_TYPES = ['project_spec', 'external_research', 'personal_note'];
+
+const orderByMap: Record<string, any> = {
+  importance : desc(knowledgeEntries.importanceScore),
+  date_desc  : desc(knowledgeEntries.createdAt),
+  date_asc   : asc(knowledgeEntries.createdAt),
+  title_asc  : asc(knowledgeEntries.title),
+};
+
+let entries: any[]     = [];
+let projects: string[] = [];
+let total    = 0;
+let stats    = { kb: 0, articles: 0, folders: 0 };
+let folderStats: { name: string; count: number; topScore: number; types: string[] }[] = [];
+
+async function apiFetch(path: string) {
+  const response = await fetch(new URL(path, Astro.request.url).toString(), {
+    headers: { cookie: Astro.request.headers.get('cookie') || '' },
+  });
+  if (!response.ok) throw new Error(`${path} -> ${response.status}`);
+  return response.json();
+}
+
+try {
+  const allEntriesData = await apiFetch('/api/knowledge-base?limit=500');
+
+  const allEntries = allEntriesData.entries || [];
+  const baseEntries = allEntries.filter((entry: any) => KB_TYPES.includes(entry.type));
+  const articleEntries = allEntries.filter((entry: any) => entry.type === 'published_article');
+  const folderMap = new Map<string, { count: number; topScore: number; types: Set<string> }>();
+
+  for (const entry of allEntries) {
+    if (!entry.projectName) continue;
+    if (!folderMap.has(entry.projectName)) {
+      folderMap.set(entry.projectName, { count: 0, topScore: 0, types: new Set<string>() });
+    }
+    const folder = folderMap.get(entry.projectName)!;
+    folder.count += 1;
+    folder.topScore = Math.max(folder.topScore, Number(entry.importanceScore || 0));
+    folder.types.add(entry.type);
+  }
+
+  stats.kb = baseEntries.length;
+  stats.articles = articleEntries.length;
+  stats.folders = folderMap.size;
+  projects = [...folderMap.keys()].sort();
+
+  if (tab === 'folders') {
+    folderStats = [...folderMap.entries()]
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([name, value]) => ({
+        name,
+        count: value.count,
+        topScore: value.topScore,
+        types: [...value.types],
+      }));
+  } else {
+    const scopedAll = (tab === 'articles' ? articleEntries : baseEntries)
+      .filter((entry: any) => !project || entry.projectName === project)
+      .filter((entry: any) => !search || `${entry.title} ${entry.content}`.toLowerCase().includes(search.toLowerCase()));
+
+    if (sort === 'date_desc') scopedAll.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    else if (sort === 'date_asc') scopedAll.sort((a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    else if (sort === 'title_asc') scopedAll.sort((a: any, b: any) => String(a.title).localeCompare(String(b.title)));
+    else scopedAll.sort((a: any, b: any) => Number(b.importanceScore || 0) - Number(a.importanceScore || 0));
+    entries = scopedAll.slice(offset, offset + LIMIT);
+    total = scopedAll.length;
+  }
+} catch (e) {
+  console.error('[KB Panel]', e);
+}
+
+const totalPages = Math.ceil(total / LIMIT);
+
+function buildUrl(overrides: Record<string, string>) {
+  const u = new URL(url.toString());
+  u.searchParams.delete('page');
+  for (const [k, v] of Object.entries(overrides)) {
+    if (v) u.searchParams.set(k, v);
+    else   u.searchParams.delete(k);
+  }
+  return u.pathname + u.search;
+}
+
+function sortUrl(s: string) {
+  return buildUrl({ sort: s, tab, search, type: typeFilter, project });
+}
+
+function pageUrl(p: number) {
+  const u = new URL(url.toString());
+  u.searchParams.set('page', String(p));
+  return u.pathname + u.search;
+}
+
+const TYPE_LABELS: Record<string, string> = {
+  project_spec      : 'Project Spec',
+  published_article : 'Publ. Article',
+  external_research : 'Ext. Research',
+  personal_note     : 'Personal Note',
+};
+
+const sortLabel: Record<string, string> = {
+  importance : 'Score ↓',
+  date_desc  : 'Newest',
+  date_asc   : 'Oldest',
+  title_asc  : 'Title A-Z',
+};
+
+// Serialize entries for client-side preview (truncate content)
+const entriesJson = JSON.stringify(entries.map(e => ({
+  id            : e.id,
+  type          : e.type,
+  title         : e.title,
+  projectName   : e.projectName,
+  importanceScore: e.importanceScore,
+  tags          : e.tags,
+  sourceUrl     : e.sourceUrl,
+  createdAt     : e.createdAt,
+  updatedAt     : e.updatedAt,
+  preview       : (e.content || '').slice(0, 900),
+  contentLength : (e.content || '').length,
+})));
+---
+
+<Base title="Knowledge Base — Admin">
+
+<!-- ===================== PREVIEW SLIDE-OVER ===================== -->
+<div id="preview-backdrop" class="preview-backdrop" style="display:none"></div>
+<aside id="preview-panel" class="preview-panel" style="display:none" aria-label="Entry preview">
+  <div class="preview-header">
+    <div id="prev-type-badge" class="type-badge"></div>
+    <div class="preview-header-actions">
+      <a id="prev-edit-link" href="#" class="prev-btn-edit">Edit</a>
+      <a id="prev-full-link" href="#" class="prev-btn-full">Full view →</a>
+      <button id="preview-close" class="preview-close" aria-label="Close">✕</button>
+    </div>
+  </div>
+  <div class="preview-body">
+    <h2 id="prev-title" class="prev-title"></h2>
+    <div class="prev-meta-row">
+      <span id="prev-folder" class="prev-meta-item" style="display:none"></span>
+      <span id="prev-score" class="prev-meta-item"></span>
+      <span id="prev-date"  class="prev-meta-item"></span>
+    </div>
+    <div id="prev-tags" class="prev-tags"></div>
+    <div id="prev-url-row" class="prev-url-row" style="display:none">
+      <span class="prev-meta-label">Source:</span>
+      <a id="prev-url" href="#" target="_blank" rel="noopener" class="prev-url-link"></a>
+    </div>
+    <div class="prev-content-label">Content</div>
+    <div id="prev-content" class="prev-content"></div>
+    <div id="prev-truncated" class="prev-truncated" style="display:none">
+      … <a id="prev-truncated-link" href="#">Open full view</a> to see all content
+    </div>
+  </div>
+</aside>
+
+<!-- ===================== MAIN LAYOUT ===================== -->
+<div class="admin-layout">
+  <header class="admin-header">
+    <a href="/admin" class="admin-logo">P·F</a>
+    <nav class="header-nav" aria-label="breadcrumb">
+      <a href="/admin" class="breadcrumb-link">Admin</a>
+      <span class="breadcrumb-sep">/</span>
+      <span class="breadcrumb-current">Knowledge Base</span>
+    </nav>
+    <div class="header-actions">
+      <a href="/admin/knowledge-base/create" class="btn-primary">+ New Entry</a>
+      <a href="/admin/knowledge-base/import" class="btn-ghost">Import .md</a>
+      <a href="/api/logout" class="btn-logout">Logout</a>
+    </div>
+  </header>
+
+  <main class="page-main">
+
+    <!-- STATS BANNER -->
+    <section class="stats-banner" aria-label="Knowledge Base Stats">
+      <a href={buildUrl({ tab: 'kb', search: '', type: '', project: '' })} class={`stat-card ${tab === 'kb' ? 'stat-card--active-kb' : ''}`}>
+        <span class="stat-card-number">{stats.kb}</span>
+        <span class="stat-card-label">Knowledge Base</span>
+        <span class="stat-card-sub">proj_spec · research · notes</span>
+      </a>
+      <div class="stat-divider"></div>
+      <a href={buildUrl({ tab: 'articles', search: '', type: '', project: '' })} class={`stat-card ${tab === 'articles' ? 'stat-card--active-art' : ''}`}>
+        <span class="stat-card-number">{stats.articles}</span>
+        <span class="stat-card-label">Published Articles</span>
+        <span class="stat-card-sub">published_article in KB</span>
+      </a>
+      <div class="stat-divider"></div>
+      <a href={buildUrl({ tab: 'folders', search: '', type: '', project: '' })} class={`stat-card ${tab === 'folders' ? 'stat-card--active-fold' : ''}`}>
+        <span class="stat-card-number">{stats.folders}</span>
+        <span class="stat-card-label">Folders</span>
+        <span class="stat-card-sub">project groups</span>
+      </a>
+    </section>
+
+    <!-- TAB BAR -->
+    <nav class="tab-bar" role="tablist" aria-label="Knowledge Base views">
+      <a href={buildUrl({ tab: 'kb', page: '' })}       role="tab" aria-selected={tab === 'kb'}       class={`tab-link ${tab === 'kb'       ? 'tab-link--active tab-link--kb' : ''}`}>
+        📚 Knowledge Base <span class="tab-count">{stats.kb}</span>
+      </a>
+      <a href={buildUrl({ tab: 'articles', page: '' })} role="tab" aria-selected={tab === 'articles'} class={`tab-link ${tab === 'articles' ? 'tab-link--active tab-link--art' : ''}`}>
+        📝 Published <span class="tab-count">{stats.articles}</span>
+      </a>
+      <a href={buildUrl({ tab: 'folders', page: '' })}  role="tab" aria-selected={tab === 'folders'}  class={`tab-link ${tab === 'folders'  ? 'tab-link--active tab-link--fold' : ''}`}>
+        📁 Folders <span class="tab-count">{stats.folders}</span>
+      </a>
+    </nav>
+
+    <!-- SEPARATOR between KB and Articles tabs (visual) -->
+    {tab !== 'folders' && (
+      <div class={`section-header ${tab === 'articles' ? 'section-header--articles' : 'section-header--kb'}`}>
+        {tab === 'kb' && (
+          <div class="section-header-inner">
+            <div class="section-badge section-badge--kb">🧠 MY KNOWLEDGE BASE</div>
+            <p class="section-desc">Private notes, project specs, external research — context for the AI article generator.</p>
+          </div>
+        )}
+        {tab === 'articles' && (
+          <div class="section-header-inner">
+            <div class="section-badge section-badge--art">📰 PUBLISHED ARTICLES</div>
+            <p class="section-desc">Already published articles — KB entries representing blog/web content.</p>
+          </div>
+        )}
+      </div>
+    )}
+
+    <!-- ======= FOLDERS TAB ======= -->
+    {tab === 'folders' && (
+      <div>
+        {folderStats.length === 0 ? (
+          <div class="empty-state">
+            <div class="empty-icon">📁</div>
+            <p>No folders. Assign <strong>project_name</strong> to KB entries to see them here.</p>
+          </div>
+        ) : (
+          <div class="folder-grid">
+            {folderStats.map(f => (
+              <a href={buildUrl({ tab: 'kb', project: f.name, search: '', type: '' })} class="folder-card">
+                <div class="folder-card-icon">📁</div>
+                <div class="folder-card-name">{f.name}</div>
+                <div class="folder-card-count">{f.count} {f.count === 1 ? 'entry' : 'entries'}</div>
+                <div class="folder-card-types">
+                  {f.types.map(t => (
+                    <span class={`type-badge type-badge--xs type-${t}`}>{TYPE_LABELS[t] || t}</span>
+                  ))}
+                </div>
+                <div class="folder-card-score">
+                  <div class="score-bar-sm">
+                    <div class="score-fill-sm" style={`width:${f.topScore}%`}></div>
+                  </div>
+                  <span class="score-num-sm">top {f.topScore}</span>
+                </div>
+              </a>
+            ))}
+          </div>
+        )}
+      </div>
+    )}
+
+    <!-- ======= TABLE TABS (kb / articles) ======= -->
+    {tab !== 'folders' && (
+      <div>
+        <!-- FILTERS ROW -->
+        <form method="GET" class="filters-row">
+          <input type="hidden" name="tab" value={tab} />
+          <input
+            type="text" name="search" value={search}
+            placeholder={tab === 'kb' ? 'Search KB…' : 'Search articles…'}
+            class="filter-input filter-input--search"
+          />
+          {tab === 'kb' && (
+            <select name="type" class="filter-input">
+              <option value="">All types</option>
+              <option value="project_spec"      selected={typeFilter === 'project_spec'}>Project Spec</option>
+              <option value="external_research" selected={typeFilter === 'external_research'}>External Research</option>
+              <option value="personal_note"     selected={typeFilter === 'personal_note'}>Personal Note</option>
+            </select>
+          )}
+          <select name="project" class="filter-input">
+            <option value="">All folders</option>
+            {projects.map(p => (
+              <option value={p} selected={project === p}>📁 {p}</option>
+            ))}
+          </select>
+          <select name="sort" class="filter-input">
+            <option value="importance" selected={sort === 'importance'}>Sort: Score ↓</option>
+            <option value="date_desc"  selected={sort === 'date_desc'}>Sort: Newest</option>
+            <option value="date_asc"   selected={sort === 'date_asc'}>Sort: Oldest</option>
+            <option value="title_asc"  selected={sort === 'title_asc'}>Sort: Title A-Z</option>
+          </select>
+          <button type="submit" class="btn-primary-sm">Search</button>
+          {(search || typeFilter || project) && (
+            <a href={buildUrl({ tab, search: '', type: '', project: '' })} class="btn-ghost-sm">Clear</a>
+          )}
+        </form>
+
+        <!-- RESULTS META -->
+        <div class="results-meta">
+          <span class="results-count">
+            {total === 0 ? 'No results' : `${total} ${total === 1 ? 'entry' : 'entries'}`}
+          </span>
+          {project && (
+            <span class="filter-badge filter-badge--folder">
+              📁 {project}
+              <a href={buildUrl({ tab, project: '' })} class="badge-remove" aria-label="Remove folder filter">✕</a>
+            </span>
+          )}
+          {typeFilter && (
+            <span class="filter-badge filter-badge--type">
+              {TYPE_LABELS[typeFilter] || typeFilter}
+              <a href={buildUrl({ tab, type: '' })} class="badge-remove" aria-label="Remove type filter">✕</a>
+            </span>
+          )}
+          {search && (
+            <span class="filter-badge filter-badge--search">
+              "{search}"
+              <a href={buildUrl({ tab, search: '' })} class="badge-remove" aria-label="Remove search filter">✕</a>
+            </span>
+          )}
+          <span class="results-sort">— {sortLabel[sort] || sort}</span>
+        </div>
+
+        <!-- DATA TABLE -->
+        <div class="table-wrapper">
+          <table class="data-table" id="kb-table">
+            <thead>
+              <tr>
+                <th class="th-title">
+                  <a href={sortUrl('title_asc')} class={`sort-link ${sort === 'title_asc' ? 'sort-link--active' : ''}`}>Title</a>
+                </th>
+                {tab === 'kb' && <th class="th-type">Type</th>}
+                <th class="th-folder">Folder</th>
+                <th class="th-score">
+                  <a href={sortUrl('importance')} class={`sort-link ${sort === 'importance' ? 'sort-link--active' : ''}`}>Score</a>
+                </th>
+                <th class="th-tags">Tags</th>
+                <th class="th-date">
+                  <a href={sortUrl('date_desc')} class={`sort-link ${sort === 'date_desc' || sort === 'date_asc' ? 'sort-link--active' : ''}`}>Date</a>
+                </th>
+                <th class="th-actions">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {entries.map(e => (
+                <tr class="entry-row" data-id={e.id}>
+                  <td class="td-title">
+                    <button class="entry-title-btn" data-preview-id={e.id}>{e.title}</button>
+                  </td>
+                  {tab === 'kb' && (
+                    <td class="td-type">
+                      <span class={`type-badge type-${e.type}`}>{TYPE_LABELS[e.type] || e.type}</span>
+                    </td>
+                  )}
+                  <td class="td-folder">
+                    {e.projectName
+                      ? <a href={buildUrl({ tab, project: e.projectName })} class="folder-link">📁 {e.projectName}</a>
+                      : <span class="no-folder">—</span>
+                    }
+                  </td>
+                  <td class="td-score">
+                    <div class="score-bar">
+                      <div class="score-fill" style={`width:${e.importanceScore}%`}></div>
+                    </div>
+                    <span class="score-num">{e.importanceScore}</span>
+                  </td>
+                  <td class="td-tags">
+                    {(e.tags || []).slice(0, 3).map((t: string) => (
+                      <span class="tag">{t}</span>
+                    ))}
+                    {(e.tags || []).length > 3 && <span class="tag-more">+{e.tags.length - 3}</span>}
+                  </td>
+                  <td class="td-date">
+                    {new Date(e.createdAt).toLocaleDateString('en-US', { day: '2-digit', month: '2-digit', year: '2-digit' })}
+                  </td>
+                  <td class="td-actions">
+                    <button class="action-btn action-btn--preview" data-preview-id={e.id} title="Preview">👁</button>
+                    <a href={`/admin/knowledge-base/${e.id}`} class="action-btn action-btn--edit" title="Edit / full view">✏️</a>
+                    <button class="action-btn action-btn--delete" data-delete-id={e.id} data-delete-title={e.title} title="Delete">🗑</button>
+                  </td>
+                </tr>
+              ))}
+              {entries.length === 0 && (
+                <tr>
+                  <td colspan="7" class="td-empty">
+                    <div class="empty-state-inline">
+                      {search || typeFilter || project
+                        ? <>No results for these filters. <a href={buildUrl({ tab, search: '', type: '', project: '' })}>Clear filters</a></>
+                        : <>{tab === 'kb'
+                            ? <>Knowledge base is empty. <a href="/admin/knowledge-base/create">Create entry</a> or <a href="/admin/knowledge-base/import">import .md</a></>
+                            : <>No entries of type "published_article". <a href="/admin/knowledge-base/create">Add article to KB</a></>
+                          }</>
+                      }
+                    </div>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- PAGINATION -->
+        {totalPages > 1 && (
+          <nav class="pagination" aria-label="Pagination">
+            {page > 1 && <a href={pageUrl(1)}      class="page-btn page-btn--edge">«</a>}
+            {page > 1 && <a href={pageUrl(page - 1)} class="page-btn">‹ Previous</a>}
+            <span class="page-info">Page {page} of {totalPages} ({total} entries)</span>
+            {page < totalPages && <a href={pageUrl(page + 1)} class="page-btn">Next ›</a>}
+            {page < totalPages && <a href={pageUrl(totalPages)} class="page-btn page-btn--edge">»</a>}
+          </nav>
+        )}
+      </div>
+    )}
+
+  </main>
+</div>
+
+<!-- DELETE CONFIRMATION MODAL -->
+<div id="delete-modal" class="modal-backdrop" style="display:none" role="dialog" aria-modal="true" aria-labelledby="delete-modal-title">
+  <div class="modal-box">
+    <h3 id="delete-modal-title" class="modal-title">Delete KB Entry</h3>
+    <p class="modal-desc">Are you sure you want to delete this entry:</p>
+    <p id="delete-modal-entry" class="modal-entry-name"></p>
+    <p class="modal-warn">This action cannot be undone.</p>
+    <div class="modal-actions">
+      <button id="delete-confirm-btn" class="btn-danger">Delete permanently</button>
+      <button id="delete-cancel-btn"  class="btn-ghost-sm">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ====== ENTRIES DATA FOR CLIENT-SIDE PREVIEW ====== -->
+<script type="application/json" id="entries-data" set:html={entriesJson}></script>
+
+<script>
+  // ---- DATA ----
+  const ENTRIES_MAP: Record<number, any> = {};
+  try {
+    const raw = document.getElementById('entries-data')?.textContent || '[]';
+    for (const e of JSON.parse(raw)) ENTRIES_MAP[e.id] = e;
+  } catch {}
+
+  const TYPE_LABELS: Record<string, string> = {
+    project_spec      : '📐 Project Spec',
+    published_article : '📰 Published Article',
+    external_research : '🔬 External Research',
+    personal_note     : '📓 Personal Note',
+  };
+
+  // ---- PREVIEW ----
+  const backdrop   = document.getElementById('preview-backdrop')!;
+  const panel      = document.getElementById('preview-panel')!;
+  const closeBtn   = document.getElementById('preview-close')!;
+
+  function openPreview(id: number) {
+    const e = ENTRIES_MAP[id];
+    if (!e) return;
+
+    (document.getElementById('prev-title') as HTMLElement).textContent = e.title;
+
+    const typeBadge = document.getElementById('prev-type-badge')!;
+    typeBadge.textContent = TYPE_LABELS[e.type] || e.type;
+    typeBadge.className = `type-badge type-${e.type}`;
+
+    const folderEl = document.getElementById('prev-folder')!;
+    if (e.projectName) {
+      folderEl.textContent = `📁 ${e.projectName}`;
+      folderEl.style.display = 'inline-flex';
+    } else {
+      folderEl.style.display = 'none';
+    }
+
+    (document.getElementById('prev-score') as HTMLElement).textContent = `Score: ${e.importanceScore}/100`;
+    const d = new Date(e.createdAt);
+    (document.getElementById('prev-date') as HTMLElement).textContent =
+      d.toLocaleDateString('en-US', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+    const tagsEl = document.getElementById('prev-tags')!;
+    tagsEl.innerHTML = (e.tags || []).map((t: string) => `<span class="tag">${t}</span>`).join('');
+
+    const urlRow = document.getElementById('prev-url-row')!;
+    const urlLink = document.getElementById('prev-url') as HTMLAnchorElement;
+    if (e.sourceUrl) {
+      urlLink.href = e.sourceUrl;
+      urlLink.textContent = e.sourceUrl;
+      urlRow.style.display = 'flex';
+    } else {
+      urlRow.style.display = 'none';
+    }
+
+    const contentEl = document.getElementById('prev-content')!;
+    contentEl.textContent = e.preview;
+
+    const truncEl   = document.getElementById('prev-truncated')!;
+    const truncLink = document.getElementById('prev-truncated-link') as HTMLAnchorElement;
+    if (e.contentLength > 900) {
+      truncLink.href = `/admin/knowledge-base/${e.id}`;
+      truncEl.style.display = 'block';
+    } else {
+      truncEl.style.display = 'none';
+    }
+
+    (document.getElementById('prev-edit-link') as HTMLAnchorElement).href = `/admin/knowledge-base/${e.id}`;
+    (document.getElementById('prev-full-link') as HTMLAnchorElement).href = `/admin/knowledge-base/${e.id}`;
+
+    backdrop.style.display = 'block';
+    panel.style.display    = 'flex';
+    requestAnimationFrame(() => { panel.classList.add('preview-panel--open'); });
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closePreview() {
+    panel.classList.remove('preview-panel--open');
+    setTimeout(() => {
+      panel.style.display    = 'none';
+      backdrop.style.display = 'none';
+    }, 250);
+    document.body.style.overflow = '';
+  }
+
+  // Preview triggers
+  document.addEventListener('click', (e) => {
+    const btn = (e.target as HTMLElement).closest('[data-preview-id]');
+    if (btn) {
+      const id = parseInt((btn as HTMLElement).dataset.previewId || '0', 10);
+      if (id > 0) openPreview(id);
+    }
+  });
+  closeBtn.addEventListener('click', closePreview);
+  backdrop.addEventListener('click', closePreview);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closePreview(); });
+
+  // ---- DELETE ----
+  let pendingDeleteId: number | null = null;
+  const deleteModal    = document.getElementById('delete-modal')!;
+  const deleteConfirm  = document.getElementById('delete-confirm-btn')!;
+  const deleteCancel   = document.getElementById('delete-cancel-btn')!;
+  const deleteEntryEl  = document.getElementById('delete-modal-entry')!;
+
+  document.addEventListener('click', (e) => {
+    const btn = (e.target as HTMLElement).closest('[data-delete-id]');
+    if (btn) {
+      const el = btn as HTMLElement;
+      pendingDeleteId = parseInt(el.dataset.deleteId || '0', 10);
+      deleteEntryEl.textContent = `"${el.dataset.deleteTitle || 'Ten wpis'}"`;
+      deleteModal.style.display = 'flex';
+    }
+  });
+
+  deleteCancel.addEventListener('click', () => {
+    deleteModal.style.display = 'none';
+    pendingDeleteId = null;
+  });
+
+  deleteConfirm.addEventListener('click', async () => {
+    if (!pendingDeleteId) return;
+    deleteConfirm.textContent = 'Deleting…';
+    deleteConfirm.setAttribute('disabled', 'true');
+    try {
+      const res = await fetch(`/api/knowledge-base/${pendingDeleteId}`, { method: 'DELETE' });
+      if (res.ok) {
+        const row = document.querySelector(`[data-id="${pendingDeleteId}"]`);
+        row?.remove();
+        deleteModal.style.display = 'none';
+        pendingDeleteId = null;
+        deleteConfirm.textContent = 'Delete permanently';
+        deleteConfirm.removeAttribute('disabled');
+      } else {
+        const err = await res.json();
+        alert('Delete failed: ' + (err.error || 'Unknown error'));
+        deleteConfirm.textContent = 'Delete permanently';
+        deleteConfirm.removeAttribute('disabled');
+      }
+    } catch {
+      alert('Network error. Please try again.');
+      deleteConfirm.textContent = 'Delete permanently';
+      deleteConfirm.removeAttribute('disabled');
+    }
+  });
+</script>
+
+<style>
+/* ─── LAYOUT ─────────────────────────────────────────────── */
+.admin-layout { min-height: 100vh; background: var(--bg-base); }
+
+.admin-header {
+  display: flex; align-items: center; gap: 1.25rem;
+  padding: 0.875rem 1.5rem;
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; z-index: 20;
+}
+.admin-logo {
+  font-family: var(--font-mono); font-weight: 700;
+  color: var(--teal); text-decoration: none; font-size: 1.1rem; flex-shrink: 0;
+}
+.header-nav { display: flex; align-items: center; gap: 0.4rem; font-family: var(--font-mono); font-size: var(--text-xs); }
+.breadcrumb-link  { color: var(--text-muted); text-decoration: none; }
+.breadcrumb-link:hover { color: var(--teal); }
+.breadcrumb-sep   { color: var(--border); }
+.breadcrumb-current { color: var(--text-secondary); }
+.header-actions   { margin-left: auto; display: flex; gap: 0.625rem; align-items: center; flex-shrink: 0; }
+
+.btn-primary    { padding: 0.4rem 1rem; background: var(--teal); color: #fff; border: none; border-radius: 0.3rem; font-family: var(--font-mono); font-size: var(--text-xs); text-decoration: none; cursor: pointer; }
+.btn-ghost      { padding: 0.4rem 0.875rem; background: none; color: var(--text-secondary); border: 1px solid var(--border); border-radius: 0.3rem; font-family: var(--font-mono); font-size: var(--text-xs); text-decoration: none; }
+.btn-primary-sm { padding: 0.35rem 0.875rem; background: var(--teal); color: #fff; border: none; border-radius: 0.25rem; font-family: var(--font-mono); font-size: var(--text-xs); cursor: pointer; }
+.btn-ghost-sm   { padding: 0.35rem 0.875rem; background: none; color: var(--text-secondary); border: 1px solid var(--border); border-radius: 0.25rem; font-family: var(--font-mono); font-size: var(--text-xs); text-decoration: none; cursor: pointer; }
+.btn-logout     { padding: 0.35rem 0.75rem; color: var(--text-muted); border: 1px solid var(--border); border-radius: 0.25rem; font-family: var(--font-mono); font-size: var(--text-xs); text-decoration: none; }
+
+.page-main { max-width: 1280px; margin: 0 auto; padding: 1.75rem 1.5rem 3rem; }
+
+/* ─── STATS BANNER ───────────────────────────────────────── */
+.stats-banner {
+  display: flex; align-items: stretch; gap: 0;
+  background: var(--bg-elevated); border: 1px solid var(--border);
+  border-radius: 0.625rem; overflow: hidden; margin-bottom: 1.5rem;
+}
+.stat-card {
+  flex: 1; display: flex; flex-direction: column; gap: 0.15rem;
+  padding: 1.125rem 1.5rem; text-decoration: none;
+  transition: background 0.15s;
+}
+.stat-card:hover { background: rgba(255,255,255,0.03); }
+.stat-card--active-kb   { border-top: 3px solid var(--teal); background: rgba(74,141,131,0.06); }
+.stat-card--active-art  { border-top: 3px solid var(--violet); background: rgba(138,78,100,0.06); }
+.stat-card--active-fold { border-top: 3px solid var(--gold); background: rgba(214,183,121,0.06); }
+.stat-card-number { font-family: var(--font-mono); font-size: 1.75rem; font-weight: 700; color: var(--text-primary); line-height: 1; }
+.stat-card-label  { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--text-secondary); }
+.stat-card-sub    { font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-muted); }
+.stat-divider     { width: 1px; background: var(--border); flex-shrink: 0; }
+
+/* ─── TAB BAR ────────────────────────────────────────────── */
+.tab-bar {
+  display: flex; gap: 0; border-bottom: 2px solid var(--border);
+  margin-bottom: 1.5rem;
+}
+.tab-link {
+  padding: 0.625rem 1.25rem; font-family: var(--font-mono); font-size: var(--text-sm);
+  color: var(--text-muted); text-decoration: none; border-bottom: 2px solid transparent;
+  margin-bottom: -2px; transition: color 0.15s, border-color 0.15s; display: flex; align-items: center; gap: 0.4rem;
+}
+.tab-link:hover { color: var(--text-secondary); }
+.tab-link--active { color: var(--text-primary); font-weight: 600; }
+.tab-link--kb.tab-link--active   { border-color: var(--teal); }
+.tab-link--art.tab-link--active  { border-color: var(--violet); }
+.tab-link--fold.tab-link--active { border-color: var(--gold); }
+.tab-count {
+  padding: 0.1rem 0.4rem; border-radius: 9999px;
+  background: rgba(255,255,255,0.08); font-size: 0.65rem; color: var(--text-muted);
+}
+
+/* ─── SECTION HEADER ─────────────────────────────────────── */
+.section-header { border-radius: 0.5rem; margin-bottom: 1.25rem; padding: 1rem 1.25rem; }
+.section-header--kb   { background: rgba(74,141,131,0.08); border: 1px solid rgba(74,141,131,0.2); }
+.section-header--articles { background: rgba(138,78,100,0.08); border: 1px solid rgba(138,78,100,0.2); }
+.section-header-inner { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+.section-badge { font-family: var(--font-mono); font-size: 0.65rem; font-weight: 700; letter-spacing: 0.08em; padding: 0.25rem 0.625rem; border-radius: 0.25rem; }
+.section-badge--kb  { background: rgba(74,141,131,0.2); color: var(--teal); }
+.section-badge--art { background: rgba(138,78,100,0.2); color: var(--violet); }
+.section-desc { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); }
+
+/* ─── FILTERS ────────────────────────────────────────────── */
+.filters-row { display: flex; gap: 0.625rem; flex-wrap: wrap; margin-bottom: 0.875rem; align-items: center; }
+.filter-input {
+  background: var(--bg-elevated); border: 1px solid var(--border);
+  border-radius: 0.375rem; color: var(--text-primary);
+  font-family: var(--font-mono); font-size: var(--text-xs);
+  padding: 0.5rem 0.75rem; outline: none;
+}
+.filter-input:focus { border-color: var(--teal); }
+.filter-input--search { flex: 1; min-width: 180px; }
+
+/* ─── RESULTS META ───────────────────────────────────────── */
+.results-meta { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem; flex-wrap: wrap; }
+.results-count { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); }
+.results-sort  { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); }
+.filter-badge {
+  display: inline-flex; align-items: center; gap: 0.3rem;
+  padding: 0.2rem 0.5rem; border-radius: 9999px;
+  font-family: var(--font-mono); font-size: 0.65rem;
+}
+.filter-badge--folder { background: rgba(214,183,121,0.15); color: var(--gold); }
+.filter-badge--type   { background: rgba(74,141,131,0.15); color: var(--teal); }
+.filter-badge--search { background: rgba(148,163,184,0.1); color: var(--text-secondary); }
+.badge-remove { color: inherit; opacity: 0.6; text-decoration: none; }
+.badge-remove:hover { opacity: 1; }
+
+/* ─── TABLE ──────────────────────────────────────────────── */
+.table-wrapper { border: 1px solid var(--border); border-radius: 0.5rem; overflow: hidden; overflow-x: auto; }
+.data-table    { width: 100%; border-collapse: collapse; min-width: 640px; }
+.data-table thead th {
+  padding: 0.6rem 0.875rem; text-align: left;
+  font-family: var(--font-mono); font-size: 0.65rem;
+  color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;
+  background: var(--bg-elevated); border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.sort-link { color: var(--text-muted); text-decoration: none; }
+.sort-link:hover      { color: var(--text-secondary); }
+.sort-link--active    { color: var(--teal); }
+
+.data-table td { padding: 0.7rem 0.875rem; border-bottom: 1px solid rgba(255,255,255,0.035); vertical-align: middle; }
+.data-table tr:last-child td { border-bottom: none; }
+.data-table tr:hover td      { background: rgba(255,255,255,0.018); }
+
+.th-title   { width: 35%; }
+.th-type    { width: 13%; }
+.th-folder  { width: 14%; }
+.th-score   { width: 10%; }
+.th-tags    { width: 14%; }
+.th-date    { width: 9%; }
+.th-actions { width: 10%; text-align: right; }
+
+.td-title .entry-title-btn {
+  background: none; border: none; padding: 0; cursor: pointer;
+  font-family: var(--font-mono); font-size: var(--text-sm);
+  color: var(--text-primary); text-align: left;
+  transition: color 0.15s;
+}
+.td-title .entry-title-btn:hover { color: var(--teal); text-decoration: underline; }
+
+/* Type badges */
+.type-badge { padding: 0.2rem 0.5rem; border-radius: 0.25rem; font-family: var(--font-mono); font-size: 0.62rem; text-transform: uppercase; white-space: nowrap; }
+.type-badge--xs { font-size: 0.58rem; padding: 0.15rem 0.4rem; }
+.type-project_spec      { background: rgba(74,141,131,0.18); color: var(--teal); }
+.type-published_article { background: rgba(138,78,100,0.18); color: var(--violet); }
+.type-external_research { background: rgba(214,183,121,0.18); color: var(--gold); }
+.type-personal_note     { background: rgba(148,163,184,0.12); color: var(--text-secondary); }
+
+.folder-link { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--teal); text-decoration: none; white-space: nowrap; }
+.folder-link:hover { text-decoration: underline; }
+.no-folder   { color: var(--text-muted); font-family: var(--font-mono); font-size: var(--text-xs); }
+
+.score-bar { height: 4px; background: rgba(255,255,255,0.08); border-radius: 2px; margin-bottom: 2px; width: 64px; }
+.score-fill { height: 100%; background: var(--teal); border-radius: 2px; min-width: 2px; }
+.score-num  { font-family: var(--font-mono); font-size: 0.62rem; color: var(--text-muted); }
+
+.td-tags { display: flex; gap: 0.25rem; flex-wrap: wrap; }
+.tag      { padding: 0.1rem 0.35rem; background: rgba(255,255,255,0.06); border-radius: 0.2rem; font-family: var(--font-mono); font-size: 0.62rem; color: var(--text-muted); white-space: nowrap; }
+.tag-more { padding: 0.1rem 0.35rem; background: rgba(255,255,255,0.04); border-radius: 0.2rem; font-family: var(--font-mono); font-size: 0.62rem; color: var(--text-muted); }
+
+.td-date  { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); white-space: nowrap; }
+
+.td-actions { text-align: right; white-space: nowrap; }
+.action-btn { background: none; border: none; cursor: pointer; padding: 0.25rem 0.35rem; border-radius: 0.2rem; font-size: 0.8rem; opacity: 0.6; transition: opacity 0.15s, background 0.15s; text-decoration: none; display: inline-flex; align-items: center; }
+.action-btn:hover { opacity: 1; background: rgba(255,255,255,0.06); }
+.action-btn--delete:hover { background: rgba(239,68,68,0.12); }
+
+.td-empty { text-align: center; padding: 3rem !important; }
+.empty-state-inline { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--text-muted); }
+.empty-state-inline a { color: var(--teal); }
+
+/* ─── PAGINATION ─────────────────────────────────────────── */
+.pagination { display: flex; gap: 0.5rem; align-items: center; justify-content: center; margin-top: 1.5rem; flex-wrap: wrap; }
+.page-btn       { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--teal); text-decoration: none; padding: 0.375rem 0.75rem; border: 1px solid rgba(74,141,131,0.3); border-radius: 0.25rem; transition: background 0.15s; }
+.page-btn:hover { background: rgba(74,141,131,0.08); }
+.page-btn--edge { font-size: 0.75rem; }
+.page-info      { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); padding: 0 0.5rem; }
+
+/* ─── FOLDER GRID ────────────────────────────────────────── */
+.folder-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1rem; }
+.folder-card {
+  background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 0.625rem;
+  padding: 1.25rem; text-decoration: none; display: flex; flex-direction: column; gap: 0.4rem;
+  transition: border-color 0.15s, box-shadow 0.15s; cursor: pointer;
+}
+.folder-card:hover { border-color: var(--gold); box-shadow: 0 0 0 1px rgba(214,183,121,0.15); }
+.folder-card-icon  { font-size: 1.5rem; line-height: 1; }
+.folder-card-name  { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--text-primary); font-weight: 600; }
+.folder-card-count { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); }
+.folder-card-types { display: flex; gap: 0.25rem; flex-wrap: wrap; margin-top: 0.25rem; }
+.folder-card-score { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.375rem; }
+.score-bar-sm   { height: 3px; background: rgba(255,255,255,0.08); border-radius: 2px; flex: 1; }
+.score-fill-sm  { height: 100%; background: var(--gold); border-radius: 2px; min-width: 2px; }
+.score-num-sm   { font-family: var(--font-mono); font-size: 0.62rem; color: var(--text-muted); white-space: nowrap; }
+
+/* ─── EMPTY STATE ────────────────────────────────────────── */
+.empty-state { text-align: center; padding: 4rem 2rem; color: var(--text-muted); font-family: var(--font-mono); }
+.empty-icon  { font-size: 3rem; margin-bottom: 1rem; }
+
+/* ─── PREVIEW PANEL ──────────────────────────────────────── */
+.preview-backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 100;
+  backdrop-filter: blur(2px);
+}
+.preview-panel {
+  position: fixed; top: 0; right: 0; bottom: 0; width: min(500px, 95vw);
+  background: var(--bg-elevated); border-left: 1px solid var(--border);
+  z-index: 101; display: flex; flex-direction: column;
+  transform: translateX(100%); transition: transform 0.25s ease;
+  overflow: hidden;
+}
+.preview-panel--open { transform: translateX(0); }
+
+.preview-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0.875rem 1.25rem; border-bottom: 1px solid var(--border);
+  background: var(--bg-base); flex-shrink: 0; gap: 0.75rem;
+}
+.preview-header-actions { display: flex; align-items: center; gap: 0.5rem; margin-left: auto; }
+.prev-btn-edit {
+  padding: 0.3rem 0.75rem; font-family: var(--font-mono); font-size: var(--text-xs);
+  color: var(--text-secondary); border: 1px solid var(--border); border-radius: 0.25rem; text-decoration: none;
+}
+.prev-btn-full {
+  padding: 0.3rem 0.75rem; font-family: var(--font-mono); font-size: var(--text-xs);
+  color: var(--teal); border: 1px solid rgba(74,141,131,0.35); border-radius: 0.25rem; text-decoration: none;
+}
+.preview-close {
+  background: none; border: none; color: var(--text-muted); cursor: pointer;
+  font-size: 1rem; padding: 0.25rem; line-height: 1; border-radius: 0.2rem;
+}
+.preview-close:hover { color: var(--text-primary); background: rgba(255,255,255,0.06); }
+
+.preview-body { flex: 1; overflow-y: auto; padding: 1.25rem; display: flex; flex-direction: column; gap: 0.875rem; }
+
+.prev-title { font-family: var(--font-mono); font-size: 1rem; font-weight: 700; color: var(--text-primary); line-height: 1.4; margin: 0; }
+
+.prev-meta-row { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.prev-meta-item {
+  font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted);
+  background: rgba(255,255,255,0.05); padding: 0.2rem 0.5rem; border-radius: 0.2rem;
+  display: inline-flex; align-items: center;
+}
+
+.prev-tags { display: flex; gap: 0.25rem; flex-wrap: wrap; }
+
+.prev-url-row  { display: flex; align-items: baseline; gap: 0.4rem; }
+.prev-meta-label { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); flex-shrink: 0; }
+.prev-url-link { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--teal); word-break: break-all; }
+
+.prev-content-label {
+  font-family: var(--font-mono); font-size: 0.65rem; text-transform: uppercase;
+  letter-spacing: 0.06em; color: var(--text-muted); padding-bottom: 0.375rem;
+  border-bottom: 1px solid var(--border);
+}
+.prev-content {
+  font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-secondary);
+  line-height: 1.7; white-space: pre-wrap; word-break: break-word;
+  background: rgba(0,0,0,0.15); border: 1px solid var(--border);
+  border-radius: 0.375rem; padding: 0.875rem; flex: 1;
+}
+.prev-truncated {
+  font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); text-align: center;
+}
+.prev-truncated a { color: var(--teal); }
+
+/* ─── DELETE MODAL ───────────────────────────────────────── */
+.modal-backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 200;
+  display: flex; align-items: center; justify-content: center;
+  backdrop-filter: blur(2px);
+}
+.modal-box {
+  background: var(--bg-elevated); border: 1px solid var(--border);
+  border-radius: 0.625rem; padding: 2rem; max-width: 420px; width: 90%;
+  display: flex; flex-direction: column; gap: 0.75rem;
+}
+.modal-title { font-family: var(--font-mono); font-size: 1.1rem; color: var(--text-primary); margin: 0; }
+.modal-desc  { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--text-secondary); margin: 0; }
+.modal-entry-name { font-family: var(--font-mono); font-size: var(--text-sm); color: #ef4444; font-weight: 600; margin: 0; }
+.modal-warn  { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); margin: 0; }
+.modal-actions { display: flex; gap: 0.75rem; padding-top: 0.5rem; }
+.btn-danger  { padding: 0.5rem 1.25rem; background: #ef4444; color: #fff; border: none; border-radius: 0.3rem; font-family: var(--font-mono); font-size: var(--text-sm); cursor: pointer; }
+.btn-danger:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* ─── RESPONSIVE ─────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .stats-banner  { flex-direction: column; }
+  .stat-divider  { width: 100%; height: 1px; }
+  .page-main     { padding: 1.25rem 1rem 2rem; }
+  .folder-grid   { grid-template-columns: 1fr 1fr; }
+  .tab-link      { padding: 0.5rem 0.75rem; font-size: 0.7rem; }
+  .th-tags, .td-tags { display: none; }
+}
+@media (max-width: 480px) {
+  .folder-grid { grid-template-columns: 1fr; }
+  .header-actions .btn-ghost { display: none; }
+}
+</style>
+</Base>

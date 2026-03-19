@@ -5,7 +5,7 @@ import http from 'node:http';
 import dotenv from 'dotenv';
 import { and, asc, desc, eq, inArray, lte } from 'drizzle-orm';
 import { db } from '../../../src/db/client';
-import { appJobs } from '../../../src/db/schema';
+import { appJobs, shQueue } from '../../../src/db/schema';
 
 const rootDir = path.resolve(process.cwd(), '..', '..');
 dotenv.config({ path: path.join(rootDir, '.env.local') });
@@ -109,19 +109,20 @@ function runScript(scriptPath: string, extraEnv: Record<string, string> = {}) {
 }
 
 function parseDomainResult(stdout: string) {
-  const marker = 'RESULT_JSON:';
-  const line = stdout
-    .split(/\r?\n/)
-    .map((entry) => entry.trim())
-    .find((entry) => entry.startsWith(marker));
+  const markers = ['RESULT_JSON:', 'LP_PARSE_RESULT:'];
+  const lines = stdout.split(/\r?\n/).map((entry) => entry.trim());
 
-  if (!line) return null;
-
-  try {
-    return JSON.parse(line.slice(marker.length));
-  } catch {
-    return null;
+  for (const marker of markers) {
+    const line = lines.find((entry) => entry.startsWith(marker));
+    if (!line) continue;
+    try {
+      return JSON.parse(line.slice(marker.length));
+    } catch {
+      return null;
+    }
   }
+
+  return null;
 }
 
 function parseMetricFromStdout(stdout: string, metric: string) {
@@ -233,6 +234,139 @@ async function processJob(job: typeof appJobs.$inferSelect) {
     });
   }
 
+  if (job.topic === 'bc-parse') {
+    const projectId = Number(payload.projectId ?? 0);
+    if (!projectId) {
+      return {
+        ok: false,
+        stdout: '',
+        stderr: 'Missing projectId in bc-parse payload',
+        code: 1,
+      };
+    }
+
+    return runScript('scripts/bc-lp-parser.ts', {
+      BC_PROJECT_ID: String(projectId),
+      SITE_ID: String(payload.siteId ?? ''),
+    });
+  }
+
+  if (job.topic === 'bc-selector') {
+    const projectId = Number(payload.projectId ?? 0);
+    const iterationId = Number(payload.iterationId ?? 0);
+    if (!projectId || !iterationId) {
+      return {
+        ok: false,
+        stdout: '',
+        stderr: 'Missing projectId or iterationId in bc-selector payload',
+        code: 1,
+      };
+    }
+
+    return runScript('scripts/bc-pain-selector.ts', {
+      BC_PROJECT_ID: String(projectId),
+      BC_ITERATION_ID: String(iterationId),
+      SITE_ID: String(payload.siteId ?? ''),
+    });
+  }
+
+  if (job.topic === 'bc-cluster') {
+    const projectId = Number(payload.projectId ?? 0);
+    const iterationId = Number(payload.iterationId ?? 0);
+    if (!projectId) {
+      return {
+        ok: false,
+        stdout: '',
+        stderr: 'Missing projectId in bc-cluster payload',
+        code: 1,
+      };
+    }
+
+    return runScript('scripts/bc-pain-clusterer.ts', {
+      BC_PROJECT_ID: String(projectId),
+      BC_ITERATION_ID: iterationId ? String(iterationId) : '',
+      SITE_ID: String(payload.siteId ?? ''),
+    });
+  }
+
+  if (job.topic === 'bc-generate') {
+    const projectId = Number(payload.projectId ?? 0);
+    const iterationId = Number(payload.iterationId ?? 0);
+    if (!projectId) {
+      return {
+        ok: false,
+        stdout: '',
+        stderr: 'Missing projectId in bc-generate payload',
+        code: 1,
+      };
+    }
+
+    return runScript('scripts/bc-lp-generator.ts', {
+      BC_PROJECT_ID: String(projectId),
+      BC_ITERATION_ID: iterationId ? String(iterationId) : '',
+      SITE_ID: String(payload.siteId ?? ''),
+    });
+  }
+
+  if (job.topic === 'sh-copy') {
+    const briefId = Number(payload.briefId ?? 0);
+    if (!briefId) {
+      return {
+        ok: false,
+        stdout: '',
+        stderr: 'Missing briefId in sh-copy payload',
+        code: 1,
+      };
+    }
+
+    return runScript('scripts/sh-copywriter.ts', {
+      SH_BRIEF_ID: String(briefId),
+      SITE_ID: String(payload.siteId ?? ''),
+    });
+  }
+
+  if (job.topic === 'sh-video') {
+    const briefId = Number(payload.briefId ?? 0);
+    const copyId = Number(payload.copyId ?? 0);
+    if (!briefId || !copyId) {
+      return {
+        ok: false,
+        stdout: '',
+        stderr: 'Missing briefId or copyId in sh-video payload',
+        code: 1,
+      };
+    }
+
+    return runScript('scripts/sh-video-render.ts', {
+      SH_BRIEF_ID: String(briefId),
+      SH_COPY_ID: String(copyId),
+      SITE_ID: String(payload.siteId ?? ''),
+    });
+  }
+
+  if (job.topic === 'sh-publish') {
+    const briefId = Number(payload.briefId ?? 0);
+    if (!briefId) {
+      return {
+        ok: false,
+        stdout: '',
+        stderr: 'Missing briefId in sh-publish payload',
+        code: 1,
+      };
+    }
+
+    const accountIds = Array.isArray(payload.accountIds)
+      ? payload.accountIds.map((entry) => String(entry).trim()).filter(Boolean)
+      : [];
+
+    return runScript('scripts/sh-publish.ts', {
+      SH_BRIEF_ID: String(briefId),
+      SH_ACCOUNT_IDS: accountIds.join(','),
+      SH_SCHEDULED_FOR: String(payload.scheduledFor ?? ''),
+      SITE_ID: String(payload.siteId ?? ''),
+    });
+  }
+
   return {
     ok: false,
     stdout: '',
@@ -253,6 +387,16 @@ async function finalizeSuccess(jobId: number, result: Record<string, unknown>) {
       updatedAt: new Date(),
     })
     .where(eq(appJobs.id, jobId));
+
+  const [job] = await db.select().from(appJobs).where(eq(appJobs.id, jobId)).limit(1);
+  const queueId = Number(job?.payload?.queueId ?? 0);
+  if (job?.topic === 'sh-copy' && queueId) {
+    await db.update(shQueue).set({
+      status: 'done',
+      processedAt: new Date(),
+      errorMessage: null,
+    }).where(eq(shQueue.id, queueId));
+  }
 }
 
 async function finalizeError(job: typeof appJobs.$inferSelect, errorMessage: string, result: Record<string, unknown>) {
@@ -269,6 +413,15 @@ async function finalizeError(job: typeof appJobs.$inferSelect, errorMessage: str
       updatedAt: new Date(),
     })
     .where(eq(appJobs.id, job.id));
+
+  const queueId = Number(job.payload?.queueId ?? 0);
+  if (job.topic === 'sh-copy' && queueId && status === 'error') {
+    await db.update(shQueue).set({
+      status: 'failed',
+      processedAt: new Date(),
+      errorMessage,
+    }).where(eq(shQueue.id, queueId));
+  }
 }
 
 async function releaseCurrentJob(signal: string) {
@@ -334,6 +487,51 @@ async function main() {
                   commentsCollected: parseMetricFromStdout(result.stdout, 'commentsCollected'),
                   painPointsExtracted: parseMetricFromStdout(result.stdout, 'painPointsExtracted'),
                   videoScrapedId: parseMetricFromStdout(result.stdout, 'VIDEO_SCRAPED'),
+                },
+              }
+            : {}),
+          ...(job.topic === 'bc-parse'
+            ? {
+                metrics: {
+                  nicheKeywordsFound: domainResult?.nicheKeywordsFound ?? null,
+                  audiencePainKeywordsFound: domainResult?.audiencePainKeywordsFound ?? null,
+                  featureMapItems: domainResult?.featureMapItems ?? null,
+                },
+              }
+            : {}),
+          ...(job.topic === 'bc-selector'
+            ? {
+                metrics: {
+                  selectedCount: parseMetricFromStdout(result.stdout, 'SELECTED'),
+                },
+              }
+            : {}),
+          ...(job.topic === 'bc-cluster'
+            ? {
+                metrics: {
+                  clustersCreated: parseMetricFromStdout(result.stdout, 'CLUSTERS_CREATED'),
+                },
+              }
+            : {}),
+          ...(job.topic === 'bc-generate'
+            ? {
+                metrics: {
+                  variantsGenerated: parseMetricFromStdout(result.stdout, 'VARIANTS_GENERATED'),
+                },
+              }
+            : {}),
+          ...(job.topic === 'sh-copy'
+            ? {
+                metrics: {
+                  variantsCreated: parseMetricFromStdout(result.stdout, 'variantsCreated'),
+                },
+              }
+            : {}),
+          ...(job.topic === 'sh-video'
+            ? {
+                metrics: {
+                  predictionId: parseLastMatchedValue(result.stdout, /^SH_VIDEO_SUBMITTED:(.+)$/),
+                  videoUrl: parseLastMatchedValue(result.stdout, /^SH_RENDER_DONE:(.+)$/),
                 },
               }
             : {}),

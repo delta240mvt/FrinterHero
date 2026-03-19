@@ -38,7 +38,7 @@ async function loadDeps(): Promise<void> {
 
   try {
     const htmlMod = await import('satori-html');
-    htmlFn = (htmlMod.html ?? htmlMod.default) as typeof htmlFn;
+    htmlFn = (('html' in htmlMod ? htmlMod.html : htmlMod) as unknown) as typeof htmlFn;
   } catch {
     throw new Error('[sh-image-gen] "satori-html" package is not installed. Run: npm install satori-html');
   }

@@ -3,6 +3,6 @@ builder = "NIXPACKS"
 buildCommand = "npm install && npm run build:workers"
 
 [deploy]
-startCommand = "npm run start:worker:bc"
+startCommand = "npm run start:worker:bc-scrape"
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 10

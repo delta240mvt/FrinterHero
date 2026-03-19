@@ -1,9 +1,9 @@
 # apps/client-przemyslawfilipiak
 
-Bootstrap workspace for client1.
+Primary Astro client for tenant `przemyslawfilipiak`.
 
-Important:
+Current state:
 
-- this client intentionally delegates to the current root monolith
-- this preserves the existing app as the baseline runtime
-- extraction to a dedicated client app will happen later
+- this is now the real `client1` app runtime
+- public assets, pages, components, styles, middleware and Astro config live here
+- shared domain/backend code stays in repo-root `src/db`, `src/lib` and `src/utils`

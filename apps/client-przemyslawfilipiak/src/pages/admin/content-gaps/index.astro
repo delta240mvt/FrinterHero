@@ -1,0 +1,608 @@
+---
+import Base from '@/components/layouts/Base.astro';
+import GapCard from '@/components/admin/GapCard.astro';
+import GapExpandedCard from '@/components/admin/GapExpandedCard.astro';
+
+const url = new URL(Astro.request.url);
+const statusFilter  = url.searchParams.get('status')         || '';
+const hasProposal   = url.searchParams.get('has_proposal')   === 'true';
+const confidenceMin = parseInt(url.searchParams.get('confidence_min') || '0',   10);
+const confidenceMax = parseInt(url.searchParams.get('confidence_max') || '100', 10);
+const sortBy        = url.searchParams.get('sort_by') || 'confidence';
+
+let gaps: any[]    = [];
+let recentRun: any = null;
+let gapCounts = { new: 0, in_progress: 0, acknowledged: 0, archived: 0, proposals: 0 };
+
+async function apiFetch(path: string) {
+  const response = await fetch(new URL(path, Astro.request.url).toString(), {
+    headers: { cookie: Astro.request.headers.get('cookie') || '' },
+  });
+  if (!response.ok) throw new Error(`${path} -> ${response.status}`);
+  return response.json();
+}
+
+try {
+  const fetchUrl = new URL('/api/content-gaps', Astro.request.url);
+  fetchUrl.search = url.search;
+  if (!fetchUrl.searchParams.has('status')) {
+    fetchUrl.searchParams.set('status', 'new,in_progress');
+  }
+  const gapsRes = await fetch(fetchUrl.toString(), {
+    headers: { cookie: Astro.request.headers.get('cookie') || '' },
+  });
+  
+  if (gapsRes.ok) {
+    const data = await gapsRes.json();
+    gaps      = data.gaps || [];
+    recentRun = data.recent_run;
+    gapCounts = {
+      new         : data.stats?.total_new || 0,
+      in_progress : data.stats?.total_in_progress || 0,
+      acknowledged: data.stats?.total_acknowledged || 0,
+      archived    : data.stats?.total_archived || 0,
+      proposals   : data.stats?.total_proposals || 0,
+    };
+  }
+
+  const inProgressIds = gaps.filter((gap) => gap.status === 'in_progress').map((gap) => gap.id);
+  if (inProgressIds.length > 0) {
+    const articleData = await apiFetch('/api/articles?limit=200&status=draft');
+    const draftMap = new Map(
+      (articleData.results || [])
+        .filter((article: any) => article.sourceGapId && inProgressIds.includes(article.sourceGapId))
+        .map((article: any) => [article.sourceGapId, article.id]),
+    );
+    gaps = gaps.map((gap) => ({ ...gap, draftArticleId: draftMap.get(gap.id) ?? null }));
+  }
+} catch (e) { console.error(e); }
+
+const now     = new Date();
+const nextRun = new Date(now);
+nextRun.setUTCHours(6, 0, 0, 0);
+if (nextRun <= now) nextRun.setDate(nextRun.getDate() + 1);
+const countdownMin = Math.max(0, Math.floor((nextRun.getTime() - now.getTime()) / 60000));
+
+const TABS = [
+  { label: 'Active',        status: 'new,in_progress',    has_proposal: null,   count: gapCounts.new + gapCounts.in_progress },
+  { label: 'Acknowledged',  status: 'acknowledged',       has_proposal: null,   count: gapCounts.acknowledged },
+  { label: 'Archived',      status: 'archived',           has_proposal: null,   count: gapCounts.archived },
+];
+
+function buildUrl(overrides: Record<string, string | null>) {
+  const u = new URL(url.toString());
+  for (const [k, v] of Object.entries(overrides)) {
+    if (v !== undefined && v !== null && v !== '') u.searchParams.set(k, v);
+    else if (v === null || v === '') u.searchParams.delete(k);
+  }
+  return u.pathname + u.search;
+}
+
+// Ensure active tab logic knows what is selected
+const isTabActive = (t: any) => {
+  if (t.has_proposal === 'true') return hasProposal;
+  if (hasProposal) return false;
+  if (!statusFilter && t.status === 'new,in_progress') return true; 
+  return statusFilter === t.status;
+};
+
+function lastRunLabel(d: any) {
+  if (!d) return 'Never';
+  return new Date(d).toLocaleString('en-US', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' });
+}
+---
+
+<Base title="Content Gaps — Admin">
+<div class="admin-layout">
+
+  <!-- HEADER -->
+  <header class="admin-header">
+    <a href="/admin" class="admin-logo">P·F</a>
+    <nav class="breadcrumb">
+      <a href="/admin" class="bc-link">Admin</a>
+      <span class="bc-sep">/</span>
+      <span class="bc-current">Content Gaps</span>
+    </nav>
+    <div class="header-actions">
+      <a href="/admin/knowledge-base" class="btn-ghost">🧠 Knowledge Base</a>
+      <a href="/api/logout" class="btn-logout">Logout</a>
+    </div>
+  </header>
+
+  <main class="page-main">
+
+    <!-- ===== STATS BANNER ===== -->
+    <section class="stats-banner">
+      <div class="stat-card stat-card--new">
+        <span class="stat-number">{gapCounts.new}</span>
+        <span class="stat-label">New</span>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat-card stat-card--progress">
+        <span class="stat-number">{gapCounts.in_progress}</span>
+        <span class="stat-label">In Progress</span>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat-card stat-card--ack">
+        <span class="stat-number">{gapCounts.acknowledged}</span>
+        <span class="stat-label">Acknowledged</span>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat-card stat-card--arch">
+        <span class="stat-number">{gapCounts.archived}</span>
+        <span class="stat-label">Archived</span>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat-card stat-card--total">
+        <span class="stat-number">{gapCounts.new + gapCounts.in_progress + gapCounts.acknowledged + gapCounts.archived}</span>
+        <span class="stat-label">Total</span>
+      </div>
+    </section>
+
+    <!-- ===== STATUS TABS ===== -->
+    <nav class="tab-bar" role="tablist">
+      {TABS.map(t => (
+        <a
+          href={buildUrl({ status: t.status, has_proposal: t.has_proposal })}
+          role="tab"
+          aria-selected={isTabActive(t)}
+          class={`tab-link ${isTabActive(t) ? 'tab-link--active' : ''} tab-link--${t.status === '' ? 'proposals' : t.status.replace(',','_')}`}
+        >
+          {t.label}
+          <span class="tab-count">{t.count}</span>
+        </a>
+      ))}
+    </nav>
+
+    <!-- ===== TWO-COLUMN LAYOUT ===== -->
+    <div class="layout-grid">
+
+      <!-- SIDEBAR -->
+      <aside class="sidebar">
+
+        <!-- GEO Info Widget -->
+        <div class="widget">
+          <div class="widget-header">
+            <span class="widget-title">Content Gap Analysis</span>
+            <span class="widget-badge">AI Engine</span>
+          </div>
+          <div class="widget-stats">
+            <div class="ws-item">
+              <span class="ws-label">Last Run</span>
+              <span class="ws-value">{lastRunLabel(recentRun?.runAt)}</span>
+            </div>
+            <div class="ws-item">
+              <span class="ws-label">Gaps in Run</span>
+              <span class="ws-value ws-value--gold">{recentRun?.gapsFound || 0}</span>
+            </div>
+            <div class="ws-item ws-item--full">
+              <span class="ws-label">Next Run</span>
+              <span class="ws-value ws-value--teal" id="countdown-display">
+                {countdownMin > 0 ? `in ${Math.floor(countdownMin/60)}h ${countdownMin%60}m` : 'Today at 7:00'}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="widget">
+          <div class="widget-title-row">
+            <span class="widget-title">Advanced Filters</span>
+          </div>
+          <form method="GET" id="filter-form">
+            <input type="hidden" name="status" value={statusFilter} />
+            {hasProposal && <input type="hidden" name="has_proposal" value="true" />}
+            <div class="filter-group">
+              <label class="filter-label">
+                Min. confidence: <span id="conf-min-label">{confidenceMin}</span>
+              </label>
+              <input
+                type="range" name="confidence_min" min="0" max="100" value={confidenceMin}
+                class="range-input"
+                oninput="document.getElementById('conf-min-label').textContent=this.value"
+              />
+            </div>
+            <div class="filter-group">
+              <label class="filter-label">
+                Max. confidence: <span id="conf-max-label">{confidenceMax}</span>
+              </label>
+              <input
+                type="range" name="confidence_max" min="0" max="100" value={confidenceMax}
+                class="range-input"
+                oninput="document.getElementById('conf-max-label').textContent=this.value"
+              />
+            </div>
+            <div class="filter-group">
+              <label class="filter-label">Sort by</label>
+              <select name="sort_by" class="filter-select" onchange="this.form.submit()">
+                <option value="confidence" selected={sortBy==='confidence'}>Confidence (desc)</option>
+                <option value="recency"    selected={sortBy==='recency'}>Newest</option>
+              </select>
+            </div>
+            <button type="submit" class="btn-apply">Apply Filters</button>
+            {(confidenceMin > 0 || confidenceMax < 100) && (
+              <a href={buildUrl({ confidence_min: '0', confidence_max: '100' })} class="btn-reset-filters">Reset Filters</a>
+            )}
+          </form>
+        </div>
+
+      </aside>
+
+      <!-- GAP FEED -->
+      <section class="gap-feed">
+        <div class="feed-header">
+          <div class="feed-title-row">
+            <h2 class="feed-title">
+              {TABS.find(t => isTabActive(t))?.label || 'Gaps'}
+              <span class="feed-count">{gaps.length}</span>
+            </h2>
+          </div>
+          <button class="btn-refresh" id="refresh-btn" onclick="window.location.reload()">↻ Refresh</button>
+        </div>
+
+        <div id="gap-list" class="gap-list">
+          {gaps.length === 0 ? (
+            <div class="empty-state">
+              <div class="empty-icon">🔍</div>
+              <p class="empty-title">No gaps for these filters</p>
+              <p class="empty-hint">
+                {statusFilter.includes('new') || statusFilter.includes('in_progress')
+                  ? 'Run GEO Monitor on the dashboard to detect new visibility gaps.'
+                  : 'Change the status filter to see other gaps.'
+                }
+              </p>
+              <div class="empty-actions">
+                <a href="/admin" class="btn-cta">→ Dashboard (run GEO)</a>
+                <a href={buildUrl({ status: 'new,in_progress' })} class="btn-ghost-sm">Show active</a>
+              </div>
+            </div>
+          ) : (
+            gaps.map(gap => (
+              <div class="gap-entry" id={`entry-${gap.id}`}>
+                <GapCard gap={gap} />
+                <div id={`expanded-container-${gap.id}`} class="expanded-container" style="display:none">
+                  <GapExpandedCard gap={gap} />
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<script>
+  // Gap interaction functions
+  function expandGap(gapId) {
+    const container = document.getElementById(`expanded-container-${gapId}`);
+    if (!container) return;
+    const isOpen = container.style.display !== 'none';
+    container.style.display = isOpen ? 'none' : 'block';
+  }
+
+  async function archiveGap(gapId) {
+    const res = await fetch(`/api/content-gaps/${gapId}/archive`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}),
+    });
+    if (res.ok) {
+      const entry = document.getElementById(`entry-${gapId}`);
+      if (entry) { entry.style.display = 'none'; }
+    }
+  }
+
+  async function snoozeGap(gapId) {
+    const res = await fetch(`/api/content-gaps/${gapId}/acknowledge`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'snooze' }),
+    });
+    if (res.ok) {
+      const entry = document.getElementById(`entry-${gapId}`);
+      if (entry) { entry.style.display = 'none'; }
+    }
+  }
+
+  function approveGap(gapId) {
+    const container = document.getElementById(`expanded-container-${gapId}`);
+    if (container) container.style.display = 'block';
+    document.getElementById(`notes-${gapId}`)?.focus();
+  }
+
+  function closeExpanded(gapId) {
+    const container = document.getElementById(`expanded-container-${gapId}`);
+    if (container) container.style.display = 'none';
+  }
+
+  async function generateDraft(gapId) {
+    const notes      = document.getElementById(`notes-${gapId}`)?.value || '';
+    const modelInput = document.querySelector(`input[name="model-${gapId}"]:checked`);
+    const model      = modelInput?.value || 'anthropic/claude-sonnet-4-6';
+    const btn        = document.getElementById(`gen-btn-${gapId}`);
+    const consoleEl  = document.getElementById(`gen-console-${gapId}`);
+    const bodyEl     = document.getElementById(`console-body-${gapId}`);
+    const statusEl   = document.getElementById(`console-status-${gapId}`);
+
+    if (btn) { btn.disabled = true; btn.textContent = 'In Progress...'; }
+    if (consoleEl) consoleEl.style.display = 'flex';
+    if (bodyEl) bodyEl.innerHTML = '<div class="console-line">Starting background process...</div>';
+    if (statusEl) statusEl.textContent = 'Initializing...';
+
+    try {
+      // Mark as in_progress in DB
+      await fetch(`/api/content-gaps/${gapId}/acknowledge`, {
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'generate_draft', author_notes: notes }),
+      });
+
+      const res = await fetch('/api/generate-draft', {
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gap_id: gapId, author_notes: notes, model }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to start');
+      }
+
+      // Start polling
+      startPolling(gapId);
+    } catch (err) {
+      if (bodyEl) bodyEl.innerHTML += `<div class="console-line" style="color:#ef4444">Error: ${err.message}</div>`;
+      if (statusEl) { statusEl.textContent = 'Error'; statusEl.style.color = '#ef4444'; }
+      if (btn) { btn.disabled = false; btn.textContent = 'Approve & Generate Draft'; }
+    }
+  }
+
+  const pollIntervals = {};
+
+  async function abortDraft(gapId) {
+    if (!confirm('Abort generation?')) return;
+    try {
+      await fetch('/api/generate-draft', { method: 'DELETE' });
+    } catch (e) {}
+  }
+
+  function startPolling(gapId) {
+    if (pollIntervals[gapId]) clearInterval(pollIntervals[gapId]);
+
+    pollIntervals[gapId] = setInterval(async () => {
+      try {
+        const res = await fetch('/api/generate-draft');
+        if (!res.ok) return;
+        
+        const data = await res.json();
+        const consoleEl = document.getElementById(`gen-console-${gapId}`);
+        const bodyEl    = document.getElementById(`console-body-${gapId}`);
+        const statusEl  = document.getElementById(`console-status-${gapId}`);
+        const footerEl  = document.getElementById(`console-footer-${gapId}`);
+        const linkEl    = document.getElementById(`console-link-${gapId}`);
+        const abortBtn  = document.getElementById(`btn-abort-${gapId}`);
+        const btn       = document.getElementById(`gen-btn-${gapId}`);
+
+        if (data.gapId !== gapId && data.status !== 'idle') {
+           // Another job is running, but not for this gap
+           return;
+        }
+
+        if (statusEl) statusEl.textContent = data.status.toUpperCase();
+        if (abortBtn) abortBtn.style.display = data.canAbort ? 'inline-block' : 'none';
+        
+        if (bodyEl && data.lines) {
+          bodyEl.innerHTML = data.lines.map(l => {
+            const time = new Date(l.ts).toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            return `<div class="console-line"><span class="console-line--ts">[${time}]</span>${l.line}</div>`;
+          }).join('');
+          bodyEl.scrollTop = bodyEl.scrollHeight;
+        }
+
+        if (data.status === 'done' || data.status === 'error' || (data.status === 'idle' && data.lines.length > 0)) {
+          // If idle but has lines, it was likely aborted
+          if (data.status === 'idle' || data.status === 'error') {
+             if (btn) { btn.disabled = false; btn.textContent = 'Approve & Generate Draft'; }
+          }
+
+          if (data.status !== 'running') {
+            clearInterval(pollIntervals[gapId]);
+            delete pollIntervals[gapId];
+          }
+          
+          if (data.status === 'done' && data.result) {
+            if (footerEl) footerEl.style.display = 'block';
+            if (linkEl) linkEl.href = `/admin/article/${data.result.article_id}`;
+            if (statusEl) statusEl.style.color = 'var(--teal)';
+          } else if (data.status === 'error') {
+            if (statusEl) { statusEl.textContent = 'FAILED'; statusEl.style.color = '#ef4444'; }
+          }
+        }
+      } catch (e) {}
+    }, 2000);
+  }
+
+  // Check for running jobs on mount
+  async function checkActiveJob() {
+    try {
+      const res = await fetch('/api/generate-draft');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.status === 'running' && data.gapId) {
+          const consoleEl = document.getElementById(`gen-console-${data.gapId}`);
+          if (consoleEl) {
+            consoleEl.style.display = 'flex';
+            startPolling(data.gapId);
+          }
+        }
+      }
+    } catch {}
+  }
+  checkActiveJob();
+
+  // Expose globally
+  window.expandGap     = expandGap;
+  window.archiveGap    = archiveGap;
+  window.snoozeGap     = snoozeGap;
+  window.approveGap    = approveGap;
+  window.closeExpanded = closeExpanded;
+  window.generateDraft = generateDraft;
+  window.abortDraft    = abortDraft;
+
+  // Auto-refresh stats counts
+  setInterval(async () => {
+    try {
+      const u   = new URL(window.location.href);
+      const res = await fetch(`/api/content-gaps?status=${u.searchParams.get('status')||'new,in_progress'}&limit=1`);
+      if (res.ok) {
+        const data    = await res.json();
+        const countEl = document.querySelector('.feed-count');
+        if (countEl) countEl.textContent = data.pagination?.total ?? data.gaps?.length ?? 0;
+      }
+    } catch {}
+  }, 30000);
+</script>
+
+<style>
+/* ─── LAYOUT ─────────────────────────────────────────────── */
+.admin-layout { min-height: 100vh; background: var(--bg-base); }
+
+.admin-header {
+  display: flex; align-items: center; gap: 1.25rem;
+  padding: 0.875rem 1.5rem; background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 20;
+}
+.admin-logo { font-family: var(--font-mono); font-weight: 700; color: var(--teal); text-decoration: none; font-size: 1.1rem; flex-shrink: 0; }
+.breadcrumb { display: flex; align-items: center; gap: 0.4rem; font-family: var(--font-mono); font-size: var(--text-xs); }
+.bc-link    { color: var(--text-muted); text-decoration: none; }
+.bc-link:hover { color: var(--teal); }
+.bc-sep     { color: var(--border); }
+.bc-current { color: var(--text-secondary); }
+.header-actions { margin-left: auto; display: flex; gap: 0.5rem; align-items: center; }
+.btn-ghost  { padding: 0.35rem 0.875rem; background: none; color: var(--text-secondary); border: 1px solid var(--border); border-radius: 0.25rem; font-family: var(--font-mono); font-size: var(--text-xs); text-decoration: none; }
+.btn-ghost:hover { border-color: var(--teal); color: var(--teal); }
+.btn-logout { padding: 0.35rem 0.75rem; color: var(--text-muted); border: 1px solid var(--border); border-radius: 0.25rem; font-family: var(--font-mono); font-size: var(--text-xs); text-decoration: none; }
+.btn-ghost-sm { padding: 0.3rem 0.75rem; background: none; color: var(--text-secondary); border: 1px solid var(--border); border-radius: 0.25rem; font-family: var(--font-mono); font-size: var(--text-xs); text-decoration: none; cursor: pointer; }
+
+.page-main { max-width: 1320px; margin: 0 auto; padding: 1.75rem 1.5rem 3rem; display: flex; flex-direction: column; gap: 1.5rem; }
+
+/* ─── STATS BANNER ───────────────────────────────────────── */
+.stats-banner {
+  display: flex; align-items: stretch;
+  background: var(--bg-elevated); border: 1px solid var(--border);
+  border-radius: 0.625rem; overflow: hidden;
+}
+.stat-card          { flex: 1; display: flex; flex-direction: column; gap: 0.2rem; padding: 1rem 1.25rem; }
+.stat-card--new     { border-top: 3px solid var(--gold); }
+.stat-card--progress{ border-top: 3px solid var(--teal); }
+.stat-card--ack     { border-top: 3px solid var(--violet); }
+.stat-card--arch    { border-top: 3px solid rgba(148,163,184,0.25); }
+.stat-card--total   { border-top: 3px solid rgba(255,255,255,0.1); }
+.stat-number { font-family: var(--font-mono); font-size: 1.75rem; font-weight: 700; color: var(--text-primary); line-height: 1; }
+.stat-label  { font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.stat-divider{ width: 1px; background: var(--border); flex-shrink: 0; }
+
+/* ─── TAB BAR ────────────────────────────────────────────── */
+.tab-bar {
+  display: flex; gap: 0; border-bottom: 2px solid var(--border);
+}
+.tab-link {
+  padding: 0.625rem 1.125rem; font-family: var(--font-mono); font-size: var(--text-sm);
+  color: var(--text-muted); text-decoration: none; border-bottom: 2px solid transparent;
+  margin-bottom: -2px; transition: color 0.15s, border-color 0.15s;
+  display: flex; align-items: center; gap: 0.4rem; white-space: nowrap;
+}
+.tab-link:hover { color: var(--text-secondary); }
+.tab-link--active { color: var(--text-primary); font-weight: 600; }
+.tab-link--proposals.tab-link--active { border-color: var(--teal); }
+.tab-link--new_in_progress.tab-link--active,
+.tab-link--new.tab-link--active      { border-color: var(--gold); }
+.tab-link--in_progress.tab-link--active { border-color: var(--teal); }
+.tab-link--acknowledged.tab-link--active { border-color: var(--violet); }
+.tab-link--archived.tab-link--active { border-color: rgba(148,163,184,0.5); }
+.tab-count { padding: 0.1rem 0.4rem; border-radius: 9999px; background: rgba(255,255,255,0.07); font-size: 0.65rem; color: var(--text-muted); }
+
+/* ─── LAYOUT GRID ────────────────────────────────────────── */
+.layout-grid { display: grid; grid-template-columns: 260px 1fr; gap: 1.5rem; align-items: start; }
+.sidebar { display: flex; flex-direction: column; gap: 1rem; position: sticky; top: 5rem; }
+
+/* ─── WIDGET ─────────────────────────────────────────────── */
+.widget { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 0.5rem; padding: 1.125rem; }
+.widget-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.875rem; }
+.widget-title  { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--text-primary); font-weight: 600; }
+.widget-badge  { padding: 0.2rem 0.5rem; background: rgba(74,141,131,0.15); color: var(--teal); border-radius: 0.25rem; font-family: var(--font-mono); font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.04em; }
+.widget-title-row { margin-bottom: 0.875rem; }
+
+.widget-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+.ws-item      { display: flex; flex-direction: column; gap: 0.15rem; }
+.ws-item--full{ grid-column: 1 / -1; }
+.ws-label     { font-family: var(--font-mono); font-size: 0.62rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.ws-value     { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--text-secondary); }
+.ws-value--gold { color: var(--gold); font-weight: 600; }
+.ws-value--teal { color: var(--teal); }
+
+/* ─── FILTER FORM ────────────────────────────────────────── */
+.filter-group { margin-bottom: 0.875rem; }
+.filter-label { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-secondary); display: block; margin-bottom: 0.35rem; }
+.filter-select { width: 100%; background: var(--bg-base); border: 1px solid var(--border); border-radius: 0.25rem; color: var(--text-primary); font-family: var(--font-mono); font-size: var(--text-xs); padding: 0.4rem 0.625rem; outline: none; }
+.filter-select:focus { border-color: var(--teal); }
+.range-input   { width: 100%; accent-color: var(--teal); margin-top: 0.25rem; }
+.btn-apply { width: 100%; padding: 0.5rem; background: var(--teal); color: #fff; border: none; border-radius: 0.25rem; font-family: var(--font-mono); font-size: var(--text-xs); cursor: pointer; margin-bottom: 0.5rem; }
+.btn-apply:hover { opacity: 0.9; }
+.btn-reset-filters { display: block; width: 100%; text-align: center; font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); text-decoration: none; padding: 0.25rem; }
+.btn-reset-filters:hover { color: var(--teal); }
+
+/* ─── GAP FEED ───────────────────────────────────────────── */
+.gap-feed { display: flex; flex-direction: column; gap: 0; }
+.feed-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+.feed-title-row { display: flex; align-items: baseline; gap: 0.5rem; }
+.feed-title { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em; margin: 0; display: flex; align-items: center; gap: 0.5rem; }
+.feed-count { font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-muted); background: rgba(255,255,255,0.06); padding: 0.15rem 0.4rem; border-radius: 0.25rem; }
+.btn-refresh { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--teal); background: none; border: 1px solid rgba(74,141,131,0.3); border-radius: 0.25rem; padding: 0.3rem 0.625rem; cursor: pointer; transition: background 0.15s; }
+.btn-refresh:hover { background: rgba(74,141,131,0.08); }
+
+.gap-list { display: flex; flex-direction: column; gap: 0.75rem; }
+.gap-entry { display: flex; flex-direction: column; }
+.expanded-container { margin-top: 0.5rem; }
+
+/* ─── EMPTY STATE ────────────────────────────────────────── */
+.empty-state { text-align: center; padding: 3.5rem 2rem; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 0.625rem; display: flex; flex-direction: column; align-items: center; gap: 0.625rem; }
+.empty-icon  { font-size: 2.5rem; margin-bottom: 0.25rem; }
+.empty-title { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--text-secondary); font-weight: 600; margin: 0; }
+.empty-hint  { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); margin: 0; max-width: 400px; line-height: 1.6; }
+.empty-actions { display: flex; gap: 0.75rem; margin-top: 0.5rem; flex-wrap: wrap; justify-content: center; }
+.btn-cta { padding: 0.5rem 1.25rem; background: var(--teal); color: #fff; border-radius: 0.375rem; font-family: var(--font-mono); font-size: var(--text-xs); text-decoration: none; }
+
+/* ─── GENERATION MODAL ───────────────────────────────────── */
+.modal-backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 200;
+  display: flex; align-items: center; justify-content: center; backdrop-filter: blur(4px);
+}
+.modal-box {
+  background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 0.75rem;
+  padding: 2.5rem 2rem; max-width: 400px; width: 90%; text-align: center;
+  display: flex; flex-direction: column; align-items: center; gap: 0.75rem;
+}
+.modal-spinner {
+  width: 2rem; height: 2rem; border: 3px solid rgba(74,141,131,0.25);
+  border-top-color: var(--teal); border-radius: 50%;
+  animation: spin 0.8s linear infinite; flex-shrink: 0;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.modal-title { font-family: var(--font-mono); font-size: 1rem; color: var(--text-primary); margin: 0; }
+.modal-desc  { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--text-secondary); margin: 0; }
+.btn-modal-cta { display: inline-block; padding: 0.625rem 1.5rem; background: var(--teal); color: #fff; border-radius: 0.375rem; font-family: var(--font-mono); font-size: var(--text-sm); text-decoration: none; margin-top: 0.5rem; }
+
+/* ─── RESPONSIVE ─────────────────────────────────────────── */
+@media (max-width: 1024px) {
+  .layout-grid { grid-template-columns: 220px 1fr; }
+}
+@media (max-width: 768px) {
+  .layout-grid { grid-template-columns: 1fr; }
+  .sidebar     { position: static; }
+  .stats-banner{ flex-wrap: wrap; }
+  .stat-card   { min-width: 80px; }
+  .tab-bar     { overflow-x: auto; }
+  .tab-link    { font-size: 0.7rem; padding: 0.5rem 0.75rem; }
+  .page-main   { padding: 1.25rem 1rem 2rem; gap: 1rem; }
+}
+</style>
+</Base>

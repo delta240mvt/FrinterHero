@@ -428,6 +428,105 @@ async function getJobSnapshot(req, topic) {
   };
 }
 
+function matchesJobFilter(job, filters = {}) {
+  if (!job) return false;
+  return Object.entries(filters).every(([key, value]) => {
+    if (value === undefined || value === null) return true;
+    return Number(job.payload?.[key] ?? 0) === Number(value);
+  });
+}
+
+async function getScopedJob(req, topic, filters = {}) {
+  const [activeResponse, latestResponse] = await Promise.all([
+    apiFetch(`/v1/jobs/active?siteSlug=${siteSlug}&topic=${topic}`, { cookie: req.headers.cookie ?? '' }),
+    apiFetch(`/v1/jobs/latest?siteSlug=${siteSlug}&topic=${topic}`, { cookie: req.headers.cookie ?? '' }),
+  ]);
+  const activePayload = await activeResponse.json().catch(() => ({}));
+  const latestPayload = await latestResponse.json().catch(() => ({}));
+  const activeJob = matchesJobFilter(activePayload.job, filters) ? activePayload.job : null;
+  const latestJob = matchesJobFilter(latestPayload.job, filters) ? latestPayload.job : null;
+  return activeJob ?? latestJob ?? null;
+}
+
+async function getBcJobSnapshot(req, topic, filters = {}) {
+  const job = await getScopedJob(req, topic, filters);
+  if (!job) {
+    return {
+      status: 'idle',
+      startedAt: null,
+      finishedAt: null,
+      exitCode: null,
+      lines: [],
+      result: null,
+    };
+  }
+
+  const metrics = job.result?.metrics ?? {};
+  return {
+    status: job.status === 'pending' ? 'running' : job.status === 'cancelled' ? 'idle' : job.status,
+    startedAt: job.startedAt ? Date.parse(job.startedAt) : null,
+    finishedAt: job.finishedAt ? Date.parse(job.finishedAt) : null,
+    exitCode: job.status === 'error' ? 1 : 0,
+    lines: jobLinesFromSnapshot(job),
+    result: job.result?.domainResult ?? job.result ?? null,
+    commentsCollected: metrics.commentsCollected ?? 0,
+    painPointsExtracted: metrics.painPointsExtracted ?? 0,
+    videoScrapedId: metrics.videoScrapedId ?? null,
+    selectedCount: metrics.selectedCount ?? 0,
+    clustersCreated: metrics.clustersCreated ?? 0,
+    variantsGenerated: metrics.variantsGenerated ?? 0,
+    nicheKeywordsFound: metrics.nicheKeywordsFound ?? null,
+    audiencePainKeywordsFound: metrics.audiencePainKeywordsFound ?? null,
+    featureMapItems: metrics.featureMapItems ?? null,
+    rawJob: job,
+  };
+}
+
+async function streamTopicSnapshot(req, res, { topic, filters = {}, runningLine, doneLine, errorLine, buildPayload }) {
+  res.writeHead(200, {
+    'content-type': 'text/event-stream; charset=utf-8',
+    'cache-control': 'no-store',
+    connection: 'keep-alive',
+  });
+
+  const send = (payload) => {
+    res.write(`data: ${JSON.stringify(payload)}\n\n`);
+  };
+
+  let closed = false;
+  req.on('close', () => { closed = true; });
+
+  const loop = async () => {
+    while (!closed) {
+      const snapshot = await getBcJobSnapshot(req, topic, filters);
+      if (snapshot.status === 'running') {
+        send(buildPayload ? buildPayload(snapshot) : { line: runningLine });
+      } else if (snapshot.status === 'done') {
+        send(buildPayload ? buildPayload(snapshot) : { line: doneLine });
+        send({ done: true, code: 0, ...snapshot });
+        res.end();
+        return;
+      } else if (snapshot.status === 'error') {
+        send(buildPayload ? buildPayload(snapshot) : { line: errorLine });
+        send({ done: true, code: 1, ...snapshot });
+        res.end();
+        return;
+      } else {
+        send({ done: true, code: 0, ...snapshot });
+        res.end();
+        return;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+    }
+  };
+
+  loop().catch((error) => {
+    send({ line: String(error), done: true, code: 1 });
+    res.end();
+  });
+}
+
 async function getRedditSnapshot(req) {
   const [activeResponse, latestResponse] = await Promise.all([
     apiFetch(`/v1/jobs/active?siteSlug=${siteSlug}&topic=reddit`, { cookie: req.headers.cookie ?? '' }),
@@ -783,6 +882,191 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  if (url.pathname === '/api/brand-clarity/projects/parse-stream' && req.method === 'GET') {
+    return streamTopicSnapshot(req, res, {
+      topic: 'bc-parse',
+      runningLine: '[BC] Parse job running in distributed worker...',
+      doneLine: '[BC] Parse job finished',
+      errorLine: '[BC] Parse job failed',
+    });
+  }
+
+  const bcScrapeMatch = url.pathname.match(/^\/api\/brand-clarity\/(\d+)\/scrape\/(start|status|stream|stop)$/);
+  if (bcScrapeMatch) {
+    const projectId = Number(bcScrapeMatch[1]);
+    const action = bcScrapeMatch[2];
+
+    if (action === 'start' && req.method === 'POST') {
+      let parsed = {};
+      try {
+        parsed = JSON.parse((await readBody(req)) || '{}');
+      } catch {
+        return sendJson(res, 400, { error: 'Invalid request body' });
+      }
+      const response = await apiFetch('/v1/jobs/bc-scrape', {
+        method: 'POST',
+        body: { siteSlug, projectId, videoId: parsed.videoId ?? null },
+        cookie: req.headers.cookie ?? '',
+      });
+      const payload = await response.text();
+      res.writeHead(response.status, { 'content-type': response.headers.get('content-type') ?? 'application/json; charset=utf-8' });
+      res.end(payload);
+      return;
+    }
+
+    if (action === 'status' && req.method === 'GET') {
+      return sendJson(res, 200, await getBcJobSnapshot(req, 'bc-scrape', { projectId }), { 'cache-control': 'no-store' });
+    }
+
+    if (action === 'stream' && req.method === 'GET') {
+      return streamTopicSnapshot(req, res, {
+        topic: 'bc-scrape',
+        filters: { projectId },
+        runningLine: '[BC] Scrape job running in distributed worker...',
+        doneLine: '[BC] Scrape job finished',
+        errorLine: '[BC] Scrape job failed',
+      });
+    }
+
+    if (action === 'stop' && req.method === 'POST') {
+      const response = await apiFetch(`/v1/jobs/active?siteSlug=${siteSlug}&topic=bc-scrape`, {
+        method: 'DELETE',
+        cookie: req.headers.cookie ?? '',
+      });
+      const payload = await response.text();
+      res.writeHead(response.status, { 'content-type': response.headers.get('content-type') ?? 'application/json; charset=utf-8' });
+      res.end(payload);
+      return;
+    }
+  }
+
+  const bcSelectMatch = url.pathname.match(/^\/api\/brand-clarity\/(\d+)\/iterations\/(\d+)\/(select|select-stream)$/);
+  if (bcSelectMatch) {
+    const projectId = Number(bcSelectMatch[1]);
+    const iterationId = Number(bcSelectMatch[2]);
+    const action = bcSelectMatch[3];
+
+    if (action === 'select' && req.method === 'POST') {
+      const response = await apiFetch('/v1/jobs/bc-selector', {
+        method: 'POST',
+        body: { siteSlug, projectId, iterationId },
+        cookie: req.headers.cookie ?? '',
+      });
+      const payload = await response.text();
+      res.writeHead(response.status, { 'content-type': response.headers.get('content-type') ?? 'application/json; charset=utf-8' });
+      res.end(payload);
+      return;
+    }
+
+    if (action === 'select-stream' && req.method === 'GET') {
+      return streamTopicSnapshot(req, res, {
+        topic: 'bc-selector',
+        filters: { projectId, iterationId },
+        runningLine: '[BC] Selector job running in distributed worker...',
+        doneLine: '[BC] Selector job finished',
+        errorLine: '[BC] Selector job failed',
+      });
+    }
+  }
+
+  const bcVariantsMatch = url.pathname.match(/^\/api\/brand-clarity\/(\d+)\/(generate-variants|variants\/status|variants\/stream)$/);
+  if (bcVariantsMatch) {
+    const projectId = Number(bcVariantsMatch[1]);
+    const action = bcVariantsMatch[2];
+
+    if (action === 'generate-variants' && req.method === 'POST') {
+      let parsed = {};
+      try {
+        parsed = JSON.parse((await readBody(req)) || '{}');
+      } catch {
+        parsed = {};
+      }
+      const response = await apiFetch('/v1/jobs/bc-generate', {
+        method: 'POST',
+        body: { siteSlug, projectId, iterationId: parsed.iterationId ?? null },
+        cookie: req.headers.cookie ?? '',
+      });
+      const payload = await response.text();
+      res.writeHead(response.status, { 'content-type': response.headers.get('content-type') ?? 'application/json; charset=utf-8' });
+      res.end(payload);
+      return;
+    }
+
+    if (action === 'variants/status' && req.method === 'GET') {
+      return sendJson(res, 200, await getBcJobSnapshot(req, 'bc-generate', { projectId }), { 'cache-control': 'no-store' });
+    }
+
+    if (action === 'variants/stream' && req.method === 'GET') {
+      return streamTopicSnapshot(req, res, {
+        topic: 'bc-generate',
+        filters: { projectId },
+        runningLine: '[BC] Variant generation running in distributed worker...',
+        doneLine: '[BC] Variant generation finished',
+        errorLine: '[BC] Variant generation failed',
+      });
+    }
+  }
+
+  const shStreamMatch = url.pathname.match(/^\/api\/social-hub\/briefs\/(\d+)\/stream$/);
+  if (shStreamMatch && req.method === 'GET') {
+    const briefId = Number(shStreamMatch[1]);
+    res.writeHead(200, {
+      'content-type': 'text/event-stream; charset=utf-8',
+      'cache-control': 'no-store',
+      connection: 'keep-alive',
+    });
+
+    const send = (payload) => {
+      res.write(`data: ${JSON.stringify(payload)}\n\n`);
+    };
+
+    let closed = false;
+    req.on('close', () => { closed = true; });
+
+    const loop = async () => {
+      while (!closed) {
+        const response = await apiFetch(`/v1/social-hub/briefs/${briefId}/job-status?topic=sh-copy`, {
+          cookie: req.headers.cookie ?? '',
+        });
+        const payload = await response.json().catch(() => ({}));
+        const job = payload.job ?? null;
+
+        if (!job) {
+          send({ done: true, code: 0, variantCount: 0 });
+          res.end();
+          return;
+        }
+
+        const variantCount = job.result?.metrics?.variantsCreated ?? job.result?.domainResult?.variantsCreated ?? 0;
+        if (job.status === 'pending' || job.status === 'running') {
+          send({ line: '[SH] Copywriter running in distributed worker...', variantCount });
+        } else if (job.status === 'done') {
+          send({ line: '[SH] Copywriter finished', variantCount });
+          send({ done: true, code: 0, variantCount });
+          res.end();
+          return;
+        } else if (job.status === 'error') {
+          send({ line: job.error ? `[SH] ${job.error}` : '[SH] Copywriter failed', variantCount });
+          send({ done: true, code: 1, variantCount });
+          res.end();
+          return;
+        } else {
+          send({ done: true, code: 0, variantCount });
+          res.end();
+          return;
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+      }
+    };
+
+    loop().catch((error) => {
+      send({ line: String(error), done: true, code: 1 });
+      res.end();
+    });
+    return;
+  }
+
   const socialHubRouteMap = [
     [/^\/api\/social-hub\/settings$/, () => `/v1/social-hub/settings`],
     [/^\/api\/social-hub\/accounts$/, () => `/v1/social-hub/accounts`],
@@ -791,8 +1075,12 @@ const server = http.createServer(async (req, res) => {
     [/^\/api\/social-hub\/templates\/(\d+)$/, (m) => `/v1/social-hub/templates/${m[1]}`],
     [/^\/api\/social-hub\/briefs$/, () => `/v1/social-hub/briefs`],
     [/^\/api\/social-hub\/briefs\/(\d+)$/, (m) => `/v1/social-hub/briefs/${m[1]}`],
+    [/^\/api\/social-hub\/briefs\/(\d+)\/generate-copy$/, (m) => `/v1/social-hub/briefs/${m[1]}/generate-copy`],
+    [/^\/api\/social-hub\/briefs\/(\d+)\/render$/, (m) => `/v1/social-hub/briefs/${m[1]}/render`],
+    [/^\/api\/social-hub\/briefs\/(\d+)\/publish$/, (m) => `/v1/social-hub/briefs/${m[1]}/publish`],
     [/^\/api\/social-hub\/sources$/, () => `/v1/social-hub/sources`],
     [/^\/api\/social-hub\/analytics$/, () => `/v1/social-hub/analytics`],
+    [/^\/api\/social-hub\/queue$/, () => `/v1/social-hub/queue`],
   ];
 
   for (const [pattern, buildTarget] of socialHubRouteMap) {

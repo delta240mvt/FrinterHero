@@ -1,0 +1,393 @@
+---
+import Base from '@/components/layouts/Base.astro';
+
+const { id } = Astro.params;
+const projectId = parseInt(id || '0', 10);
+
+let project: any = null;
+let videos: any[] = [];
+
+try {
+  const headers = {
+    cookie: Astro.request.headers.get('cookie') ?? '',
+  };
+  const projectResponse = await fetch(new URL(`/api/brand-clarity/projects/${projectId}`, Astro.url), { headers });
+  if (projectResponse.ok) {
+    project = await projectResponse.json();
+  }
+  if (project) {
+    const videosResponse = await fetch(new URL(`/api/brand-clarity/${projectId}/videos`, Astro.url), { headers });
+    if (videosResponse.ok) {
+      videos = await videosResponse.json();
+    }
+  }
+} catch (e) {
+  console.error('[BC-Videos]', e);
+}
+
+if (!project) return Astro.redirect('/admin/brand-clarity');
+
+// Group by channel
+const channelMap = new Map<string, { name: string; url: string; videos: any[] }>();
+for (const v of videos) {
+  const channelKey = `${v.channelName ?? ''}::${v.channelUrl ?? ''}`;
+  if (!channelMap.has(channelKey)) {
+    channelMap.set(channelKey, { name: v.channelName, url: v.channelUrl, videos: [] });
+  }
+  channelMap.get(channelKey)!.videos.push(v);
+}
+const channels = [...channelMap.values()];
+const selectedCount = videos.filter(v => v.isSelected).length;
+---
+
+<Base title={`Videos — ${project.name}`} description="Brand Clarity target videos">
+<div class="admin-layout">
+  <header class="admin-header">
+    <a href="/admin" class="admin-logo">P·F</a>
+    <nav class="breadcrumb">
+      <a href="/admin/brand-clarity" class="bc-link">Brand Clarity</a>
+      <span class="bc-sep">›</span>
+      <a href={`/admin/brand-clarity/${projectId}/channels`} class="bc-link">{project.name}</a>
+      <span class="bc-sep">›</span>
+      <span class="bc-current">Videos</span>
+    </nav>
+    <div class="header-actions">
+      <span class="project-status">{project.status}</span>
+      <a href="/api/logout" class="btn-logout">Logout</a>
+    </div>
+  </header>
+
+  <main class="admin-main">
+    <div class="stage-bar">
+      <a href={`/admin/brand-clarity/${projectId}/docs`} class="stage done stage-link">1. LP Parsed</a>
+      <span class="stage-arrow">→</span>
+      <a href={`/admin/brand-clarity/${projectId}/channels`} class="stage done stage-link">2. Channels</a>
+      <span class="stage-arrow">→</span>
+      <span class="stage active">3. Videos</span>
+      <span class="stage-arrow">→</span>
+      <a href={`/admin/brand-clarity/${projectId}/scrape`} class="stage stage-link">4–5. Pain Points Base</a>
+      <span class="stage-arrow">→</span>
+      <a href={`/admin/brand-clarity/${projectId}/variants`} class="stage stage-link">5. LP Variants</a>
+    </div>
+
+    <section class="admin-section">
+      <div class="section-header-row">
+        <div class="section-title-block">
+          <h2 class="section-title">Target Videos</h2>
+          <p class="section-subtitle">
+            {videos.length > 0
+              ? `${selectedCount} of ${videos.length} selected for scraping · uncheck videos you want to skip`
+              : 'Top 3 relevant + top 2 popular per channel · discover first'}
+          </p>
+        </div>
+        <div class="header-btns">
+          <button id="discover-btn" class="btn-discover">Discover Videos</button>
+          {selectedCount > 0 && (
+            <a href={`/admin/brand-clarity/${projectId}/scrape`} class="btn-primary">Next: Scrape →</a>
+          )}
+        </div>
+      </div>
+
+      <!-- Manual add row -->
+      <div class="manual-add-row">
+        <input id="manual-url" type="text" class="manual-url-input" placeholder="https://youtube.com/watch?v=… or youtu.be/…" />
+        <button id="manual-add-btn" class="btn-manual-add">+ Add Video</button>
+        <span id="manual-add-msg" class="manual-add-msg"></span>
+      </div>
+
+      <!-- Discover panel -->
+      <div id="discover-panel" class="parse-panel" style="display:none">
+        <div class="parse-panel-top">
+          <span id="discover-status" class="parse-status">Discovering videos…</span>
+          <div class="parse-panel-actions">
+            <span id="discover-elapsed" class="parse-elapsed"></span>
+            <button id="btn-download-logs" class="btn-download-logs" style="display:none">Download .txt</button>
+          </div>
+        </div>
+        <div id="log-container" class="parse-log"></div>
+        <div id="discover-footer" class="parse-footer" style="display:none">
+          <span id="discover-result-msg"></span>
+        </div>
+      </div>
+
+      {videos.length === 0 ? (
+        <div class="empty-state">No videos yet. Click "Discover Videos" to find up to 5 videos per channel (top 3 keyword-relevant + top 2 most popular).</div>
+      ) : (
+        <div class="channels-list">
+          {channels.map(ch => (
+            <div class="channel-group">
+              <div class="channel-header">
+                <a href={ch.url} target="_blank" rel="noopener" class="channel-name">{ch.name} ↗</a>
+                <span class="channel-count">{ch.videos.filter((v: any) => v.isSelected).length}/{ch.videos.length} selected</span>
+              </div>
+              <div class="videos-list">
+                {ch.videos.map((v: any) => (
+                  <label class={`video-row ${v.isSelected ? 'selected' : 'deselected'}`} data-id={v.id}>
+                    <input
+                      type="checkbox"
+                      class="video-check"
+                      checked={v.isSelected}
+                      data-video-id={v.id}
+                    />
+                    <div class="video-info">
+                      <span class="video-title">{v.title}</span>
+                      <div class="video-meta">
+                        <span class="meta-item">{v.viewCount?.toLocaleString() ?? '–'} views</span>
+                        <span class="meta-sep">·</span>
+                        <span class="meta-item">{v.commentCount?.toLocaleString() ?? '–'} comments</span>
+                        <span class="meta-sep">·</span>
+                        <span class="meta-score">{v.relevanceScore?.toFixed(2) ?? '–'}</span>
+                        <span class="meta-sep">·</span>
+                        <a href={v.videoUrl} target="_blank" rel="noopener" class="meta-watch" onclick="event.stopPropagation()">▶ Watch</a>
+                      </div>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+    </section>
+  </main>
+</div>
+
+<script define:vars={{ projectId }}>
+  const PROJECT_ID = projectId;
+  const discoverBtn = document.getElementById('discover-btn');
+  const discoverPanel = document.getElementById('discover-panel');
+  const discoverStatus = document.getElementById('discover-status');
+  const discoverElapsed = document.getElementById('discover-elapsed');
+  const discoverFooter = document.getElementById('discover-footer');
+  const discoverResultMsg = document.getElementById('discover-result-msg');
+  const logContainer = document.getElementById('log-container');
+
+  let discoverTimer = null;
+  let discoverStart = 0;
+
+  function appendLine(text) {
+    const el = document.createElement('div');
+    el.className = 'parse-log-line';
+    if (text.includes('[WARN]') || text.includes('[FATAL]') || text.toLowerCase().includes('error')) {
+      el.classList.add('error');
+    } else if (text.includes('Done') || text.includes('VIDEOS_FOUND') || text.includes('Inserted') || text.includes('Found')) {
+      el.classList.add('highlight');
+    }
+    el.textContent = text;
+    logContainer.appendChild(el);
+    logContainer.scrollTop = logContainer.scrollHeight;
+  }
+
+  document.getElementById('btn-download-logs')?.addEventListener('click', () => {
+    const text = Array.from(logContainer.querySelectorAll('.parse-log-line')).map(el => el.textContent).join('\n');
+    const blob = new Blob([text], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `bc-videos-${PROJECT_ID}-logs.txt`;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a); URL.revokeObjectURL(url);
+  });
+
+  // Manual add
+  document.getElementById('manual-add-btn')?.addEventListener('click', async () => {
+    const input = document.getElementById('manual-url');
+    const msgEl = document.getElementById('manual-add-msg');
+    const btn = document.getElementById('manual-add-btn');
+    const url = input.value.trim();
+    if (!url) { msgEl.className = 'manual-add-msg error'; msgEl.textContent = 'Paste a YouTube URL first.'; return; }
+
+    btn.disabled = true;
+    btn.textContent = 'Adding…';
+    msgEl.textContent = '';
+    msgEl.className = 'manual-add-msg';
+
+    try {
+      const res = await fetch(`/api/brand-clarity/${PROJECT_ID}/videos/add-manual`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed');
+      msgEl.className = 'manual-add-msg ok';
+      msgEl.textContent = `✓ Added: "${data.title}" — reloading…`;
+      input.value = '';
+      setTimeout(() => window.location.reload(), 1500);
+    } catch (e) {
+      msgEl.className = 'manual-add-msg error';
+      msgEl.textContent = e.message;
+      btn.disabled = false;
+      btn.textContent = '+ Add Video';
+    }
+  });
+
+  discoverBtn?.addEventListener('click', async () => {
+    if (!confirm('Discover top videos for all confirmed channels? (~201 units per channel)')) return;
+    discoverBtn.disabled = true;
+    discoverBtn.textContent = 'Discovering…';
+
+    logContainer.innerHTML = '';
+    discoverFooter.style.display = 'none';
+    discoverStatus.textContent = 'Discovering videos…';
+    discoverStatus.className = 'parse-status running';
+    discoverElapsed.textContent = '';
+    discoverPanel.style.display = 'block';
+    discoverPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+    discoverStart = Date.now();
+    discoverTimer = setInterval(() => {
+      discoverElapsed.textContent = `${Math.floor((Date.now() - discoverStart) / 1000)}s`;
+    }, 1000);
+
+    try {
+      const res = await fetch(`/api/brand-clarity/${PROJECT_ID}/discover-videos`, { method: 'POST' });
+      const data = await res.json();
+
+      clearInterval(discoverTimer);
+      if (data.logs?.length) {
+        data.logs.forEach(line => appendLine(line));
+        document.getElementById('btn-download-logs').style.display = '';
+      }
+
+      if (!res.ok) throw new Error(data.error || 'Failed');
+
+      discoverStatus.textContent = `Done — found ${data.videosFound} videos ✓`;
+      discoverStatus.className = 'parse-status done';
+      discoverFooter.style.display = 'flex';
+      discoverResultMsg.className = 'parse-result-ok';
+      discoverResultMsg.textContent = `${data.videosFound} videos added. Reloading in 3s…`;
+      setTimeout(() => window.location.reload(), 3000);
+    } catch (e) {
+      clearInterval(discoverTimer);
+      discoverStatus.textContent = 'Error ✗';
+      discoverStatus.className = 'parse-status error';
+      discoverFooter.style.display = 'flex';
+      discoverResultMsg.className = 'parse-result-error';
+      discoverResultMsg.textContent = e.message;
+      discoverBtn.disabled = false;
+      discoverBtn.textContent = 'Discover Videos';
+    }
+  });
+
+  // Toggle video selection
+  document.querySelectorAll('.video-check').forEach(checkbox => {
+    checkbox.addEventListener('change', async (e) => {
+      const cb = e.target;
+      const videoId = cb.dataset.videoId;
+      const isSelected = cb.checked;
+      const row = cb.closest('.video-row');
+
+      cb.disabled = true;
+      try {
+        const res = await fetch(`/api/brand-clarity/${PROJECT_ID}/videos/${videoId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ isSelected }),
+        });
+        if (!res.ok) throw new Error('Failed');
+        row.classList.toggle('selected', isSelected);
+        row.classList.toggle('deselected', !isSelected);
+      } catch {
+        cb.checked = !isSelected; // revert
+      } finally {
+        cb.disabled = false;
+      }
+    });
+  });
+</script>
+
+<style>
+.admin-layout { min-height: 100vh; background: var(--bg-base); }
+.admin-header { display: flex; align-items: center; gap: 1.25rem; padding: 0.875rem 1.5rem; background: var(--bg-elevated); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 20; }
+.admin-logo { font-family: var(--font-mono); font-weight: 700; color: var(--teal); text-decoration: none; font-size: 1.1rem; }
+.breadcrumb { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-secondary); display: flex; gap: 0.4rem; align-items: center; }
+.bc-link { color: var(--text-muted); text-decoration: none; }
+.bc-link:hover { color: var(--teal); }
+.bc-sep { color: var(--text-muted); }
+.bc-current { color: var(--text-secondary); }
+.header-actions { margin-left: auto; display: flex; gap: 0.5rem; align-items: center; }
+.project-status { font-family: var(--font-mono); font-size: 0.65rem; color: var(--gold); padding: 0.2rem 0.5rem; background: rgba(214,183,121,0.1); border-radius: 0.2rem; }
+.btn-logout { padding: 0.35rem 0.75rem; color: var(--text-muted); border: 1px solid var(--border); border-radius: 0.25rem; font-family: var(--font-mono); font-size: var(--text-xs); text-decoration: none; }
+.btn-primary { padding: 0.4rem 1rem; background: var(--teal); color: #fff; border: none; border-radius: 0.3rem; font-family: var(--font-mono); font-size: var(--text-xs); text-decoration: none; }
+.admin-main { max-width: 900px; margin: 0 auto; padding: 1.75rem 1.5rem 3rem; display: flex; flex-direction: column; gap: 2rem; }
+
+/* Stage bar */
+.stage-bar { display: flex; align-items: center; gap: 0.5rem; font-family: var(--font-mono); font-size: 0.65rem; padding: 0.625rem 1rem; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 0.375rem; overflow-x: auto; }
+.stage { color: var(--text-muted); white-space: nowrap; }
+.stage.done { color: var(--teal); }
+.stage.active { color: var(--gold); font-weight: 700; }
+.stage-link { text-decoration: none; padding: 0.1rem 0.3rem; border-radius: 0.2rem; }
+.stage-link:hover { background: rgba(255,255,255,0.06); }
+.stage-link.done { color: var(--teal); }
+.stage-link:not(.done):not(.active) { color: var(--text-muted); }
+.stage-link:not(.done):hover { color: var(--text-secondary); }
+.stage-arrow { color: var(--border); }
+
+/* Parse panel */
+.parse-panel { background: var(--bg-elevated); border: 1px solid rgba(214,183,121,0.3); border-radius: 0.5rem; overflow: hidden; }
+.parse-panel-top { display: flex; align-items: center; justify-content: space-between; padding: 0.625rem 1rem; background: rgba(214,183,121,0.05); border-bottom: 1px solid rgba(214,183,121,0.15); }
+.parse-panel-actions { display: flex; align-items: center; gap: 0.75rem; }
+.parse-status { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); }
+.parse-status.running { color: var(--gold); }
+.parse-status.done    { color: var(--teal); }
+.parse-status.error   { color: #ef4444; }
+.parse-elapsed { font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-muted); }
+.parse-log { height: 220px; overflow-y: auto; padding: 0.375rem 0; }
+.parse-log-line { padding: 0.1rem 1rem; color: var(--text-muted); border-left: 2px solid transparent; font-family: var(--font-mono); font-size: 0.71rem; line-height: 1.55; white-space: pre-wrap; word-break: break-all; }
+.parse-log-line.error     { color: #ef4444; border-left-color: #ef4444; }
+.parse-log-line.highlight { color: var(--teal); border-left-color: var(--teal); }
+.parse-log::-webkit-scrollbar { width: 4px; }
+.parse-log::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; }
+.parse-footer { display: flex; align-items: center; gap: 1rem; padding: 0.5rem 1rem; background: rgba(255,255,255,0.03); border-top: 1px solid var(--border); font-family: var(--font-mono); font-size: var(--text-xs); }
+.parse-result-ok    { color: var(--teal); }
+.parse-result-error { color: #ef4444; }
+.btn-download-logs { padding: 0.25rem 0.75rem; background: none; border: 1px solid var(--border); color: var(--text-muted); border-radius: 0.25rem; font-family: var(--font-mono); font-size: 0.65rem; cursor: pointer; }
+.btn-download-logs:hover { border-color: var(--teal); color: var(--teal); }
+
+/* Section */
+.admin-section { display: flex; flex-direction: column; gap: 1rem; }
+.section-header-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; padding-bottom: 0.875rem; border-bottom: 1px solid var(--border); }
+.section-title-block { display: flex; flex-direction: column; gap: 0.2rem; }
+.section-title { font-family: var(--font-mono); font-size: 1rem; color: var(--text-primary); font-weight: 700; margin: 0; }
+.section-subtitle { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); margin: 0; }
+.header-btns { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.btn-discover { padding: 0.4rem 1rem; background: none; border: 1px solid var(--gold); color: var(--gold); border-radius: 0.3rem; font-family: var(--font-mono); font-size: var(--text-xs); cursor: pointer; }
+.btn-discover:hover { background: rgba(214,183,121,0.08); }
+.btn-discover:disabled { opacity: 0.5; cursor: not-allowed; }
+.manual-add-row { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+.manual-url-input { flex: 1; min-width: 260px; padding: 0.4rem 0.75rem; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 0.3rem; color: var(--text-primary); font-family: var(--font-mono); font-size: var(--text-xs); }
+.manual-url-input:focus { outline: none; border-color: var(--teal); }
+.manual-url-input::placeholder { color: var(--text-muted); }
+.btn-manual-add { padding: 0.4rem 0.875rem; background: none; border: 1px solid var(--teal); color: var(--teal); border-radius: 0.3rem; font-family: var(--font-mono); font-size: var(--text-xs); cursor: pointer; white-space: nowrap; }
+.btn-manual-add:hover { background: rgba(74,141,131,0.08); }
+.btn-manual-add:disabled { opacity: 0.5; cursor: not-allowed; }
+.manual-add-msg { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); }
+.manual-add-msg.ok { color: var(--teal); }
+.manual-add-msg.error { color: #ef4444; }
+.empty-state { padding: 2.5rem; text-align: center; font-family: var(--font-mono); color: var(--text-muted); }
+
+/* Channels & videos */
+.channels-list { display: flex; flex-direction: column; gap: 1.25rem; }
+.channel-group { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 0.5rem; overflow: hidden; }
+.channel-header { display: flex; align-items: center; justify-content: space-between; padding: 0.625rem 1rem; border-bottom: 1px solid var(--border); background: rgba(74,141,131,0.06); }
+.channel-name { font-family: var(--font-mono); font-size: var(--text-sm); font-weight: 600; color: var(--teal); text-decoration: none; }
+.channel-name:hover { text-decoration: underline; }
+.channel-count { font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-muted); }
+.videos-list { display: flex; flex-direction: column; }
+.video-row { display: flex; gap: 0.875rem; align-items: flex-start; padding: 0.875rem 1rem; border-bottom: 1px solid rgba(255,255,255,0.035); cursor: pointer; transition: background 0.1s; }
+.video-row:last-child { border-bottom: none; }
+.video-row:hover { background: rgba(255,255,255,0.025); }
+.video-row.deselected { opacity: 0.45; }
+.video-row.deselected .video-title { text-decoration: line-through; }
+.video-check { margin-top: 0.2rem; width: 14px; height: 14px; flex-shrink: 0; accent-color: var(--teal); cursor: pointer; }
+.video-info { display: flex; flex-direction: column; gap: 0.4rem; flex: 1; min-width: 0; }
+.video-title { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-primary); line-height: 1.5; word-break: break-word; }
+.video-meta { display: flex; align-items: center; gap: 0.375rem; flex-wrap: wrap; }
+.meta-item { font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-muted); }
+.meta-sep { color: var(--border); font-size: 0.65rem; }
+.meta-score { font-family: var(--font-mono); font-size: 0.65rem; color: var(--gold); }
+.meta-watch { font-family: var(--font-mono); font-size: 0.65rem; color: #ff6b6b; text-decoration: none; }
+.meta-watch:hover { color: #ff4444; }
+</style>
+</Base>

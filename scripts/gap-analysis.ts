@@ -5,7 +5,7 @@
  */
 
 import { db } from '../src/db/client';
-import { contentGaps, knowledgeEntries } from '../src/db/schema';
+import { articles, contentGaps, knowledgeEntries } from '../src/db/schema';
 import { sql, and, gte, or, ilike } from 'drizzle-orm';
 
 export interface GeoQueryResult {

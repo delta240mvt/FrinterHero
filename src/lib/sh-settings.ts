@@ -10,6 +10,7 @@
 
 import { db } from '../db/client';
 import { shSettings } from '../db/schema';
+import { eq, isNull, or } from 'drizzle-orm';
 import {
   SH_VIRAL_ENGINE_DEFAULTS,
   buildShViralEngineEnv,
@@ -56,19 +57,21 @@ export const SH_SETTINGS_DEFAULTS: ShSettingsConfig = {
   viralEngine: SH_VIRAL_ENGINE_DEFAULTS,
 };
 
-export async function getShSettings(): Promise<ShSettingsConfig> {
-  const rows = await db.select().from(shSettings).limit(1);
+export async function getShSettings(siteId?: number | null): Promise<ShSettingsConfig> {
+  const whereClause = siteId ? or(eq(shSettings.siteId, siteId), isNull(shSettings.siteId)) : undefined;
+  const rows = await db.select().from(shSettings).where(whereClause).limit(1);
   if (!rows.length) return normalizeShSettingsConfig(SH_SETTINGS_DEFAULTS);
   return normalizeShSettingsConfig(rows[0].config);
 }
 
-export async function saveShSettings(config: ShSettingsConfig): Promise<void> {
+export async function saveShSettings(config: ShSettingsConfig, siteId?: number | null): Promise<void> {
   const normalized = normalizeShSettingsConfig(config);
-  const rows = await db.select({ id: shSettings.id }).from(shSettings).limit(1);
+  const whereClause = siteId ? eq(shSettings.siteId, siteId) : isNull(shSettings.siteId);
+  const rows = await db.select({ id: shSettings.id }).from(shSettings).where(whereClause).limit(1);
   if (rows.length) {
-    await db.update(shSettings).set({ config: normalized, updatedAt: new Date() });
+    await db.update(shSettings).set({ config: normalized, updatedAt: new Date() }).where(whereClause);
   } else {
-    await db.insert(shSettings).values({ config: normalized });
+    await db.insert(shSettings).values({ siteId: siteId ?? null, config: normalized });
   }
 }
 

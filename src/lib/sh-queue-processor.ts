@@ -8,7 +8,7 @@
 
 import { db } from '../db/client';
 import { shQueue, shContentBriefs } from '../db/schema';
-import { eq, and, desc, asc, inArray, or, sql } from 'drizzle-orm';
+import { eq, and, desc, asc, inArray, isNull, or, sql } from 'drizzle-orm';
 import { shCopywriterJob } from './sh-copywriter-job';
 
 // ── Processing state (survives HMR via globalThis) ───────────────────────────
@@ -46,7 +46,15 @@ export function clearStopRequest(): void {
  * Add a brief to the queue. Returns the new queue item id.
  * If the brief is already pending/processing in the queue, returns the existing id.
  */
-export async function addToQueue(briefId: number, priority = 50): Promise<number> {
+function shQueueScope(siteId?: number | null) {
+  return siteId ? or(eq(shQueue.siteId, siteId), isNull(shQueue.siteId)) : undefined;
+}
+
+function shBriefScope(siteId?: number | null) {
+  return siteId ? or(eq(shContentBriefs.siteId, siteId), isNull(shContentBriefs.siteId)) : undefined;
+}
+
+export async function addToQueue(briefId: number, priority = 50, siteId?: number | null): Promise<number> {
   // Check for existing active entry to avoid duplicates
   const existing = await db
     .select({ id: shQueue.id })
@@ -54,6 +62,7 @@ export async function addToQueue(briefId: number, priority = 50): Promise<number
     .where(
       and(
         eq(shQueue.briefId, briefId),
+        shQueueScope(siteId),
         or(eq(shQueue.status, 'pending'), eq(shQueue.status, 'processing')),
       ),
     )
@@ -65,7 +74,7 @@ export async function addToQueue(briefId: number, priority = 50): Promise<number
 
   const [inserted] = await db
     .insert(shQueue)
-    .values({ briefId, priority, status: 'pending' })
+    .values({ siteId: siteId ?? null, briefId, priority, status: 'pending' })
     .returning({ id: shQueue.id });
 
   return inserted.id;
@@ -74,7 +83,7 @@ export async function addToQueue(briefId: number, priority = 50): Promise<number
 /**
  * Returns counts and full item list (with brief info joined).
  */
-export async function getQueueStatus(): Promise<{
+export async function getQueueStatus(siteId?: number | null): Promise<{
   pending: number;
   processing: number;
   done: number;
@@ -86,6 +95,7 @@ export async function getQueueStatus(): Promise<{
   const countRows = await db
     .select({ status: shQueue.status, cnt: sql<number>`count(*)::int` })
     .from(shQueue)
+    .where(shQueueScope(siteId))
     .groupBy(shQueue.status);
 
   const countMap: Record<string, number> = {};
@@ -107,6 +117,7 @@ export async function getQueueStatus(): Promise<{
     })
     .from(shQueue)
     .leftJoin(shContentBriefs, eq(shContentBriefs.id, shQueue.briefId))
+    .where(and(shQueueScope(siteId), shBriefScope(siteId)))
     .orderBy(desc(shQueue.createdAt))
     .limit(200);
 
@@ -134,24 +145,24 @@ export async function getQueueStatus(): Promise<{
 /**
  * Delete all done/failed items from the queue.
  */
-export async function clearQueue(): Promise<void> {
+export async function clearQueue(siteId?: number | null): Promise<void> {
   await db
     .delete(shQueue)
-    .where(or(eq(shQueue.status, 'done'), eq(shQueue.status, 'failed')));
+    .where(and(shQueueScope(siteId), or(eq(shQueue.status, 'done'), eq(shQueue.status, 'failed'))));
 }
 
 /**
  * Remove a single queue item by id (any status).
  */
-export async function removeQueueItem(id: number): Promise<void> {
-  await db.delete(shQueue).where(eq(shQueue.id, id));
+export async function removeQueueItem(id: number, siteId?: number | null): Promise<void> {
+  await db.delete(shQueue).where(and(eq(shQueue.id, id), shQueueScope(siteId)));
 }
 
 /**
  * Update priority of a queue item.
  */
-export async function reprioritizeQueueItem(id: number, priority: number): Promise<void> {
-  await db.update(shQueue).set({ priority }).where(eq(shQueue.id, id));
+export async function reprioritizeQueueItem(id: number, priority: number, siteId?: number | null): Promise<void> {
+  await db.update(shQueue).set({ priority }).where(and(eq(shQueue.id, id), shQueueScope(siteId)));
 }
 
 // ── Sequential processor ─────────────────────────────────────────────────────
@@ -162,7 +173,7 @@ const TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes per job
  * Process the next pending queue item.
  * Triggers ShCopywriterJobManager and waits up to TIMEOUT_MS for completion.
  */
-export async function processNextQueueItem(): Promise<{
+export async function processNextQueueItem(siteId?: number | null): Promise<{
   processed: boolean;
   briefId?: number;
   error?: string;
@@ -175,7 +186,7 @@ export async function processNextQueueItem(): Promise<{
   const [next] = await db
     .select()
     .from(shQueue)
-    .where(eq(shQueue.status, 'pending'))
+    .where(and(shQueueScope(siteId), eq(shQueue.status, 'pending')))
     .orderBy(desc(shQueue.priority), asc(shQueue.createdAt))
     .limit(1);
 
@@ -187,7 +198,7 @@ export async function processNextQueueItem(): Promise<{
   await db
     .update(shQueue)
     .set({ status: 'processing' })
-    .where(eq(shQueue.id, next.id));
+    .where(and(eq(shQueue.id, next.id), shQueueScope(siteId)));
 
   setProcessing(true);
   clearStopRequest();
@@ -225,12 +236,12 @@ export async function processNextQueueItem(): Promise<{
       await db
         .update(shQueue)
         .set({ status: 'done', processedAt: new Date(), errorMessage: null })
-        .where(eq(shQueue.id, next.id));
+        .where(and(eq(shQueue.id, next.id), shQueueScope(siteId)));
     } else {
       await db
         .update(shQueue)
         .set({ status: 'failed', processedAt: new Date(), errorMessage: result.error ?? 'Unknown error' })
-        .where(eq(shQueue.id, next.id));
+        .where(and(eq(shQueue.id, next.id), shQueueScope(siteId)));
     }
 
     return { processed: true, briefId: next.briefId, error: result.error };
@@ -239,7 +250,7 @@ export async function processNextQueueItem(): Promise<{
     await db
       .update(shQueue)
       .set({ status: 'failed', processedAt: new Date(), errorMessage: msg })
-      .where(eq(shQueue.id, next.id));
+      .where(and(eq(shQueue.id, next.id), shQueueScope(siteId)));
     return { processed: true, briefId: next.briefId, error: msg };
   } finally {
     setProcessing(false);
@@ -251,7 +262,7 @@ export async function processNextQueueItem(): Promise<{
  * Call this from a PUT /api/social-hub/queue { action: 'start' } handler.
  * Runs asynchronously — does not block the HTTP response.
  */
-export async function runQueue(): Promise<void> {
+export async function runQueue(siteId?: number | null): Promise<void> {
   if (isProcessing()) return;
 
   clearStopRequest();
@@ -260,7 +271,7 @@ export async function runQueue(): Promise<void> {
   while (true) {
     if (isStopRequested()) break;
 
-    const result = await processNextQueueItem();
+    const result = await processNextQueueItem(siteId);
 
     // No more pending items
     if (!result.processed && !result.error) break;

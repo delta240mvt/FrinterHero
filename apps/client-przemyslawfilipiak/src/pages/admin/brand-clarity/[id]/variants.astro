@@ -1,0 +1,502 @@
+---
+import Base from '@/components/layouts/Base.astro';
+
+const { id } = Astro.params;
+const projectId = parseInt(id || '0', 10);
+const headers = { cookie: Astro.request.headers.get('cookie') ?? '' };
+const [projectResponse, variantsResponse] = await Promise.all([
+  fetch(new URL(`/api/brand-clarity/projects/${projectId}`, Astro.url), { headers }),
+  fetch(new URL(`/api/brand-clarity/${projectId}/variants-list`, Astro.url), { headers }),
+]);
+const project = projectResponse.ok ? await projectResponse.json() : null;
+const variantsData = variantsResponse.ok ? await variantsResponse.json() : { variants: [] };
+const variants = variantsData.variants ?? [];
+
+if (!project) return Astro.redirect('/admin/brand-clarity');
+
+const typeColors: Record<string, string> = {
+  curiosity_hook: 'var(--teal)',
+  pain_mirror: '#ef4444',
+  outcome_promise: 'var(--gold)',
+  // legacy (keep for backwards compat)
+  founder_vision: 'var(--violet)',
+  pain_point_1: '#ef4444',
+  pain_point_2: 'var(--gold)',
+};
+---
+
+<Base title={`LP Variants — ${project.name}`} description="Brand Clarity landing page variants">
+<div class="admin-layout">
+  <header class="admin-header">
+    <a href="/admin" class="admin-logo">P·F</a>
+    <nav class="breadcrumb">
+      <a href="/admin/brand-clarity" class="bc-link">Brand Clarity</a>
+      <span class="bc-sep">›</span>
+      <a href={`/admin/brand-clarity/${projectId}/channels`} class="bc-link">{project.name}</a>
+      <span class="bc-sep">›</span>
+      <span class="bc-current">LP Variants</span>
+    </nav>
+    <div class="header-actions">
+      <span class="project-status">{project.status}</span>
+      <a href="/api/logout" class="btn-logout">Logout</a>
+    </div>
+  </header>
+
+  <main class="admin-main">
+    <div class="stage-bar">
+      <a href={`/admin/brand-clarity/${projectId}/docs`} class="stage done stage-link">1. LP Parsed</a>
+      <span class="stage-arrow">→</span>
+      <a href={`/admin/brand-clarity/${projectId}/channels`} class="stage done stage-link">2. Channels</a>
+      <span class="stage-arrow">→</span>
+      <a href={`/admin/brand-clarity/${projectId}/videos`} class="stage done stage-link">3. Videos</a>
+      <span class="stage-arrow">→</span>
+      <a href={`/admin/brand-clarity/${projectId}/scrape`} class="stage done stage-link">4–5. Pain Points Base</a>
+      <span class="stage-arrow">→</span>
+      <span class="stage active">6. LP Variants</span>
+    </div>
+
+    <section class="admin-section">
+      <div class="section-header-row">
+        <div class="section-title-block">
+          <h2 class="section-title">Landing Page Variants</h2>
+          <p class="section-subtitle">{variants.length} variant{variants.length !== 1 ? 's' : ''} · Review, compare, and select your winning LP</p>
+        </div>
+        <div class="header-btns">
+          <button id="generate-btn" class="btn-generate">
+            {variants.length > 0 ? '+ Generate Again' : 'Generate LP Variants'}
+          </button>
+        </div>
+      </div>
+
+      <!-- Generation console -->
+      <div id="gen-panel" class="parse-panel" style="display:none">
+        <div class="parse-panel-top">
+          <span id="gen-status" class="parse-status running">Generating LP variants…</span>
+          <div class="parse-panel-actions">
+            <span id="gen-elapsed" class="parse-elapsed"></span>
+            <button id="btn-download-logs" class="btn-download-logs" style="display:none">Download .txt</button>
+          </div>
+        </div>
+        <div id="log-container" class="parse-log"></div>
+        <div id="gen-footer" class="parse-footer" style="display:none">
+          <span id="gen-result-msg"></span>
+        </div>
+      </div>
+
+      {variants.length === 0 ? (
+        <div class="empty-state">
+          No LP variants yet.
+          {project.status === 'pain_points_pending' && (
+            <span> Approve at least 2 pain points in the <a href={`/admin/brand-clarity/${projectId}/scrape`}>Pain Points Base</a> step first.</span>
+          )}
+        </div>
+      ) : (
+        <div class="variants-list">
+          {variants.map(v => (
+            <div class="variant-card" id={`variant-${v.id}`}>
+              <div class="variant-header">
+                <div class="variant-badges">
+                  <span class="variant-type" style={`color:${typeColors[v.variantType] || 'var(--text-muted)'};background:${typeColors[v.variantType] || 'var(--text-muted)'}22`}>
+                    {v.variantType.replace(/_/g, ' ')}
+                  </span>
+                  {v.isSelected && <span class="variant-selected">★ Selected</span>}
+                  <span class="variant-model">{v.generationModel?.split('/')[1] || v.generationModel}</span>
+                </div>
+                <h3 class="variant-label">{v.variantLabel}</h3>
+              </div>
+
+              {v.improvementSuggestions && Object.keys(v.improvementSuggestions).length > 0 && (
+                <div class="improvements">
+                  <div class="imp-label">Improvements Applied</div>
+                  <div class="imp-grid">
+                    {Object.entries(v.improvementSuggestions as any).map(([section, note]) => (
+                      <div class="imp-item">
+                        <span class="imp-section">{section}</span>
+                        <span class="imp-note">{note}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {(v as any).featurePainMap && Array.isArray((v as any).featurePainMap) && (v as any).featurePainMap.length > 0 && (
+                <div class="feature-map">
+                  <div class="feature-map-label">Feature → Pain Mapping</div>
+                  <div class="feature-map-grid">
+                    {((v as any).featurePainMap as any[]).map((item: any) => (
+                      <div class="fmap-item">
+                        <span class="fmap-feature">{item.feature}</span>
+                        <span class="fmap-arrow">→</span>
+                        <span class="fmap-pain">{item.painItSolves}</span>
+                        {item.vocQuote && <span class="fmap-quote">"{item.vocQuote}"</span>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div class="variant-actions">
+                <button class="btn-preview" onclick={`previewVariant(${v.id})`}>Preview HTML</button>
+                <button class="btn-copy" onclick={`copyVariant(${v.id})`}>Copy HTML</button>
+                {!v.isSelected ? (
+                  <button class="btn-select" onclick={`selectVariant(${v.id})`}>★ Mark as Selected</button>
+                ) : (
+                  <button class="btn-deselect" onclick={`selectVariant(${v.id}, false)`}>✕ Deselect</button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  </main>
+</div>
+
+<!-- Preview modal -->
+<div id="preview-modal" class="modal-backdrop" style="display:none">
+  <div class="modal-box modal-box--wide">
+    <div class="modal-header">
+      <h3 class="modal-title">LP Preview</h3>
+      <button id="modal-close" class="modal-close">✕</button>
+    </div>
+    <iframe id="preview-iframe" class="preview-iframe" srcdoc=""></iframe>
+  </div>
+</div>
+
+<script define:vars={{ projectId }}>
+  const PROJECT_ID = projectId;
+  const generateBtn  = document.getElementById('generate-btn');
+  const genPanel     = document.getElementById('gen-panel');
+  const genStatus    = document.getElementById('gen-status');
+  const genElapsed   = document.getElementById('gen-elapsed');
+  const genFooter    = document.getElementById('gen-footer');
+  const genResultMsg = document.getElementById('gen-result-msg');
+  const logContainer = document.getElementById('log-container');
+
+  // ── Elapsed timer ──────────────────────────────────────────
+  let elapsedTimer = null;
+  let elapsedStart = 0;
+  function startElapsed(fromMs = 0) {
+    elapsedStart = Date.now() - fromMs;
+    elapsedTimer = setInterval(() => {
+      genElapsed.textContent = `${Math.floor((Date.now() - elapsedStart) / 1000)}s`;
+    }, 1000);
+  }
+  function stopElapsed() { clearInterval(elapsedTimer); elapsedTimer = null; }
+
+  // ── Log helpers ────────────────────────────────────────────
+  function appendLogLine(line) {
+    const el = document.createElement('div');
+    el.className = 'parse-log-line';
+    if (line.includes('[WARN]') || line.includes('[FATAL]') || line.includes('[ERROR]')) el.classList.add('error');
+    else if (line.includes('Done') || line.includes('Inserted') || line.includes('variant')) el.classList.add('highlight');
+    else if (line.includes('[LLM]') || line.includes('Sonnet') || line.includes('[BC-LP-GEN]')) el.classList.add('llm');
+    el.textContent = line;
+    logContainer.appendChild(el);
+    logContainer.scrollTop = logContainer.scrollHeight;
+  }
+
+  // ── Variant cards ──────────────────────────────────────────
+  const renderedIds = new Set(
+    [...document.querySelectorAll('.variant-card')]
+      .map(el => parseInt(el.id.replace('variant-', '')))
+      .filter(n => !isNaN(n))
+  );
+
+  const TYPE_COLORS = {
+    curiosity_hook: 'var(--teal)',
+    pain_mirror: '#ef4444',
+    outcome_promise: 'var(--gold)',
+  };
+
+  function appendVariantCard(v) {
+    if (renderedIds.has(v.id)) return;
+    let list = document.querySelector('.variants-list');
+    if (!list) {
+      list = document.createElement('div');
+      list.className = 'variants-list';
+      document.querySelector('.admin-section').appendChild(list);
+      const empty = document.querySelector('.empty-state');
+      if (empty) empty.style.display = 'none';
+    }
+    const color = TYPE_COLORS[v.variantType] || 'var(--text-muted)';
+    const modelShort = v.generationModel ? (v.generationModel.split('/')[1] || v.generationModel) : '';
+    const card = document.createElement('div');
+    card.className = 'variant-card';
+    card.id = `variant-${v.id}`;
+    card.dataset.id = String(v.id);
+    card.innerHTML = `
+      <div class="variant-header">
+        <div class="variant-badges">
+          <span class="variant-type" style="color:${color};background:${color}22">${v.variantType.replace(/_/g, ' ')}</span>
+          ${v.isSelected ? '<span class="variant-selected">★ Selected</span>' : ''}
+          <span class="variant-model">${modelShort}</span>
+        </div>
+        <h3 class="variant-label">${v.variantLabel}</h3>
+      </div>
+      <div class="variant-actions">
+        <button class="btn-preview" onclick="previewVariant(${v.id})">Preview HTML</button>
+        <button class="btn-copy" onclick="copyVariant(${v.id})">Copy HTML</button>
+        <button class="btn-select" onclick="selectVariant(${v.id})">★ Mark as Selected</button>
+      </div>`;
+    list.appendChild(card);
+    renderedIds.add(v.id);
+  }
+
+  async function fetchAndShowNewVariants() {
+    try {
+      const res = await fetch(`/api/brand-clarity/${PROJECT_ID}/variants-list`);
+      const data = await res.json();
+      for (const v of (data.variants || [])) appendVariantCard(v);
+    } catch {}
+  }
+
+  // ── SSE stream ─────────────────────────────────────────────
+  function connectStream(fromIndex) {
+    const es = new EventSource(`/api/brand-clarity/${PROJECT_ID}/variants/stream?from=${fromIndex}`);
+
+    es.onmessage = async (e) => {
+      let payload;
+      try { payload = JSON.parse(e.data); } catch { return; }
+
+      if (payload.line) {
+        appendLogLine(payload.line);
+      }
+
+      if (payload.done) {
+        es.close();
+        stopElapsed();
+        await fetchAndShowNewVariants();
+        document.getElementById('btn-download-logs').style.display = '';
+
+        const ok = payload.code === 0;
+        genStatus.textContent = ok ? `Done — ${payload.variantsGenerated} variants generated ✓` : 'Error ✗';
+        genStatus.className = `parse-status ${ok ? 'done' : 'error'}`;
+        genFooter.style.display = 'flex';
+        genResultMsg.className = ok ? 'parse-result-ok' : 'parse-result-error';
+        genResultMsg.textContent = ok
+          ? `${payload.variantsGenerated} new variants added.`
+          : 'Generation failed — check logs.';
+        generateBtn.disabled = false;
+        generateBtn.textContent = '+ Generate Again';
+      }
+    };
+
+    es.onerror = () => {
+      es.close();
+      stopElapsed();
+      genStatus.textContent = 'Stream disconnected';
+      genStatus.className = 'parse-status error';
+      generateBtn.disabled = false;
+      generateBtn.textContent = '+ Generate Again';
+    };
+  }
+
+  function showPanel(statusText) {
+    genFooter.style.display = 'none';
+    genStatus.textContent = statusText;
+    genStatus.className = 'parse-status running';
+    genElapsed.textContent = '';
+    document.getElementById('btn-download-logs').style.display = 'none';
+    genPanel.style.display = 'block';
+    genPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  // ── Restore on page load if job is running ─────────────────
+  (async () => {
+    try {
+      const res = await fetch(`/api/brand-clarity/${PROJECT_ID}/variants/status`);
+      const data = await res.json();
+      if (data.status === 'idle') return;
+
+      showPanel(data.status === 'running' ? 'Generating LP variants…' : data.status === 'done' ? 'Generation complete' : 'Error');
+
+      if (data.status === 'running') {
+        generateBtn.disabled = true;
+        generateBtn.textContent = 'Generating…';
+        const elapsed = data.startedAt ? Date.now() - data.startedAt : 0;
+        startElapsed(elapsed);
+        connectStream(0); // stream replays buffered lines from fromIndex=0
+      } else {
+        genStatus.className = `parse-status ${data.status === 'done' ? 'done' : 'error'}`;
+        genFooter.style.display = 'flex';
+        genResultMsg.className = data.status === 'done' ? 'parse-result-ok' : 'parse-result-error';
+        genResultMsg.textContent = data.status === 'done'
+          ? `${data.variantsGenerated} variants generated.`
+          : 'Generation failed.';
+        document.getElementById('btn-download-logs').style.display = '';
+        connectStream(0); // replay finished log
+      }
+    } catch { /* non-critical */ }
+  })();
+
+  // ── Generate button ────────────────────────────────────────
+  generateBtn?.addEventListener('click', async () => {
+    if (!confirm('Generate 3 new LP variants (Curiosity Hook, Pain Mirror, Outcome Promise)? This calls Claude Sonnet 3 times (~30-60s). Existing variants will be kept.')) return;
+    generateBtn.disabled = true;
+    generateBtn.textContent = 'Generating…';
+
+    logContainer.innerHTML = '';
+    showPanel('Generating LP variants…');
+    startElapsed();
+    appendLogLine('[BC-LP-GEN] Starting… Claude Sonnet generating 3 LP variants');
+
+    try {
+      const res = await fetch(`/api/brand-clarity/${PROJECT_ID}/generate-variants`, { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed');
+      // 202 Accepted — generation started, connect to SSE stream
+      connectStream(0);
+    } catch (e) {
+      stopElapsed();
+      genStatus.textContent = `Error ✗`;
+      genStatus.className = 'parse-status error';
+      genFooter.style.display = 'flex';
+      genResultMsg.className = 'parse-result-error';
+      genResultMsg.textContent = e.message;
+      generateBtn.disabled = false;
+      generateBtn.textContent = '+ Generate Again';
+    }
+  });
+
+  async function previewVariant(variantId) {
+    const res = await fetch(`/api/brand-clarity/${PROJECT_ID}/variants/${variantId}`);
+    if (!res.ok) { alert('Failed to load variant'); return; }
+    const data = await res.json();
+    document.getElementById('preview-iframe').srcdoc = data.htmlContent;
+    document.getElementById('preview-modal').style.display = 'flex';
+  }
+
+  async function copyVariant(variantId) {
+    const res = await fetch(`/api/brand-clarity/${PROJECT_ID}/variants/${variantId}`);
+    if (!res.ok) { alert('Failed to load variant'); return; }
+    const data = await res.json();
+    await navigator.clipboard.writeText(data.htmlContent);
+    alert('HTML copied to clipboard!');
+  }
+
+  async function selectVariant(variantId, selected = true) {
+    const res = await fetch(`/api/brand-clarity/${PROJECT_ID}/variants/${variantId}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ isSelected: selected }),
+    });
+    if (res.ok) window.location.reload();
+    else alert('Failed to update');
+  }
+
+  window.previewVariant = previewVariant;
+  window.copyVariant = copyVariant;
+  window.selectVariant = selectVariant;
+
+  document.getElementById('btn-download-logs')?.addEventListener('click', () => {
+    const text = Array.from(logContainer.querySelectorAll('.parse-log-line')).map(el => el.textContent).join('\n');
+    const blob = new Blob([text], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `bc-variants-${PROJECT_ID}-logs.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+
+  document.getElementById('modal-close')?.addEventListener('click', () => {
+    document.getElementById('preview-modal').style.display = 'none';
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') document.getElementById('preview-modal').style.display = 'none';
+  });
+</script>
+
+<style>
+.admin-layout { min-height: 100vh; background: var(--bg-base); }
+.admin-header { display: flex; align-items: center; gap: 1.25rem; padding: 0.875rem 1.5rem; background: var(--bg-elevated); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 20; }
+.admin-logo { font-family: var(--font-mono); font-weight: 700; color: var(--teal); text-decoration: none; font-size: 1.1rem; }
+.breadcrumb { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-secondary); display: flex; gap: 0.4rem; align-items: center; }
+.bc-link { color: var(--text-muted); text-decoration: none; }
+.bc-link:hover { color: var(--teal); }
+.bc-sep { color: var(--text-muted); }
+.bc-current { color: var(--text-secondary); }
+.header-actions { margin-left: auto; display: flex; gap: 0.5rem; align-items: center; }
+.project-status { font-family: var(--font-mono); font-size: 0.65rem; color: var(--gold); padding: 0.2rem 0.5rem; background: rgba(214,183,121,0.1); border-radius: 0.2rem; }
+.btn-logout { padding: 0.35rem 0.75rem; color: var(--text-muted); border: 1px solid var(--border); border-radius: 0.25rem; font-family: var(--font-mono); font-size: var(--text-xs); text-decoration: none; }
+.admin-main { max-width: 1000px; margin: 0 auto; padding: 1.75rem 1.5rem 3rem; display: flex; flex-direction: column; gap: 2rem; }
+.stage-bar { display: flex; align-items: center; gap: 0.5rem; font-family: var(--font-mono); font-size: 0.65rem; padding: 0.625rem 1rem; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 0.375rem; overflow-x: auto; }
+.stage { color: var(--text-muted); white-space: nowrap; }
+.stage.done { color: var(--teal); }
+.stage.active { color: var(--gold); font-weight: 700; }
+.stage-link { text-decoration: none; padding: 0.1rem 0.3rem; border-radius: 0.2rem; }
+.stage-link:hover { background: rgba(255,255,255,0.06); }
+.stage-link.done { color: var(--teal); }
+.stage-link:not(.done):hover { color: var(--text-secondary); }
+.stage-arrow { color: var(--border); }
+.admin-section { display: flex; flex-direction: column; gap: 1rem; }
+.section-header-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; padding-bottom: 0.875rem; border-bottom: 1px solid var(--border); }
+.section-title-block { display: flex; flex-direction: column; gap: 0.2rem; }
+.section-title { font-family: var(--font-mono); font-size: 1rem; color: var(--text-primary); font-weight: 700; margin: 0; }
+.section-subtitle { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); margin: 0; }
+.header-btns { display: flex; gap: 0.5rem; }
+.btn-generate { padding: 0.5rem 1.25rem; background: transparent; color: var(--violet); border: 1px solid var(--violet); border-radius: 0.375rem; font-family: var(--font-mono); font-size: var(--text-sm); cursor: pointer; }
+.btn-generate:hover { background: rgba(138,78,100,0.08); }
+.btn-generate:disabled { opacity: 0.5; cursor: not-allowed; }
+/* Parse panel (generation console) */
+.parse-panel { background: var(--bg-elevated); border: 1px solid rgba(138,78,100,0.3); border-radius: 0.5rem; overflow: hidden; }
+.parse-panel-top { display: flex; align-items: center; justify-content: space-between; padding: 0.625rem 1rem; background: rgba(138,78,100,0.05); border-bottom: 1px solid rgba(138,78,100,0.15); }
+.parse-panel-actions { display: flex; align-items: center; gap: 0.75rem; }
+.parse-status { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); }
+.parse-status.running { color: var(--violet); }
+.parse-status.done    { color: var(--teal); }
+.parse-status.error   { color: #ef4444; }
+.parse-elapsed { font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-muted); }
+.parse-log { height: 220px; overflow-y: auto; padding: 0.375rem 0; }
+.parse-log-line { padding: 0.1rem 1rem; color: var(--text-muted); border-left: 2px solid transparent; font-family: var(--font-mono); font-size: 0.71rem; line-height: 1.55; white-space: pre-wrap; word-break: break-all; }
+.parse-log-line.error     { color: #ef4444; border-left-color: #ef4444; }
+.parse-log-line.highlight { color: var(--teal); border-left-color: var(--teal); }
+.parse-log-line.llm       { color: var(--gold); }
+.parse-log::-webkit-scrollbar { width: 4px; }
+.parse-log::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; }
+.parse-footer { display: flex; align-items: center; gap: 1rem; padding: 0.5rem 1rem; background: rgba(255,255,255,0.03); border-top: 1px solid var(--border); font-family: var(--font-mono); font-size: var(--text-xs); }
+.parse-result-ok    { color: var(--teal); }
+.parse-result-error { color: #ef4444; }
+.btn-download-logs { padding: 0.25rem 0.75rem; background: none; border: 1px solid var(--border); color: var(--text-muted); border-radius: 0.25rem; font-family: var(--font-mono); font-size: 0.65rem; cursor: pointer; }
+.btn-download-logs:hover { border-color: var(--teal); color: var(--teal); }
+.empty-state { padding: 2.5rem; text-align: center; font-family: var(--font-mono); color: var(--text-muted); }
+.empty-state a { color: var(--teal); }
+.variants-list { display: flex; flex-direction: column; gap: 1rem; }
+.variant-card { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 0.5rem; overflow: hidden; }
+.variant-header { padding: 1rem 1.25rem 0.75rem; }
+.variant-badges { display: flex; gap: 0.5rem; margin-bottom: 0.5rem; align-items: center; flex-wrap: wrap; }
+.variant-type { padding: 0.2rem 0.5rem; border-radius: 0.25rem; font-family: var(--font-mono); font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.04em; font-weight: 600; }
+.variant-selected { padding: 0.2rem 0.5rem; border-radius: 0.25rem; background: rgba(74,141,131,0.15); color: var(--teal); font-family: var(--font-mono); font-size: 0.65rem; }
+.variant-model { font-family: var(--font-mono); font-size: 0.6rem; color: var(--text-muted); }
+.variant-label { font-family: var(--font-mono); font-size: var(--text-sm); font-weight: 700; color: var(--text-primary); margin: 0; }
+.improvements { padding: 0.75rem 1.25rem; border-top: 1px solid var(--border); background: rgba(255,255,255,0.02); }
+.imp-label { font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.5rem; }
+.imp-grid { display: flex; flex-direction: column; gap: 0.375rem; }
+.imp-item { display: flex; gap: 0.75rem; }
+.imp-section { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--teal); white-space: nowrap; min-width: 80px; font-weight: 600; }
+.imp-note { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-secondary); line-height: 1.5; }
+.variant-actions { padding: 0.75rem 1.25rem; border-top: 1px solid var(--border); display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.btn-preview { padding: 0.35rem 0.75rem; background: none; border: 1px solid var(--border); color: var(--text-secondary); border-radius: 0.25rem; font-family: var(--font-mono); font-size: var(--text-xs); cursor: pointer; }
+.btn-preview:hover { border-color: var(--teal); color: var(--teal); }
+.btn-copy   { padding: 0.35rem 0.75rem; background: none; border: 1px solid var(--border); color: var(--text-secondary); border-radius: 0.25rem; font-family: var(--font-mono); font-size: var(--text-xs); cursor: pointer; }
+.btn-copy:hover { border-color: var(--gold); color: var(--gold); }
+.btn-select { padding: 0.35rem 0.875rem; background: rgba(74,141,131,0.12); border: 1px solid rgba(74,141,131,0.3); color: var(--teal); border-radius: 0.25rem; font-family: var(--font-mono); font-size: var(--text-xs); cursor: pointer; }
+.btn-deselect { padding: 0.35rem 0.75rem; background: none; border: 1px solid var(--border); color: var(--text-muted); border-radius: 0.25rem; font-family: var(--font-mono); font-size: var(--text-xs); cursor: pointer; }
+.modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 200; display: flex; align-items: center; justify-content: center; padding: 0.75rem; }
+.modal-box { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 0.5rem; display: flex; flex-direction: column; width: 100%; max-width: 1400px; height: calc(100vh - 1.5rem); overflow: hidden; }
+.modal-header { display: flex; align-items: center; justify-content: space-between; padding: 0.625rem 1rem; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.modal-title { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--text-primary); margin: 0; }
+.modal-close { background: none; border: 1px solid var(--border); color: var(--text-muted); border-radius: 0.2rem; padding: 0.2rem 0.5rem; cursor: pointer; font-family: var(--font-mono); font-size: var(--text-xs); }
+.preview-iframe { flex: 1; border: none; background: #fff; min-height: 0; }
+.feature-map { padding: 0.75rem 1.25rem; border-top: 1px solid var(--border); background: rgba(74,141,131,0.03); }
+.feature-map-label { font-family: var(--font-mono); font-size: 0.65rem; color: var(--teal); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.5rem; }
+.feature-map-grid { display: flex; flex-direction: column; gap: 0.5rem; }
+.fmap-item { display: grid; grid-template-columns: 1fr auto 1fr; gap: 0.5rem; align-items: start; }
+.fmap-feature { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-primary); font-weight: 600; }
+.fmap-arrow { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); }
+.fmap-pain { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--violet); }
+.fmap-quote { grid-column: 1 / -1; font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-secondary); font-style: italic; padding-left: 0.5rem; border-left: 2px solid var(--gold); }
+</style>
+</Base>

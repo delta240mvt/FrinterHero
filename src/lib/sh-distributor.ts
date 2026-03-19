@@ -18,7 +18,7 @@ import {
   shPublishLog,
   shSocialAccounts,
 } from '../db/schema';
-import { eq, and, inArray } from 'drizzle-orm';
+import { eq, and, inArray, isNull, or } from 'drizzle-orm';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -191,12 +191,16 @@ export async function publishToUploadPost(opts: PublishOptions): Promise<Publish
 export async function publishBrief(
   briefId: number,
   overrides?: { accountIds?: number[]; scheduledFor?: Date },
+  siteId?: number | null,
 ): Promise<typeof shPublishLog.$inferSelect[]> {
+  const siteScoped = <T>(column: T) =>
+    siteId ? or(eq(column as never, siteId), isNull(column as never)) : undefined;
+
   // 1. Load brief
   const [brief] = await db
     .select()
     .from(shContentBriefs)
-    .where(eq(shContentBriefs.id, briefId))
+    .where(and(eq(shContentBriefs.id, briefId), siteScoped(shContentBriefs.siteId)))
     .limit(1);
 
   if (!brief) {
@@ -216,7 +220,7 @@ export async function publishBrief(
   const accounts = await db
     .select()
     .from(shSocialAccounts)
-    .where(inArray(shSocialAccounts.id, accountIds));
+    .where(and(inArray(shSocialAccounts.id, accountIds), siteScoped(shSocialAccounts.siteId)));
 
   if (!accounts.length) {
     throw new Error(`[sh-distributor] No active accounts found for ids: ${accountIds.join(',')}`);
@@ -229,6 +233,7 @@ export async function publishBrief(
     .where(
       and(
         eq(shGeneratedCopy.briefId, briefId),
+        siteScoped(shGeneratedCopy.siteId),
         eq(shGeneratedCopy.status, 'approved'),
       ),
     )
@@ -245,6 +250,7 @@ export async function publishBrief(
     .where(
       and(
         eq(shMediaAssets.briefId, briefId),
+        siteScoped(shMediaAssets.siteId),
         eq(shMediaAssets.status, 'completed'),
       ),
     )
@@ -301,6 +307,7 @@ export async function publishBrief(
     const [inserted] = await db
       .insert(shPublishLog)
       .values({
+        siteId: siteId ?? brief.siteId ?? null,
         briefId,
         mediaAssetId: media.id,
         accountId: account.id,
@@ -321,7 +328,7 @@ export async function publishBrief(
   await db
     .update(shContentBriefs)
     .set({ status: 'published' })
-    .where(eq(shContentBriefs.id, briefId));
+    .where(and(eq(shContentBriefs.id, briefId), siteScoped(shContentBriefs.siteId)));
 
   // 8. Return all log records
   return publishLogs;

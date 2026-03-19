@@ -1,18 +1,40 @@
 # workers
 
-Worker workspaces for the future distributed Railway deployment.
+Worker workspaces for the distributed Railway deployment.
 
-Phase 1 recommended runtime:
+Current runtime split:
 
-- `runner`
+- `worker-general` via `workers/runner`
+- `worker-bc` for `bc-scrape`, `bc-parse`, `bc-selector`, `bc-cluster`, `bc-generate`
 - `worker-sh-copy`
 - `worker-sh-video`
 
-Phase 2 target:
+`worker-general` handles:
 
-- `worker-geo-drafts`
+- `geo`
+- `draft`
+- `reddit`
+- `youtube`
+- `sh-publish`
+
+`worker-bc` handles:
+
+- `bc-scrape`
+- `bc-parse`
+- `bc-selector`
+- `bc-cluster`
+- `bc-generate`
+
+Later optional splits:
+
 - `worker-reddit`
 - `worker-youtube`
-- `worker-bc`
-- `worker-sh-copy`
-- `worker-sh-video`
+
+Legacy / local helper:
+
+- `worker-geo-drafts`
+
+Important:
+
+- dedicated worker workspaces are deployable service targets
+- they currently reuse the shared implementation in `workers/runner/src/index.ts`

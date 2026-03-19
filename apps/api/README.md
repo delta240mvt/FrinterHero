@@ -1,9 +1,9 @@
 # apps/api
 
-Bootstrap workspace for the future central API service.
+Central API workspace.
 
 Current state:
 
-- exposes a minimal HTTP runtime via `scripts/monorepo/api-server.mjs`
-- intended to replace monolithic `src/pages/api/*`
-- will become the only DB-connected public backend
+- real runtime entrypoint is `apps/api/src/server.ts`
+- this workspace is the central HTTP backend for the distributed split
+- it is the intended DB-connected public backend for auth, CRUD, orchestration and job APIs

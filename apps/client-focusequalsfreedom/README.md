@@ -1,9 +1,9 @@
 # apps/client-focusequalsfreedom
 
-Bootstrap workspace for client2.
+BFF shell workspace for client2.
 
 Current state:
 
-- delegates to the root legacy app
+- starts through `scripts/monorepo/client-bff.mjs`
 - `SITE_SLUG=focusequalsfreedom` is injected during launch
-- will be replaced by a dedicated extracted client app
+- proxies to the central API and can still use transitional fallback routes where needed
