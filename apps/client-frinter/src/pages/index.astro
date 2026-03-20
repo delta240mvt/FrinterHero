@@ -855,27 +855,26 @@ const ldString = JSON.stringify({
       .hero-portal {
         flex-shrink: 0;
         width: min(420px, 38%);
-        aspect-ratio: 1;
-        display: flex;
-        align-items: center;
-        justify-content: center;
         pointer-events: none;
       }
 
       .portal-shell {
         position: relative;
         width: 100%;
-        height: 100%;
-        border: 6px solid var(--text);
+        aspect-ratio: 1;
+        border: 6px solid #111827;
         border-radius: 999px;
         background: var(--panel);
         overflow: hidden;
-        box-shadow: var(--shadow);
+        box-shadow: 0 24px 60px rgba(15, 23, 42, 0.12);
       }
 
       .portal-canvas {
+        position: absolute;
+        inset: 0;
         width: 100%;
         height: 100%;
+        image-rendering: pixelated;
       }
 
       .portal-vignette {
@@ -1775,19 +1774,34 @@ const ldString = JSON.stringify({
         .hero-inner {
           flex-direction: column;
           align-items: stretch;
-          gap: 32px;
+          gap: 0;
           min-height: auto;
-          padding: 40px 0 48px;
+          padding: 40px 0 52px;
         }
-        .hero-focus-h1 { font-size: clamp(1.9rem, 7vw, 2.8rem); }
-        .hero-focus-subhead { font-size: 1rem; margin-bottom: 28px; }
-        .hero-focus-cta-stack { align-items: stretch; }
-        .btn-focus-primary { width: 100%; text-align: center; box-sizing: border-box; }
-        .hero-portal {
-          width: min(300px, 80%);
-          margin: 0 auto;
-          aspect-ratio: 1;
+        .hero-portal { display: none; }
+        .hero-focus-label { margin-bottom: 14px; }
+        .hero-focus-h1 {
+          font-size: clamp(1.85rem, 7.5vw, 2.6rem);
+          margin-bottom: 18px;
         }
+        .hero-focus-subhead {
+          font-size: 1rem;
+          margin-bottom: 28px;
+          max-width: 100%;
+        }
+        .hero-focus-cta-stack {
+          align-items: stretch;
+          margin-bottom: 28px;
+        }
+        .btn-focus-primary {
+          width: 100%;
+          text-align: center;
+          box-sizing: border-box;
+          padding: 16px 24px;
+        }
+        .hero-stat-bar { gap: 16px; }
+        .hero-stat-value { font-size: 1.1rem; }
+        .hero-stat-label { font-size: 0.65rem; }
         .hero-actions {
           flex-direction: column;
           gap: 16px;
@@ -2448,8 +2462,6 @@ const ldString = JSON.stringify({
         .pricing-section-new h2 { font-size: 1.55rem; }
         .wyg-check-new { font-size: 0.9rem; }
         .big-price-new { font-size: 3rem; }
-        .hero-stat-bar { gap: 16px; }
-        .hero-stat-value { font-size: 1.1rem; }
       }
     </style>
   </head>
