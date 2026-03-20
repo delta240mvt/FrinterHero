@@ -1767,7 +1767,8 @@ const ldString = JSON.stringify({
 
       @media (max-width: 768px) {
         .container,
-        .narrow-container {
+        .narrow-container,
+        .content-narrow {
           padding: 0 16px;
         }
         .header-nav {
@@ -1776,8 +1777,17 @@ const ldString = JSON.stringify({
         .mobile-header-controls {
           display: flex;
         }
-        .hero { min-height: auto; padding-top: 72px; }
-        .hero-copy { padding-bottom: 24px; }
+        .hero { min-height: auto; padding-top: 56px; }
+        .hero-copy { padding: 32px 0 28px; }
+        .hero-inner { min-height: auto; }
+        .hero-focus-h1 { font-size: clamp(1.75rem, 7vw, 2.8rem); }
+        .hero-focus-subhead { font-size: 1rem; margin-bottom: 28px; }
+        .hero-focus-cta-stack { align-items: stretch; }
+        .btn-focus-primary { width: 100%; text-align: center; box-sizing: border-box; }
+        .hero-portal {
+          width: min(320px, 88%);
+          margin: 32px auto 0;
+        }
         .hero-actions {
           flex-direction: column;
           gap: 16px;
@@ -2390,8 +2400,17 @@ const ldString = JSON.stringify({
         .wyg-section-new,
         .social-proof-section-new,
         .pricing-section-new,
-        .cta-final-section { padding: 64px 0; }
-        .price-card-new { padding: 32px 22px; }
+        .cta-final-section { padding: 56px 0; }
+        .price-card-new { padding: 32px 20px; }
+        .fcard-new { padding: 20px; }
+        .qcard-new { padding: 20px 20px 16px; }
+        .not-fault-new,
+        .failed-box-new { padding: 18px; }
+        .problem-blockquote { padding: 14px 16px; }
+        .cta-final-section h2 { font-size: 1.55rem; }
+        .pricing-section-new h2 { font-size: 1.55rem; }
+        .wyg-check-new { font-size: 0.9rem; }
+        .big-price-new { font-size: 3rem; }
       }
     </style>
   </head>
