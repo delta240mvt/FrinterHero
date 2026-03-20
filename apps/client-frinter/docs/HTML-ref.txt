@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>frinter.app — Focus OS for Founders</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', sans-serif;
+      background: #080808;
+      color: #e0e0e0;
+      line-height: 1.65;
+      font-size: 18px;
+    }
+
+    h1 { font-size: clamp(2rem, 5.5vw, 3.6rem); font-weight: 900; line-height: 1.08; letter-spacing: -0.03em; }
+    h2 { font-size: clamp(1.55rem, 3.8vw, 2.4rem); font-weight: 800; line-height: 1.18; letter-spacing: -0.02em; }
+    h3 { font-size: 1.15rem; font-weight: 700; }
+    p  { font-size: 1rem; line-height: 1.75; }
+
+    .container { max-width: 740px; margin: 0 auto; padding: 0 24px; }
+    section     { padding: 88px 0; }
+
+    .accent  { color: #ff4500; }
+    .muted   { color: #666; }
+
+    /* ── NAV ── */
+    nav {
+      padding: 18px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #161616;
+      background: #080808;
+      position: sticky;
+      top: 0;
+      z-index: 200;
+    }
+    .logo          { font-weight: 900; font-size: 1.1rem; color: #fff; letter-spacing: -0.03em; }
+    .logo span     { color: #ff4500; }
+    .nav-cta       { font-size: 0.85rem; font-weight: 700; color: #ff4500; text-decoration: none; padding: 8px 16px; border: 1px solid #ff4500; border-radius: 5px; }
+    .nav-cta:hover { background: #ff4500; color: #fff; }
+
+    /* ── BUTTONS ── */
+    .btn-primary {
+      display: inline-block;
+      background: #ff4500;
+      color: #fff;
+      font-weight: 800;
+      font-size: 1rem;
+      padding: 17px 34px;
+      border-radius: 6px;
+      text-decoration: none;
+      letter-spacing: 0.01em;
+      border: none;
+      cursor: pointer;
+    }
+    .btn-ghost {
+      display: inline-block;
+      color: #555;
+      font-size: 0.875rem;
+      text-decoration: none;
+      margin-top: 6px;
+    }
+
+    /* ── EYEBROW / LABEL ── */
+    .section-label {
+      display: block;
+      font-size: 0.68rem;
+      font-weight: 800;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: #ff4500;
+      margin-bottom: 14px;
+    }
+
+    /* ── HERO ── */
+    .hero {
+      padding: 104px 0 88px;
+      background: #080808;
+      border-bottom: 1px solid #141414;
+    }
+    .hero h1 { margin-bottom: 22px; }
+    .hero h1 em { font-style: normal; color: #ff4500; }
+    .hero .subhead {
+      font-size: 1.1rem;
+      color: #888;
+      max-width: 560px;
+      margin-bottom: 40px;
+      line-height: 1.7;
+    }
+    .cta-stack { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; }
+
+    /* ── PROBLEM ── */
+    .problem { background: #0c0c0c; border-top: 1px solid #161616; border-bottom: 1px solid #161616; }
+    .problem .opener { font-size: 1.1rem; color: #bbb; margin-top: 24px; margin-bottom: 28px; }
+    .problem blockquote {
+      border-left: 3px solid #ff4500;
+      padding: 18px 20px;
+      margin: 28px 0;
+      background: #111;
+      border-radius: 0 6px 6px 0;
+      font-style: italic;
+      color: #ccc;
+      font-size: 0.975rem;
+    }
+    .problem blockquote cite { display: block; margin-top: 10px; font-style: normal; font-size: 0.75rem; color: #444; }
+    .failed-box {
+      background: #0f0f0f;
+      border: 1px solid #1e1e1e;
+      border-radius: 8px;
+      padding: 24px;
+      margin: 28px 0;
+      color: #999;
+      font-size: 0.95rem;
+    }
+    .failed-box strong { color: #ccc; }
+    .not-fault {
+      background: #0a150a;
+      border: 1px solid #1a3a1a;
+      border-radius: 8px;
+      padding: 24px;
+      margin-top: 28px;
+    }
+    .not-fault p { color: #aaa; font-size: 0.975rem; }
+    .not-fault strong { color: #5fba5f; }
+
+    /* ── SOLUTION ── */
+    .solution { background: #080808; }
+    .solution .transition-pull {
+      font-size: 1.1rem;
+      color: #888;
+      font-style: italic;
+      border-left: 3px solid #ff4500;
+      padding-left: 20px;
+      margin: 28px 0 44px;
+      line-height: 1.75;
+    }
+    .sol-intro { color: #888; margin-bottom: 40px; }
+    .sol-intro strong { color: #e0e0e0; }
+
+    .fcard {
+      background: #101010;
+      border: 1px solid #1e1e1e;
+      border-radius: 10px;
+      padding: 30px;
+      margin-bottom: 18px;
+      position: relative;
+    }
+    .fcard:hover { border-color: #333; }
+    .fcard-num { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: #ff4500; margin-bottom: 8px; }
+    .fcard h3  { margin-bottom: 10px; color: #fff; font-size: 1.05rem; }
+    .fcard .fdoes   { color: #999; font-size: 0.925rem; margin-bottom: 14px; line-height: 1.7; }
+    .fcard .fbenefit { color: #5fba5f; font-size: 0.875rem; font-weight: 600; }
+
+    /* ── WHAT YOU GET ── */
+    .what-you-get { background: #0c0c0c; border-top: 1px solid #161616; border-bottom: 1px solid #161616; }
+    .wyg-grid { display: grid; gap: 10px; margin-top: 32px; }
+    .wyg-item {
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+      padding: 16px 18px;
+      background: #111;
+      border: 1px solid #1a1a1a;
+      border-radius: 7px;
+    }
+    .wyg-check { color: #ff4500; font-weight: 900; font-size: 1rem; flex-shrink: 0; line-height: 1.6; }
+    .wyg-text strong { color: #e0e0e0; display: block; font-size: 0.95rem; margin-bottom: 2px; }
+    .wyg-text span   { color: #666; font-size: 0.825rem; }
+
+    /* ── SOCIAL PROOF ── */
+    .social-proof { background: #080808; }
+    .qcard {
+      background: #101010;
+      border: 1px solid #1a1a1a;
+      border-radius: 10px;
+      padding: 28px 28px 22px;
+      margin-bottom: 18px;
+      position: relative;
+    }
+    .qcard::before {
+      content: '\201C';
+      font-size: 5rem;
+      color: #ff4500;
+      opacity: 0.18;
+      position: absolute;
+      top: 4px;
+      left: 18px;
+      line-height: 1;
+      font-family: Georgia, serif;
+    }
+    .qcard p { font-style: italic; color: #bbb; font-size: 0.975rem; padding-top: 18px; }
+    .qcard .attr { margin-top: 12px; font-size: 0.75rem; color: #444; }
+    .join-note { margin-top: 40px; text-align: center; font-size: 0.9rem; color: #555; }
+    .join-note strong { color: #888; }
+
+    /* ── PRICING ── */
+    .pricing { background: #0c0c0c; border-top: 1px solid #161616; border-bottom: 1px solid #161616; }
+    .price-card {
+      background: #101010;
+      border: 1px solid #2a2a2a;
+      border-radius: 12px;
+      padding: 44px 40px;
+      max-width: 460px;
+      margin: 0 auto;
+      text-align: center;
+    }
+    .beta-tag {
+      display: inline-block;
+      background: #1a1500;
+      color: #ffc200;
+      font-size: 0.7rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 5px 11px;
+      border-radius: 4px;
+      border: 1px solid #3a3000;
+      margin-bottom: 16px;
+    }
+    .big-price { font-size: 4rem; font-weight: 900; color: #fff; line-height: 1; margin-bottom: 6px; }
+    .price-note-sub { font-size: 0.8rem; color: #555; margin-bottom: 28px; }
+    .price-list { text-align: left; margin: 0 0 32px; }
+    .price-list p { font-size: 0.875rem; color: #777; margin-bottom: 9px; }
+    .price-list p::before { content: '✓  '; color: #ff4500; font-weight: 900; }
+    .price-caveat { margin-top: 14px; font-size: 0.75rem; color: #3a3a3a; }
+
+    /* ── CTA FOOTER ── */
+    .cta-section { background: #080808; text-align: center; }
+    .cta-section h2 { margin-bottom: 14px; }
+    .cta-section .cta-sub {
+      color: #666;
+      font-size: 0.975rem;
+      max-width: 480px;
+      margin: 0 auto 36px;
+    }
+    .cta-section .objection { margin-top: 20px; font-size: 0.825rem; color: #444; }
+
+    /* ── FOOTER ── */
+    footer {
+      border-top: 1px solid #141414;
+      padding: 44px 0;
+      text-align: center;
+      background: #050505;
+    }
+    footer .flogo { font-weight: 900; color: #333; font-size: 1rem; margin-bottom: 10px; }
+    footer .flogo span { color: #ff4500; opacity: 0.5; }
+    footer p { font-size: 0.75rem; color: #2e2e2e; }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 600px) {
+      section { padding: 64px 0; }
+      .hero   { padding: 72px 0 64px; }
+      .price-card { padding: 32px 22px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ============================================================ NAV -->
+<nav>
+  <div class="logo">frinter<span>.</span>app</div>
+  <a href="#join" class="nav-cta">Join Free →</a>
+</nav>
+
+
+<!-- ============================================================ HERO -->
+<section class="hero">
+  <div class="container">
+    <span class="section-label">Focus OS — Built for Founders</span>
+    <h1>Give me 10 minutes of setup.<br><em>Get 90-minute work sessions where your phone stops existing.</em></h1>
+    <p class="subhead">frinter converts your sleep into a daily battery reading — then times and scores every deep work session you do. You see the data. You stop guessing.</p>
+    <div class="cta-stack">
+      <a href="#join" class="btn-primary">Start Free — Join Beta Now</a>
+      <span class="btn-ghost muted">No credit card. No catch. $0 to get in.</span>
+    </div>
+  </div>
+</section>
+
+
+<!-- ============================================================ PROBLEM -->
+<section class="problem">
+  <div class="container">
+    <span class="section-label">The Problem</span>
+    <h2>You sit down to work.<br>90 seconds later, you're somewhere else.</h2>
+
+    <p class="opener">You know that moment. Sitting down to start focused work. Then — within 2–5 minutes — you're on a completely different tab, app, or device. You didn't decide to switch. It just happened. Again.</p>
+
+    <p style="color:#888; margin-bottom: 24px;">And the worst part? It happens before you're even aware of it. Here's how other people describe it in their own words:</p>
+
+    <blockquote>
+      "Im dopamine sick! The reward center of my brain was really screwed up — anytime things were difficult or uncomfortable I would turn to porn or video games"
+      <cite>— Real comment, focus & productivity video, 847K+ views</cite>
+    </blockquote>
+
+    <blockquote>
+      "I sadly have like stage 3 dopamine sickness — this, over here, that, what's this, over there, that, now this again"
+      <cite>— Real comment, same video</cite>
+    </blockquote>
+
+    <blockquote>
+      "that habit alone sucked much of my attention from one of my most favorite things — I bricked my phone just to get it back"
+      <cite>— Real comment, same video</cite>
+    </blockquote>
+
+    <p style="color:#888; margin-bottom: 24px;">Sound familiar? You've tried to fix this. Here's what you've already attempted:</p>
+
+    <div class="failed-box">
+      <strong>You deleted social media apps.</strong> You reinstalled them within days.<br><br>
+      <strong>You changed environments.</strong> New coffee shop. Library. Your brain turned each one into a procrastination zone within a week.<br><br>
+      <strong>You set screen time limits.</strong> You overrode them the second boredom showed up.
+    </div>
+
+    <p style="color:#888;">None of it held. Because none of it gave you data. There was no feedback loop. No way to see the real pattern. Just shame, reset, and repeat.</p>
+
+    <div class="not-fault">
+      <p><strong>It's not your fault.</strong> Tech companies spent billions of dollars engineering apps to hijack your attention. Your brain's reward system got rewired — the same way a slot machine rewires a gambler's. Willpower doesn't beat billion-dollar algorithms. <strong>A system with data does.</strong></p>
+    </div>
+  </div>
+</section>
+
+
+<!-- ============================================================ SOLUTION -->
+<section class="solution">
+  <div class="container">
+    <span class="section-label">The Solution</span>
+    <h2>What if sitting down to work<br>actually meant working?</h2>
+
+    <p class="transition-pull">What if sitting down to do focused work meant actually staying there — the phone not even entering the equation, deep reading feeling like the natural default, real work feeling rewarding again instead of like swimming upstream against your own nervous system?</p>
+
+    <p class="sol-intro">frinter is a Focus OS. It gives you four things willpower never could: <strong>data, structure, feedback, and visibility.</strong> Here's how it works.</p>
+
+    <div class="fcard">
+      <div class="fcard-num">01 — The Core Tool</div>
+      <h3>The Frint — Your Deep Work Timer</h3>
+      <p class="fdoes">A "Frint" is a timed block of pure creation work. You start one — phone goes away, only real output counts. Coding, writing, strategy. Zero admin. After it ends, you rate how deep your focus actually was. That score gets recorded.</p>
+      <p class="fbenefit">→ So you can see in hard numbers if you actually worked — or just sat near a laptop for 90 minutes.</p>
+    </div>
+
+    <div class="fcard">
+      <div class="fcard-num">02 — Your Battery Reading</div>
+      <h3>Your Energy Bar</h3>
+      <p class="fdoes">An algorithm reads your sleep data and converts it into a single battery percentage each morning. Today you're at 78%. Or 29%. Now you know whether to schedule deep creative work — or book calls and easy tasks instead.</p>
+      <p class="fbenefit">→ So you stop forcing 3-hour deep work sessions on 4 hours of sleep and blaming yourself when they fail.</p>
+    </div>
+
+    <div class="fcard">
+      <div class="fcard-num">03 — Your Weekly Blind Spots</div>
+      <h3>The FRINT Check-in</h3>
+      <p class="fdoes">Once a week. 5 minutes. You score 5 areas of your life on a 1–10 scale: Flow, Relationships, Inner Balance, Nourishment, and Transcendence. It's a structured audit — not journaling, not therapy. Just five numbers you can act on.</p>
+      <p class="fbenefit">→ So you catch slow burnout before it wipes out 3 productive weeks without warning.</p>
+    </div>
+
+    <div class="fcard">
+      <div class="fcard-num">04 — Your Real Pattern</div>
+      <h3>The Tracker</h3>
+      <p class="fdoes">A monthly visual map of every focus session you've logged. You see which weeks held and which ones collapsed. You see the actual numbers — not your memory of them. No more "I think I worked hard this month."</p>
+      <p class="fbenefit">→ So you stop lying to yourself about how much real work you actually did.</p>
+    </div>
+  </div>
+</section>
+
+
+<!-- ============================================================ WHAT YOU GET -->
+<section class="what-you-get">
+  <div class="container">
+    <span class="section-label">What You Get</span>
+    <h2>Everything inside frinter.<br>No surprises.</h2>
+    <p style="color:#666; margin-top:12px;">Here's every single tool you get access to in beta.</p>
+
+    <div class="wyg-grid">
+
+      <div class="wyg-item">
+        <span class="wyg-check">✓</span>
+        <div class="wyg-text">
+          <strong>Frint Timer (Deep Work)</strong>
+          <span>Times focus sessions. Scores your depth after each one.</span>
+        </div>
+      </div>
+
+      <div class="wyg-item">
+        <span class="wyg-check">✓</span>
+        <div class="wyg-text">
+          <strong>Your Energy Bar</strong>
+          <span>Turns sleep data into your daily battery percentage.</span>
+        </div>
+      </div>
+
+      <div class="wyg-item">
+        <span class="wyg-check">✓</span>
+        <div class="wyg-text">
+          <strong>Flourishing Timer (You)</strong>
+          <span>Tracks sports, reading, meditation. Your recharge time measured.</span>
+        </div>
+      </div>
+
+      <div class="wyg-item">
+        <span class="wyg-check">✓</span>
+        <div class="wyg-text">
+          <strong>Relationships Tracker (Loved Ones)</strong>
+          <span>Shows in black and white if you're neglecting people.</span>
+        </div>
+      </div>
+
+      <div class="wyg-item">
+        <span class="wyg-check">✓</span>
+        <div class="wyg-text">
+          <strong>Frint Journal</strong>
+          <span>Logs your most important monthly tasks. Nothing falls through.</span>
+        </div>
+      </div>
+
+      <div class="wyg-item">
+        <span class="wyg-check">✓</span>
+        <div class="wyg-text">
+          <strong>Tracker</strong>
+          <span>Monthly visual map of every focus session. Patterns visible.</span>
+        </div>
+      </div>
+
+      <div class="wyg-item">
+        <span class="wyg-check">✓</span>
+        <div class="wyg-text">
+          <strong>Analytics</strong>
+          <span>Monthly and yearly data with a built-in recommendations engine.</span>
+        </div>
+      </div>
+
+      <div class="wyg-item">
+        <span class="wyg-check">✓</span>
+        <div class="wyg-text">
+          <strong>FRINT Check-in</strong>
+          <span>Weekly 5-area life audit. Each area scored 1–10.</span>
+        </div>
+      </div>
+
+      <div class="wyg-item">
+        <span class="wyg-check">✓</span>
+        <div class="wyg-text">
+          <strong>Rankings</strong>
+          <span>Competitive score based on deep work and recovery consistency.</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+
+<!-- ============================================================ SOCIAL PROOF -->
+<section class="social-proof">
+  <div class="container">
+    <span class="section-label">People Like You</span>
+    <h2>You're not the only one<br>who feels this exact thing.</h2>
+    <p style="color:#666; margin-top:12px; margin-bottom:40px;">These are real words from real people. No edits. No polish.</p>
+
+    <div class="qcard">
+      <p>"Im dopamine sick! The reward center of my brain was really screwed up — anytime things were difficult or uncomfortable I would turn to porn or video games"</p>
+      <div class="attr">— YouTube comment, focus video with 847,000+ views</div>
+    </div>
+
+    <div class="qcard">
+      <p>"I sadly have like stage 3 dopamine sickness — this, over here, that, what's this, over there, that, now this again"</p>
+      <div class="attr">— YouTube comment, same video</div>
+    </div>
+
+    <div class="qcard">
+      <p>"that habit alone sucked much of my attention from one of my most favorite things — I bricked my phone just to get it back"</p>
+      <div class="attr">— YouTube comment, same video</div>
+    </div>
+
+    <p class="join-note">Join <strong>founders and builders</strong> who felt exactly this — and chose data over willpower.</p>
+  </div>
+</section>
+
+
+<!-- ============================================================ PRICING -->
+<section class="pricing" id="join">
+  <div class="container">
+    <span class="section-label">Pricing</span>
+    <h2 style="text-align:center; margin-bottom:40px;">Free while we're in beta.</h2>
+
+    <div class="price-card">
+      <span class="beta-tag">Beta Access</span>
+      <div class="big-price">$0</div>
+      <p class="price-note-sub">Full access. No credit card. No expiry date set yet.</p>
+
+      <div class="price-list">
+        <p>All 9 features from day one</p>
+        <p>Energy Bar + Frint Timer included</p>
+        <p>Weekly FRINT Check-in included</p>
+        <p>Analytics + Rankings included</p>
+        <p>Direct say in what we build next</p>
+      </div>
+
+      <a href="#" class="btn-primary" style="display:block; text-align:center; font-size:1rem; padding:18px 32px;">Give Me 10 Minutes — Start Free</a>
+      <p class="price-caveat">Beta pricing ends without notice. Lock it in now.</p>
+    </div>
+  </div>
+</section>
+
+
+<!-- ============================================================ CTA -->
+<section class="cta-section">
+  <div class="container">
+    <span class="section-label">Ready?</span>
+    <h2>Give me 10 minutes of setup.<br>Get your first 90-minute deep work session today.</h2>
+    <p class="cta-sub">No willpower needed. No app deletions. No coffee shop moves. Just data — showing you exactly when to work and when to stop.</p>
+    <a href="#join" class="btn-primary" style="font-size:1.05rem; padding:20px 40px;">Start Free — Join Beta Now</a>
+    <p class="objection">Already deleted apps 3 times this year? This works differently. It measures — it doesn't restrict.</p>
+  </div>
+</section>
+
+
+<!-- ============================================================ FOOTER -->
+<footer>
+  <div class="container">
+    <p class="flogo">frinter<span>.</span>app</p>
+    <p>© 2025 frinter.app — Built for founders who are done pretending willpower is a strategy.</p>
+  </div>
+</footer>
+
+</body>
+</html>
