@@ -1,7 +1,7 @@
 ---
 export const prerender = true;
 
-const APP_URL = import.meta.env.PUBLIC_APP_URL || 'https://app.frinter.app';
+const APP_URL = import.meta.env.PUBLIC_APP_URL || 'https://web.frinter.app';
 const year = new Date().getFullYear();
 
 const content = {
@@ -555,13 +555,16 @@ const ldString = JSON.stringify({
       }
 
       .hero-inner {
-        position: relative;
-        min-height: calc(90vh - 96px);
+        display: flex;
+        align-items: center;
+        gap: 64px;
+        min-height: calc(88vh - 80px);
+        padding: 56px 0 64px;
       }
 
       .hero-copy {
-        width: min(100%, 680px);
-        padding: 48px 0 64px;
+        flex: 1;
+        min-width: 0;
         position: relative;
         z-index: 2;
       }
@@ -850,11 +853,8 @@ const ldString = JSON.stringify({
       }
 
       .hero-portal {
-        position: absolute;
-        right: 2%;
-        top: 50%;
-        transform: translateY(-50%);
-        width: min(35%, 500px);
+        flex-shrink: 0;
+        width: min(420px, 38%);
         aspect-ratio: 1;
         display: flex;
         align-items: center;
@@ -1739,14 +1739,8 @@ const ldString = JSON.stringify({
       }
 
       @media (max-width: 1200px) {
-        .hero-copy { width: 100%; }
         .hero-portal {
-          position: relative;
-          top: auto;
-          right: auto;
-          transform: none;
-          width: min(420px, 100%);
-          margin: 48px auto 0;
+          width: min(360px, 40%);
         }
         .feature-grid,
         .social-grid,
@@ -1777,16 +1771,22 @@ const ldString = JSON.stringify({
         .mobile-header-controls {
           display: flex;
         }
-        .hero { min-height: auto; padding-top: 56px; }
-        .hero-copy { padding: 32px 0 28px; }
-        .hero-inner { min-height: auto; }
-        .hero-focus-h1 { font-size: clamp(1.75rem, 7vw, 2.8rem); }
+        .hero { min-height: auto; }
+        .hero-inner {
+          flex-direction: column;
+          align-items: stretch;
+          gap: 32px;
+          min-height: auto;
+          padding: 40px 0 48px;
+        }
+        .hero-focus-h1 { font-size: clamp(1.9rem, 7vw, 2.8rem); }
         .hero-focus-subhead { font-size: 1rem; margin-bottom: 28px; }
         .hero-focus-cta-stack { align-items: stretch; }
         .btn-focus-primary { width: 100%; text-align: center; box-sizing: border-box; }
         .hero-portal {
-          width: min(320px, 88%);
-          margin: 32px auto 0;
+          width: min(300px, 80%);
+          margin: 0 auto;
+          aspect-ratio: 1;
         }
         .hero-actions {
           flex-direction: column;
@@ -1930,12 +1930,12 @@ const ldString = JSON.stringify({
 
       .hero-focus-h1 {
         font-family: 'Poppins', sans-serif;
-        font-size: clamp(2rem, 5.5vw, 3.6rem);
+        font-size: clamp(2.4rem, 5.5vw, 4.2rem);
         font-weight: 900;
-        line-height: 1.08;
-        letter-spacing: -0.03em;
+        line-height: 1.05;
+        letter-spacing: -0.035em;
         color: #111827;
-        margin-bottom: 22px;
+        margin-bottom: 24px;
       }
 
       .hero-focus-h1 em {
@@ -1948,9 +1948,9 @@ const ldString = JSON.stringify({
 
       .hero-focus-subhead {
         font-family: 'Roboto', sans-serif;
-        font-size: 1.15rem;
+        font-size: 1.2rem;
         color: #374151;
-        max-width: 560px;
+        max-width: 520px;
         margin-bottom: 40px;
         line-height: 1.75;
       }
@@ -1959,7 +1959,44 @@ const ldString = JSON.stringify({
         display: flex;
         flex-direction: column;
         align-items: flex-start;
-        gap: 10px;
+        gap: 12px;
+        margin-bottom: 32px;
+      }
+
+      .hero-stat-bar {
+        display: flex;
+        align-items: center;
+        gap: 24px;
+        flex-wrap: wrap;
+      }
+
+      .hero-stat {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+
+      .hero-stat-value {
+        font-family: 'Courier Prime', monospace;
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: #111827;
+        line-height: 1;
+      }
+
+      .hero-stat-label {
+        font-family: 'Roboto', sans-serif;
+        font-size: 0.7rem;
+        color: #9ca3af;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+
+      .hero-stat-divider {
+        width: 1px;
+        height: 32px;
+        background: #e5e7eb;
+        flex-shrink: 0;
       }
 
       .btn-focus-primary {
@@ -2411,6 +2448,8 @@ const ldString = JSON.stringify({
         .pricing-section-new h2 { font-size: 1.55rem; }
         .wyg-check-new { font-size: 0.9rem; }
         .big-price-new { font-size: 3rem; }
+        .hero-stat-bar { gap: 16px; }
+        .hero-stat-value { font-size: 1.1rem; }
       }
     </style>
   </head>
@@ -2420,12 +2459,6 @@ const ldString = JSON.stringify({
         <div class="container site-header-inner">
           <a href="/en/" class="logo">frinter<span class="logo-dot">.</span></a>
           <nav class="header-nav" aria-label="Primary">
-            <a class="header-chip" href="/">
-              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 2a10 10 0 100 20 10 10 0 000-20zm0 0c2.5 2.7 4 6.3 4 10s-1.5 7.3-4 10m0-20C9.5 4.7 8 8.3 8 12s1.5 7.3 4 10m-9-10h18"></path>
-              </svg>
-              <span>EN</span>
-            </a>
             <a class="header-link" href={`${APP_URL}/login`}>Login</a>
             <a class="header-button" href={`${APP_URL}/register`}>
               <span class="header-button-inner">Join</span>
@@ -2433,12 +2466,6 @@ const ldString = JSON.stringify({
           </nav>
 
           <div class="mobile-header-controls">
-            <a class="header-chip" href="/" aria-label="Switch language to Polish">
-              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 2a10 10 0 100 20 10 10 0 000-20zm0 0c2.5 2.7 4 6.3 4 10s-1.5 7.3-4 10m0-20C9.5 4.7 8 8.3 8 12s1.5 7.3 4 10m-9-10h18"></path>
-              </svg>
-              <span>EN</span>
-            </a>
             <button
               class="mobile-menu-toggle"
               id="mobile-menu-toggle"
@@ -2465,9 +2492,6 @@ const ldString = JSON.stringify({
               </a>
               <a class="mobile-login-button" href={`${APP_URL}/login`}>Login</a>
             </div>
-            <div class="mobile-menu-divider">
-              <a class="mobile-menu-link" href="/">English / Polski</a>
-            </div>
           </div>
         </div>
       </header>
@@ -2488,6 +2512,23 @@ const ldString = JSON.stringify({
               <div class="hero-focus-cta-stack fade-in-up delay-3">
                 <a class="btn-focus-primary" href={`${APP_URL}/register`}>Start Free — Join Beta Now</a>
                 <span class="btn-focus-ghost">No credit card. No catch. $0 to get in.</span>
+              </div>
+
+              <div class="hero-stat-bar fade-in-up delay-4">
+                <div class="hero-stat">
+                  <span class="hero-stat-value">90 min</span>
+                  <span class="hero-stat-label">avg deep work session</span>
+                </div>
+                <div class="hero-stat-divider"></div>
+                <div class="hero-stat">
+                  <span class="hero-stat-value">78%</span>
+                  <span class="hero-stat-label">energy bar reading</span>
+                </div>
+                <div class="hero-stat-divider"></div>
+                <div class="hero-stat">
+                  <span class="hero-stat-value">$0</span>
+                  <span class="hero-stat-label">beta access</span>
+                </div>
               </div>
             </div>
 
