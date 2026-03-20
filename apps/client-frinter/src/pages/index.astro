@@ -560,8 +560,8 @@ const ldString = JSON.stringify({
       }
 
       .hero-copy {
-        width: min(60%, 820px);
-        padding: 0 0 64px;
+        width: min(100%, 680px);
+        padding: 48px 0 64px;
         position: relative;
         z-index: 2;
       }
@@ -1938,11 +1938,11 @@ const ldString = JSON.stringify({
 
       .hero-focus-subhead {
         font-family: 'Roboto', sans-serif;
-        font-size: 1.1rem;
-        color: #6b7280;
+        font-size: 1.15rem;
+        color: #374151;
         max-width: 560px;
         margin-bottom: 40px;
-        line-height: 1.7;
+        line-height: 1.75;
       }
 
       .hero-focus-cta-stack {
@@ -1954,7 +1954,7 @@ const ldString = JSON.stringify({
 
       .btn-focus-primary {
         display: inline-block;
-        background: var(--green);
+        background: #111827;
         color: #fff;
         font-family: 'Poppins', sans-serif;
         font-weight: 800;
@@ -1967,7 +1967,7 @@ const ldString = JSON.stringify({
       }
 
       .btn-focus-primary:hover {
-        background: #3d7a70;
+        background: #1f2937;
         transform: translateY(-1px);
       }
 
@@ -2000,7 +2000,7 @@ const ldString = JSON.stringify({
       .problem-intro {
         font-family: 'Roboto', sans-serif;
         font-size: 1rem;
-        color: #6b7280;
+        color: #374151;
         margin-bottom: 24px;
         line-height: 1.75;
       }
@@ -2088,7 +2088,7 @@ const ldString = JSON.stringify({
 
       .sol-intro-new {
         font-family: 'Roboto', sans-serif;
-        color: #6b7280;
+        color: #374151;
         margin-bottom: 40px;
         font-size: 1rem;
         line-height: 1.75;
@@ -2121,7 +2121,7 @@ const ldString = JSON.stringify({
         font-weight: 700;
         letter-spacing: 0.14em;
         text-transform: uppercase;
-        color: var(--gold);
+        color: var(--green);
         margin-bottom: 8px;
       }
 
@@ -2135,10 +2135,10 @@ const ldString = JSON.stringify({
 
       .fcard-fdoes {
         font-family: 'Roboto', sans-serif;
-        color: #6b7280;
-        font-size: 0.925rem;
+        color: #374151;
+        font-size: 0.95rem;
         margin-bottom: 14px;
-        line-height: 1.7;
+        line-height: 1.75;
       }
 
       .fcard-fbenefit {
@@ -2458,32 +2458,15 @@ const ldString = JSON.stringify({
         <section class="hero">
           <div class="container hero-inner">
             <div class="hero-copy">
-              <div class="hero-badge-panel fade-in-up">
-                <div class="hero-battle" id="hero-battle" aria-hidden="true">
-                  <div class="stars-layer" id="hero-battle-stars"></div>
-                  <div class="scanlines"></div>
-                  <div class="battle-inner">
-                    <div class="battle-side" id="battle-losers"></div>
-                    <div class="battle-center">
-                      <div class="battle-vs">VS</div>
-                      <div class="battle-sword">⚔️</div>
-                    </div>
-                    <div class="battle-winner" id="battle-winner"></div>
-                  </div>
-                  <div class="battle-overlay-text fight" id="battle-fight-text">FIGHT!</div>
-                  <div class="battle-overlay-text win" id="battle-win-text"></div>
-                </div>
-              </div>
+              <span class="hero-focus-label fade-in-up">Focus OS — Built for Founders</span>
 
-              <span class="hero-focus-label fade-in-up delay-1">Focus OS — Built for Founders</span>
-
-              <h1 class="hero-focus-h1 fade-in-up delay-2">
+              <h1 class="hero-focus-h1 fade-in-up delay-1">
                 Give me 10 minutes of setup.<br /><em>Get 90-minute work sessions where your phone stops existing.</em>
               </h1>
 
-              <p class="hero-focus-subhead fade-in-up delay-3">frinter converts your sleep into a daily battery reading — then times and scores every deep work session you do. You see the data. You stop guessing.</p>
+              <p class="hero-focus-subhead fade-in-up delay-2">frinter converts your sleep into a daily battery reading — then times and scores every deep work session you do. You see the data. You stop guessing.</p>
 
-              <div class="hero-focus-cta-stack fade-in-up delay-4">
+              <div class="hero-focus-cta-stack fade-in-up delay-3">
                 <a class="btn-focus-primary" href={`${APP_URL}/register`}>Start Free — Join Beta Now</a>
                 <span class="btn-focus-ghost">No credit card. No catch. $0 to get in.</span>
               </div>
