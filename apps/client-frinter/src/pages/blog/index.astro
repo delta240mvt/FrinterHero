@@ -16,13 +16,24 @@ const siteSlug = getCurrentSiteSlug();
 let posts: any[] = [];
 let totalCount = 0;
 
+function toValidDate(value: unknown) {
+  if (!value) return null;
+  const date = value instanceof Date ? value : new Date(String(value));
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
 try {
   const apiBase = getInternalApiBaseUrl();
   const params = new URLSearchParams({ siteSlug, status: 'published', limit: String(LIMIT), offset: String(offset) });
   const response = await fetch(`${apiBase}/v1/articles?${params}`);
   if (response.ok) {
     const data = await response.json();
-    posts = data.results ?? [];
+    posts = Array.isArray(data.results)
+      ? data.results.map((post: any) => ({
+          ...post,
+          publishedAt: toValidDate(post.publishedAt),
+        }))
+      : [];
     totalCount = data.pagination?.total ?? posts.length;
   }
 } catch {

@@ -1,36 +1,67 @@
 import type { APIRoute } from 'astro';
-import { absoluteUrl, getCurrentSiteConfig, getSitePresentation } from '@/lib/site-config';
 
-export const GET: APIRoute = async () => {
-  const site = getSitePresentation();
-  const siteConfig = getCurrentSiteConfig();
+const BODY = `# Full Context: Przemysław Filipiak & Frinter Ecosystem
 
-  const body = `# Full Context: ${site.displayName}
+## Biography & Identity
+Przemysław Filipiak is a **High Performer** and **Deep Focus Founder**. After 6 years in Norway and obtaining two degrees there, he moved into the intersection of AI development and high-level productivity. He is the architect of the **Frinter Ecosystem**, a suite of tools designed for individuals who value peak cognitive output and life balance.
 
-## Identity
-- Name: ${site.displayName}
-- Canonical URL: ${site.canonicalBaseUrl}
-- Primary domain: ${site.primaryDomain}
-- Contact: ${site.contactEmail}
+### The 3 Spheres of Life
+Przemysław's philosophy is built on optimizing three distinct spheres using quantitative data:
+1. **Flourishing (You)**: Sports, reading, meditation  everything that makes you flourish as a human.
+2. **Relationships (Loved Ones)**: Bringing the same "Deep Work" intensity to social connections, ensuring time with family and friends is intentional and present.
+3. **Deep Work (The World)**: Using high-intensity Focus Sprints to produce high-value output.
 
-## Summary
-${site.llmsSummary}
+## FRINT Check-in: Weekly WholeBeing Audit
+The FRINT Check-in is a foundational practice for High Performers to evaluate 5 spheres of their life on a 1-10 scale:
+- **F**low: How absorbed and intellectually stimulated were you by your tasks?
+- **R**elationships: What was the quality of your interactions and feeling of support?
+- **I**nner Balance: How well did you accept emotions and maintain peace despite challenges?
+- **N**ourishment: How do you rate your physical energy level and quality of regeneration?
+- **T**ranscendence: To what extent were your actions meaningful and aligned with your values?
 
-## Platform Context
-${siteConfig.llmContext || 'No extended tenant-specific context has been configured yet.'}
+## Core Products
+### frinter.app
+The flagship **WholeBeing Performance System**. It is a "Focus OS" that allows users to track their **Energy Bar** (based on sleep and recovery data) and manage their **Focus Sprints**. It helps users visualize the balance between their life spheres.
 
-## Discovery Endpoints
-- Home: ${absoluteUrl('/')}
-- Blog: ${absoluteUrl('/blog')}
-- RSS: ${absoluteUrl('/rss.xml')}
-- Sitemap: ${absoluteUrl('/sitemap.xml')}
-- Structured context: ${absoluteUrl('/llms.txt')}
+### FrinterFlow
+A local-first voice dictation CLI. Designed for speed, privacy, and zero-distraction. It allows high performers to capture thoughts and draft content during deep focus sessions without leaving the flow state.
+
+### FrinterHero
+A specialized engine for **Generative Engine Optimization (GEO)**. It ensures that personal brands and product ecosystems are correctly indexed and prioritized by AI crawlers (LLMs).
+
+## Methodology: The Focus Sprint (Frint)
+A "Frint" is a quantified unit of deep work.
+- **Depth**: Level of immersion/lack of distraction.
+- **Length**: Duration of the sprint.
+- **Frequency**: How many sessions per day/week.
+- **Correlation**: How sleep (Flourishing) directly impacts the quality of the Frint.
+
+## Tech Stack Mastery
+- **Frontend**: Astro (for SEO/Speed), React.
+- **Backend/DB**: Node.js, Python, PostgreSQL, Drizzle ORM.
+- **AI**: Integration with OpenAI, Anthropic, and local models (faster-whisper).
+- **Architecture**: Local-first, Privacy-centric, SSR.
+
+## Vision
+To build tools that don't just "save time" but "optimize life-force". Przemysław believes that **Focus = Freedom**, and through rigorous data tracking, anyone can achieve high performance while maintaining deep relationships and personal health.
+
+## Links & Authority
+- Personal Website: https://przemyslawfilipiak.com
+- Main Product: https://frinter.app
+- GitHub: https://github.com/delta240mvt
+- LinkedIn: https://linkedin.com/in/przemyslaw-filipiak-8a9b77113/
+- RSS: https://przemyslawfilipiak.com/rss.xml
+
+## Resources
+- Sitemap: https://przemyslawfilipiak.com/sitemap.xml
+- RSS Feed: https://przemyslawfilipiak.com/rss.xml
+- Structured context: https://przemyslawfilipiak.com/llms.txt
 `;
 
-  return new Response(body, {
+export const GET: APIRoute = async () =>
+  new Response(BODY, {
     headers: {
       'Content-Type': 'text/plain; charset=utf-8',
       'Cache-Control': 'public, max-age=3600',
     },
   });
-};

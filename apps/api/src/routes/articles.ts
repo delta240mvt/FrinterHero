@@ -29,7 +29,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
     const status = url.searchParams.get('status') ?? 'published';
     const limit = toPositiveInt(url.searchParams.get('limit'), 20, { max: 100 });
     const offset = toNonNegativeInt(url.searchParams.get('offset'), 0, 1000);
-    const rows = await db.select().from(articles).where(and(articleScope(site.id), eq(articles.status, status))).orderBy(desc(articles.publishedAt), desc(articles.createdAt)).limit(limit).offset(offset);
+    const rows = await db.select().from(articles).where(and(eq(articles.siteId, site.id), eq(articles.status, status))).orderBy(desc(articles.publishedAt), desc(articles.createdAt)).limit(limit).offset(offset);
     json(res, 200, { results: rows, pagination: { limit, offset } });
     return true;
   }
@@ -37,7 +37,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   if (method === 'GET' && segments[0] === 'v1' && segments[1] === 'articles' && segments.length === 3) {
     const site = await getSiteBySlug(normalizeSiteSlug(url.searchParams.get('siteSlug')));
     if (!site) return json(res, 404, { error: 'Site not found' }), true;
-    const [article] = await db.select().from(articles).where(and(articleScope(site.id), eq(articles.slug, decodeURIComponent(segments[2])))).limit(1);
+    const [article] = await db.select().from(articles).where(and(eq(articles.siteId, site.id), eq(articles.slug, decodeURIComponent(segments[2])))).limit(1);
     if (!article) return json(res, 404, { error: 'Article not found' }), true;
 
     let relatedArticles: Array<typeof articles.$inferSelect> = [];
@@ -67,7 +67,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
       if (relatedSlugs.length > 0) {
         relatedArticles = await db.select()
           .from(articles)
-          .where(and(articleScope(site.id), eq(articles.status, 'published'), inArray(articles.slug, relatedSlugs)))
+          .where(and(eq(articles.siteId, site.id), eq(articles.status, 'published'), inArray(articles.slug, relatedSlugs)))
           .orderBy(desc(articles.publishedAt), desc(articles.createdAt))
           .limit(3);
       }
