@@ -16,6 +16,9 @@ export default defineConfig({
   adapter: node({ mode: 'standalone' }),
   integrations: [tailwind({ configFile: './tailwind.config.mjs' })],
   vite: {
+    define: {
+      'process.env.SITE_SLUG': JSON.stringify('focusequalsfreedom'),
+    },
     resolve: {
       alias: [
         { find: '@/db', replacement: path.resolve(repoRoot, 'src/db') },

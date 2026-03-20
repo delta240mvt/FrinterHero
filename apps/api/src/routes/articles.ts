@@ -29,8 +29,17 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
     const status = url.searchParams.get('status') ?? 'published';
     const limit = toPositiveInt(url.searchParams.get('limit'), 20, { max: 100 });
     const offset = toNonNegativeInt(url.searchParams.get('offset'), 0, 1000);
-    const rows = await db.select().from(articles).where(and(eq(articles.siteId, site.id), eq(articles.status, status))).orderBy(desc(articles.publishedAt), desc(articles.createdAt)).limit(limit).offset(offset);
-    json(res, 200, { results: rows, pagination: { limit, offset } });
+    const whereClause = and(eq(articles.siteId, site.id), eq(articles.status, status));
+    const [rows, totals] = await Promise.all([
+      db.select()
+        .from(articles)
+        .where(whereClause)
+        .orderBy(desc(articles.publishedAt), desc(articles.createdAt))
+        .limit(limit)
+        .offset(offset),
+      db.select({ total: sql<number>`count(*)::int` }).from(articles).where(whereClause),
+    ]);
+    json(res, 200, { results: rows, pagination: { limit, offset, total: totals[0]?.total ?? 0 } });
     return true;
   }
 
