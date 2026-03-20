@@ -293,6 +293,21 @@ Extended Thinking (Anthropic only) is configurable per pipeline stage with token
 
 ## SocialHub
 
+<div align="center">
+<pre>
+  ██╗   ██╗██╗██████╗  █████╗ ██╗      ███████╗███╗   ██╗ ██████╗ ██╗███╗   ██╗███████╗
+  ██║   ██║██║██╔══██╗██╔══██╗██║      ██╔════╝████╗  ██║██╔════╝ ██║████╗  ██║██╔════╝
+  ██║   ██║██║██████╔╝███████║██║      █████╗  ██╔██╗ ██║██║  ███╗██║██╔██╗ ██║█████╗  
+  ╚██╗ ██╔╝██║██╔══██╗██╔══██║██║      ██╔══╝  ██║╚██╗██║██║   ██║██║██║╚██╗██║██╔══╝  
+   ╚████╔╝ ██║██║  ██║██║  ██║███████╗ ███████╗██║ ╚████║╚██████╔╝██║██║ ╚████║███████╗
+    ╚═══╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝ ╚══════╝╚═╝  ╚═══╝ ╚═════╝ ╚═╝╚═╝  ╚═══╝╚══════╝
+                               V I R A L   E N G I N E
+</pre>
+</div>
+
+**Viral Engine** acts as the strategic brain behind every post, applying the **Process Communication Model (PCM)** and proprietary viral formats to ensure maximum psychological impact and distribution range.
+
+
 **SocialHub** is an autonomous content-to-social pipeline built into the admin dashboard. It transforms your raw articles, discovered pain points, and Voice of Customer clusters into viral social media posts, then distributes them natively across major platforms.
 
 > The core insight: Content distribution is the main bottleneck for solo founders. SocialHub eliminates manual posting by combining AI copywriting, local image generation, async video rendering, and a universal distribution API.
@@ -405,6 +420,7 @@ UPLOADPOST_API_KEY=up_placeholder
 | LLM gap extraction + admin review queue | YES | NO | NO |
 | **Brand Clarity — VoC LP generator** | **YES** | NO | NO |
 | **SocialHub — Content-to-Social Pipeline** | **YES** | NO | NO |
+| **Viral Engine — Strategic PCM & Video Shaping** | **YES** | NO | NO |
 | **Anthropic Direct API + Extended Thinking** | **YES** | NO | NO |
 | Perfect semantic HTML & Schema.org | YES | Varies | Varies |
 | Railway 1-Click deploy with DB | YES | NO | NO |
@@ -458,6 +474,7 @@ UPLOADPOST_API_KEY=up_placeholder
 - [x] **Brand Clarity — LLM settings panel** (`/admin/brand-clarity/settings`)
 - [x] **SocialHub — Multi-platform content distribution**
 - [x] **SocialHub — Satori Image & WaveSpeed Video generator**
+- [x] **Viral Engine — PCM & Video Strategy Layer**
 - [ ] Blog markdown pipeline
 - [ ] Frint_bot interactive AI chat window
 - [ ] RSS Feed generation
