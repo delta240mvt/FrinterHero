@@ -218,7 +218,7 @@ const ldString = JSON.stringify({
       name="robots"
       content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1"
     />
-    <link rel="canonical" href="https://frinter.app/en/" />
+    <link rel="canonical" href="https://frinter.app/" />
     <link rel="alternate" hreflang="pl" href="https://frinter.app/" />
     <link rel="alternate" hreflang="en" href="https://frinter.app/en/" />
     <link rel="alternate" hreflang="x-default" href="https://frinter.app/" />
@@ -252,15 +252,77 @@ const ldString = JSON.stringify({
     <link rel="icon" type="image/png" href="/favicon.png" sizes="32x32" />
     <link rel="apple-touch-icon" href="/icon-180.png" />
     <meta name="theme-color" content="#4a8d83" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=Poppins:wght@400;500;600;700;800&family=Roboto:wght@300;400;500;700&display=swap"
-      rel="stylesheet"
-    />
+    <link rel="preload" href="/fonts/Poppins-700.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/Poppins-600.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/CourierPrime-Regular.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/Roboto-400.woff2" as="font" type="font/woff2" crossorigin />
     <script type="application/ld+json" set:html={ldString}></script>
     <script type="application/ld+json" set:html={JSON.stringify(faqJsonLd)}></script>
     <style is:global>
+      @font-face {
+        font-family: 'Courier Prime';
+        src: url('/fonts/CourierPrime-Regular.woff2') format('woff2');
+        font-weight: 400;
+        font-style: normal;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: 'Courier Prime';
+        src: url('/fonts/CourierPrime-Bold.woff2') format('woff2');
+        font-weight: 700;
+        font-style: normal;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: 'Poppins';
+        src: url('/fonts/Poppins-400.ttf') format('truetype');
+        font-weight: 400;
+        font-style: normal;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: 'Poppins';
+        src: url('/fonts/Poppins-500.woff2') format('woff2');
+        font-weight: 500;
+        font-style: normal;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: 'Poppins';
+        src: url('/fonts/Poppins-600.woff2') format('woff2');
+        font-weight: 600;
+        font-style: normal;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: 'Poppins';
+        src: url('/fonts/Poppins-700.woff2') format('woff2');
+        font-weight: 700;
+        font-style: normal;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: 'Poppins';
+        src: url('/fonts/Poppins-700.woff2') format('woff2');
+        font-weight: 800 900;
+        font-style: normal;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: 'Roboto';
+        src: url('/fonts/Roboto-300.woff2') format('woff2');
+        font-weight: 300;
+        font-style: normal;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: 'Roboto';
+        src: url('/fonts/Roboto-400.woff2') format('woff2');
+        font-weight: 400 700;
+        font-style: normal;
+        font-display: swap;
+      }
+
       :root {
         --bg: #ffffff;
         --panel: #f9fafb;
@@ -430,11 +492,19 @@ const ldString = JSON.stringify({
       .header-button::before {
         content: '';
         position: absolute;
-        inset: 0;
+        top: 0;
+        left: 0;
+        width: 200%;
+        height: 100%;
         border-radius: inherit;
-        background: linear-gradient(90deg, var(--green), var(--rose), var(--gold));
-        background-size: 200% 100%;
-        animation: gradientShift 5s linear infinite;
+        background: linear-gradient(90deg, var(--green), var(--rose), var(--gold), var(--rose), var(--green));
+        animation: gradientSlideBtn 5s linear infinite;
+      }
+
+      @keyframes gradientSlideBtn {
+        0% { transform: translateX(0); }
+        50% { transform: translateX(-50%); }
+        100% { transform: translateX(0); }
       }
 
       /* Inner button — matches React: bg-white font-bold border-0 hover:bg-gray-50 text-gray-900 */
@@ -1687,6 +1757,7 @@ const ldString = JSON.stringify({
         opacity: 0;
         transform: translateY(16px);
         animation: fadeInUp 0.55s ease-out forwards;
+        will-change: transform, opacity;
       }
 
       .delay-1 { animation-delay: 0.15s; }
@@ -1953,7 +2024,7 @@ const ldString = JSON.stringify({
         font-weight: 700;
         letter-spacing: 0.16em;
         text-transform: uppercase;
-        color: var(--gold);
+        color: #8a6a10;
         margin-bottom: 14px;
       }
 
@@ -2000,7 +2071,7 @@ const ldString = JSON.stringify({
         font-weight: 700;
         letter-spacing: 0.16em;
         text-transform: uppercase;
-        color: var(--gold);
+        color: #8a6a10;
         margin-bottom: 18px;
       }
 
@@ -2196,7 +2267,7 @@ const ldString = JSON.stringify({
         font-family: 'Courier Prime', monospace;
         font-size: 0.78rem;
         font-weight: 700;
-        color: #9ca3af;
+        color: #6b7280;
       }
 
       .hero-early-access-text {
@@ -2204,7 +2275,7 @@ const ldString = JSON.stringify({
         font-size: 0.72rem;
         font-weight: 500;
         letter-spacing: 0.01em;
-        color: #9ca3af;
+        color: #6b7280;
       }
 
       .btn-focus-primary {
@@ -2229,7 +2300,7 @@ const ldString = JSON.stringify({
       .btn-focus-ghost {
         display: inline-block;
         font-family: 'Roboto', sans-serif;
-        color: #9ca3af;
+        color: #6b7280;
         font-size: 0.875rem;
         text-decoration: none;
       }
@@ -2279,7 +2350,7 @@ const ldString = JSON.stringify({
         margin-top: 10px;
         font-style: normal;
         font-size: 0.75rem;
-        color: #9ca3af;
+        color: #6b7280;
         font-family: 'Courier Prime', monospace;
         letter-spacing: 0.04em;
       }
@@ -2319,7 +2390,7 @@ const ldString = JSON.stringify({
       }
 
       .not-fault-new strong {
-        color: var(--green);
+        color: #2d6b63;
         font-weight: 700;
       }
 
@@ -2376,7 +2447,7 @@ const ldString = JSON.stringify({
         font-weight: 700;
         letter-spacing: 0.14em;
         text-transform: uppercase;
-        color: var(--green);
+        color: #2d6b63;
         margin-bottom: 8px;
       }
 
@@ -2398,7 +2469,7 @@ const ldString = JSON.stringify({
 
       .fcard-fbenefit {
         font-family: 'Roboto', sans-serif;
-        color: var(--green);
+        color: #2d6b63;
         font-size: 0.875rem;
         font-weight: 600;
       }
@@ -2453,7 +2524,7 @@ const ldString = JSON.stringify({
 
       .wyg-text-new span {
         font-family: 'Roboto', sans-serif;
-        color: #9ca3af;
+        color: #6b7280;
         font-size: 0.825rem;
       }
 
@@ -2499,7 +2570,7 @@ const ldString = JSON.stringify({
         margin-top: 12px;
         font-family: 'Courier Prime', monospace;
         font-size: 0.75rem;
-        color: #9ca3af;
+        color: #6b7280;
         letter-spacing: 0.04em;
       }
 
@@ -2550,7 +2621,7 @@ const ldString = JSON.stringify({
       .beta-tag-new {
         display: inline-block;
         background: rgba(214, 183, 121, 0.12);
-        color: var(--gold);
+        color: #8a6a10;
         font-family: 'Courier Prime', monospace;
         font-size: 0.7rem;
         font-weight: 700;
@@ -2574,7 +2645,7 @@ const ldString = JSON.stringify({
       .price-note-sub-new {
         font-family: 'Roboto', sans-serif;
         font-size: 0.8rem;
-        color: #9ca3af;
+        color: #6b7280;
         margin-bottom: 28px;
       }
 
@@ -2601,7 +2672,7 @@ const ldString = JSON.stringify({
         margin-top: 14px;
         font-family: 'Roboto', sans-serif;
         font-size: 0.75rem;
-        color: #d1d5db;
+        color: #6b7280;
       }
 
       /* ── CTA SECTION ── */
@@ -2635,7 +2706,7 @@ const ldString = JSON.stringify({
         margin-top: 20px;
         font-family: 'Roboto', sans-serif;
         font-size: 0.825rem;
-        color: #9ca3af;
+        color: #6b7280;
       }
 
       @media (max-width: 600px) {
@@ -2761,10 +2832,10 @@ const ldString = JSON.stringify({
 
                 <div class="hero-early-access">
                   <div class="hero-early-access-avatars" aria-hidden="true">
-                    <div class="hero-early-access-avatar"><img src="/faces/avatar-k.png" alt="" /></div>
-                    <div class="hero-early-access-avatar"><img src="/faces/avatar-m.png" alt="" /></div>
-                    <div class="hero-early-access-avatar"><img src="/faces/avatar-r.png" alt="" /></div>
-                    <div class="hero-early-access-avatar"><img src="/faces/avatar-a.png" alt="" /></div>
+                    <div class="hero-early-access-avatar"><picture><source srcset="/faces/avatar-k.webp" type="image/webp" /><img src="/faces/avatar-k.png" alt="" width="28" height="28" /></picture></div>
+                    <div class="hero-early-access-avatar"><picture><source srcset="/faces/avatar-m.webp" type="image/webp" /><img src="/faces/avatar-m.png" alt="" width="28" height="28" /></picture></div>
+                    <div class="hero-early-access-avatar"><picture><source srcset="/faces/avatar-r.webp" type="image/webp" /><img src="/faces/avatar-r.png" alt="" width="28" height="28" /></picture></div>
+                    <div class="hero-early-access-avatar"><picture><source srcset="/faces/avatar-a.webp" type="image/webp" /><img src="/faces/avatar-a.png" alt="" width="28" height="28" /></picture></div>
                   </div>
                   <span class="hero-early-access-count">+13</span>
                   <span class="hero-early-access-text">Early Access • 33 of 50 spots left</span>
@@ -2862,7 +2933,7 @@ const ldString = JSON.stringify({
           <div class="content-narrow">
             <span class="section-eyebrow">What You Get</span>
             <h2 style="font-family:'Poppins',sans-serif;font-size:clamp(1.55rem,3.8vw,2.4rem);font-weight:800;line-height:1.18;letter-spacing:-0.02em;color:#111827;">Everything inside frinter.<br />No surprises.</h2>
-            <p style="font-family:'Roboto',sans-serif;color:#9ca3af;margin-top:12px;">Here's every single tool you get access to in beta.</p>
+            <p style="font-family:'Roboto',sans-serif;color:#6b7280;margin-top:12px;">Here's every single tool you get access to in beta.</p>
 
             <div class="wyg-grid-new">
               <div class="wyg-item-new">
@@ -2937,7 +3008,7 @@ const ldString = JSON.stringify({
           <div class="content-narrow">
             <span class="section-eyebrow">People Like You</span>
             <h2 style="font-family:'Poppins',sans-serif;font-size:clamp(1.55rem,3.8vw,2.4rem);font-weight:800;line-height:1.18;letter-spacing:-0.02em;color:#111827;">You're not the only one<br />who feels this exact thing.</h2>
-            <p style="font-family:'Roboto',sans-serif;color:#9ca3af;margin-top:12px;margin-bottom:40px;">These are real words from real people. No edits. No polish.</p>
+            <p style="font-family:'Roboto',sans-serif;color:#6b7280;margin-top:12px;margin-bottom:40px;">These are real words from real people. No edits. No polish.</p>
 
             <div class="qcard-new">
               <p>"Im dopamine sick! The reward center of my brain was really screwed up — anytime things were difficult or uncomfortable I would turn to porn or video games"</p>
