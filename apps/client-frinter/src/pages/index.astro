@@ -548,10 +548,10 @@ const ldString = JSON.stringify({
       }
 
       .hero {
-        min-height: 90vh;
+        min-height: 85vh;
         display: flex;
         align-items: center;
-        padding: 72px 0 0;
+        padding: 40px 0 0;
       }
 
       .hero-inner {
@@ -559,8 +559,8 @@ const ldString = JSON.stringify({
         align-items: center;
         justify-content: center;
         gap: 64px;
-        min-height: calc(88vh - 80px);
-        padding: 32px 0 64px;
+        min-height: calc(85vh - 80px);
+        padding: 24px 0 64px;
       }
 
       .hero-copy {
@@ -570,6 +570,7 @@ const ldString = JSON.stringify({
         position: relative;
         z-index: 2;
         text-align: center;
+        margin-top: -6vh;
       }
 
       .hero-badge-panel {
@@ -2024,6 +2025,13 @@ const ldString = JSON.stringify({
         -webkit-background-clip: text;
         background-clip: text;
         color: transparent;
+      }
+
+      @media (min-width: 900px) {
+        .hero-focus-h1 em {
+          font-size: 1.48em;
+          margin-top: 8px;
+        }
       }
 
       .hero-focus-subhead {
