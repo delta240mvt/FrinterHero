@@ -2159,10 +2159,20 @@ const ldString = JSON.stringify({
         border-radius: 999px;
         border: 2px solid rgba(255, 255, 255, 0.9);
         display: block;
-        object-fit: cover;
         overflow: hidden;
         box-shadow: 0 4px 10px rgba(15, 23, 42, 0.12);
         flex-shrink: 0;
+        background: #fff;
+        position: relative;
+      }
+
+      .hero-early-access-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        object-position: center 20%;
+        transform: scale(1.8);
+        display: block;
       }
 
       .hero-early-access-avatar:first-child {
@@ -2738,10 +2748,10 @@ const ldString = JSON.stringify({
 
                 <div class="hero-early-access">
                   <div class="hero-early-access-avatars" aria-hidden="true">
-                    <img class="hero-early-access-avatar" src="/faces/avatar-k.svg" alt="" />
-                    <img class="hero-early-access-avatar" src="/faces/avatar-m.svg" alt="" />
-                    <img class="hero-early-access-avatar" src="/faces/avatar-r.svg" alt="" />
-                    <img class="hero-early-access-avatar" src="/faces/avatar-a.svg" alt="" />
+                    <div class="hero-early-access-avatar"><img src="/faces/avatar-k.png" alt="" /></div>
+                    <div class="hero-early-access-avatar"><img src="/faces/avatar-m.png" alt="" /></div>
+                    <div class="hero-early-access-avatar"><img src="/faces/avatar-r.png" alt="" /></div>
+                    <div class="hero-early-access-avatar"><img src="/faces/avatar-a.png" alt="" /></div>
                   </div>
                   <span class="hero-early-access-count">+13</span>
                   <span class="hero-early-access-text">Early Access • 33 of 50 spots left</span>
