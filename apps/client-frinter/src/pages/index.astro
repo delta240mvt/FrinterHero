@@ -3519,12 +3519,7 @@ const ldString = JSON.stringify({
         }, 4000);
       }
 
-      const retroInstances = [];
-      document.querySelectorAll('[data-retro-pixel]').forEach((canvas) => {
-        const instance = createRetroPixelAnimation(canvas);
-        if (instance) retroInstances.push(instance);
-      });
-
+      // Keep these synchronous — needed immediately for UX
       const mobileMenuToggle = document.getElementById('mobile-menu-toggle');
       const mobileMenuPanel = document.getElementById('mobile-menu-panel');
       const mobileOpenIcon = document.getElementById('mobile-menu-open-icon');
@@ -3537,32 +3532,44 @@ const ldString = JSON.stringify({
         mobileOpenIcon.style.display = open ? 'none' : 'block';
         mobileCloseIcon.style.display = open ? 'block' : 'none';
       }
-
       if (mobileMenuToggle && mobileMenuPanel) {
         mobileMenuToggle.addEventListener('click', () => {
           const isOpen = mobileMenuPanel.classList.contains('open');
           setMobileMenu(!isOpen);
         });
-
         mobileMenuPanel.querySelectorAll('a').forEach((link) => {
           link.addEventListener('click', () => setMobileMenu(false));
         });
       }
 
-      // Header scroll border — matches React Header.tsx (border-b only when scrollY > 10)
       const siteHeader = document.querySelector('.site-header');
       if (siteHeader) {
         const onScroll = () => siteHeader.classList.toggle('scrolled', window.scrollY > 10);
         window.addEventListener('scroll', onScroll, { passive: true });
-        // removed: onScroll() — scrollY is always 0 on load, not needed
+        // NOTE: no eager onScroll() call — scrollY is 0 on load, was causing 104ms forced reflow
       }
 
-      initHeroBattle();
+      // Defer all canvas/battle animation inits past first paint
+      const retroInstances = [];
+      const initAnimations = () => {
+        document.querySelectorAll('[data-retro-pixel]').forEach((canvas) => {
+          const instance = createRetroPixelAnimation(canvas);
+          if (instance) retroInstances.push(instance);
+        });
 
-      const portalCanvas = document.querySelector('.portal-canvas[data-retro-pixel]');
-      if (portalCanvas) {
-        const portalInstance = retroInstances.find((instance) => instance.canvas === portalCanvas);
-        if (portalInstance) initPortalCycle(portalInstance);
+        initHeroBattle();
+
+        const portalCanvas = document.querySelector('.portal-canvas[data-retro-pixel]');
+        if (portalCanvas) {
+          const portalInstance = retroInstances.find((i) => i.canvas === portalCanvas);
+          if (portalInstance) initPortalCycle(portalInstance);
+        }
+      };
+
+      if ('requestIdleCallback' in window) {
+        requestIdleCallback(initAnimations, { timeout: 2000 });
+      } else {
+        setTimeout(initAnimations, 200);
       }
     </script>
   </body>
