@@ -1794,6 +1794,10 @@ const ldString = JSON.stringify({
           font-size: clamp(1.85rem, 7.5vw, 2.6rem);
           margin-bottom: 20px;
         }
+        .hero-focus-h1-lead {
+          white-space: normal;
+          overflow-wrap: anywhere;
+        }
         .hero-focus-subhead {
           font-size: 1rem;
           margin-bottom: 32px;
@@ -2048,10 +2052,7 @@ const ldString = JSON.stringify({
       }
 
       .hero-platform-chip.is-live {
-        min-height: 40px;
-        padding: 0 14px;
-        border-radius: 999px;
-        background: #051b14;
+        background: linear-gradient(180deg, #0f1f19 0%, #081611 100%);
         border-color: rgba(16, 185, 129, 0.32);
         color: #34d399;
       }
@@ -2094,6 +2095,10 @@ const ldString = JSON.stringify({
         font-weight: 700;
         color: #f9fafb;
         letter-spacing: 0.02em;
+      }
+
+      .hero-platform-chip.is-live .hero-platform-chip-label {
+        color: #ecfdf5;
       }
 
       .hero-platform-live-dot {
@@ -2680,8 +2685,13 @@ const ldString = JSON.stringify({
               <div class="hero-platform-stack fade-in-up delay-4">
                 <div class="hero-platform-links">
                   <span class="hero-platform-chip is-live">
-                    <span class="hero-platform-live-dot" aria-hidden="true"></span>
-                    <span class="hero-platform-chip-label">WEB LIVE</span>
+                    <span class="hero-platform-chip-icon" aria-hidden="true">
+                      <span class="hero-platform-live-dot"></span>
+                    </span>
+                    <span class="hero-platform-chip-copy">
+                      <span class="hero-platform-chip-note">Available On</span>
+                      <span class="hero-platform-chip-label">WEB LIVE</span>
+                    </span>
                   </span>
 
                   <span class="hero-platform-chip">
@@ -2955,7 +2965,7 @@ const ldString = JSON.stringify({
           <div class="footer-grid">
             <div>
               <div class="logo">frinter<span class="logo-dot">.</span></div>
-              <p class="footer-tagline">WholeBeing for High Performers.</p>
+              <p class="footer-tagline">Focus OS — Built for Founders</p>
             </div>
 
             <div>
@@ -2971,8 +2981,8 @@ const ldString = JSON.stringify({
             <div>
               <p class="footer-heading">Information</p>
               <ul class="footer-list">
-                <li><a href="/en/privacy-policy">Privacy Policy</a></li>
-                <li><a href="/en/terms-of-service">Terms of Service</a></li>
+                <li><a href="https://web.frinter.app/polityka-prywatnosci">Privacy Policy</a></li>
+                <li><a href="https://web.frinter.app/regulamin">Terms of Service</a></li>
               </ul>
             </div>
           </div>
