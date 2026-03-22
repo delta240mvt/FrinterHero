@@ -3554,7 +3554,7 @@ const ldString = JSON.stringify({
       if (siteHeader) {
         const onScroll = () => siteHeader.classList.toggle('scrolled', window.scrollY > 10);
         window.addEventListener('scroll', onScroll, { passive: true });
-        onScroll();
+        // removed: onScroll() — scrollY is always 0 on load, not needed
       }
 
       initHeroBattle();
