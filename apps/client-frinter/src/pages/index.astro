@@ -1816,13 +1816,30 @@ const ldString = JSON.stringify({
           padding: 16px 24px;
         }
         .hero-platform-links {
-          flex-direction: column;
+          flex-direction: row;
+          flex-wrap: nowrap;
           width: 100%;
           align-items: stretch;
+          gap: 6px;
+          justify-content: center;
         }
         .hero-platform-chip {
-          width: 100%;
+          flex: 1;
+          min-width: 0;
           box-sizing: border-box;
+          padding: 0 8px;
+          min-height: 36px;
+          gap: 5px;
+        }
+        .hero-platform-chip-icon {
+          width: 13px;
+          height: 13px;
+        }
+        .hero-platform-chip-note {
+          font-size: 0.46rem;
+        }
+        .hero-platform-chip-label {
+          font-size: 0.68rem;
         }
         .hero-early-access {
           border-radius: 24px;
@@ -1999,6 +2016,10 @@ const ldString = JSON.stringify({
 
       .hero-focus-h1 em {
         font-style: normal;
+        font-size: 1.18em;
+        line-height: 1.0;
+        letter-spacing: -0.04em;
+        display: block;
         background: linear-gradient(90deg, var(--green), var(--rose), var(--gold));
         -webkit-background-clip: text;
         background-clip: text;
