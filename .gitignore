@@ -6,7 +6,7 @@ dist/
 apps/*/dist/
 apps/*/.astro/
 .DS_Store
-.claude/
+.claude/settings.local.json
 
 # Added by ggshield
 .cache_ggshield
