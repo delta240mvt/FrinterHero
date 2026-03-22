@@ -86,3 +86,34 @@ Frinter uses a **Reverse RAG Loop** to build AI visibility:
 4. Publish to locations AI crawlers index (`llms.txt`, blog, GitHub, Reddit)
 
 Priority metadata files live per client app, for example in `apps/client-przemyslawfilipiak/public/`: `llms.txt`, `llms-full.txt`, `robots.txt`, `site.webmanifest`. Schema markup belongs in the client app layout and public routes, not in a non-existent `apps/web` root.
+
+## OpenSpec — Spec-Driven Workflow
+
+This project uses **OpenSpec** for spec-driven development. Before implementing anything non-trivial, check for active specs.
+
+### On session start (especially autopilot)
+
+1. Run `openspec status` to see all active changes
+2. If active changes exist — read their artifacts before writing any code:
+   - `openspec/changes/<name>/tasks.md` — implementation checklist (source of truth)
+   - `openspec/changes/<name>/design.md` — technical decisions
+   - `openspec/changes/<name>/proposal.md` — why and what
+   - `openspec/changes/<name>/specs/` — requirements and scenarios
+3. Execute tasks in order from `tasks.md`, checking off each item as completed
+
+### Key commands
+
+```bash
+openspec status                          # list all active changes and artifact status
+openspec status --change <name> --json   # detailed JSON status for one change
+openspec instructions <artifact> --change <name> --json  # get artifact creation instructions
+openspec new change "<name>"             # scaffold a new change
+```
+
+### Rules
+
+- **Never start implementation without reading `tasks.md`** if one exists for the relevant change
+- Tasks in `tasks.md` are checkboxes — mark `[x]` as you complete them
+- If a task is ambiguous, read `design.md` and `specs/` for context before asking
+- After completing all tasks, run `/opsx:archive` to archive the change
+- Active changes live in `openspec/changes/` — archived ones move to `openspec/changes/archive/`
