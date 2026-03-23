@@ -354,6 +354,26 @@ export async function getSiteBySlug(slug: string) {
   return site ?? null;
 }
 
+export async function getSiteById(id: number) {
+  const [site] = await db.select().from(sites).where(eq(sites.id, id)).limit(1);
+  return site ?? null;
+}
+
+export async function requireActiveSite(req: http.IncomingMessage, res: http.ServerResponse) {
+  const session = await requireAuth(req, res);
+  if (!session) return null;
+  if (!session.activeSiteId) {
+    json(res, 403, { error: 'No active tenant selected' });
+    return null;
+  }
+  const site = await getSiteById(session.activeSiteId);
+  if (!site) {
+    json(res, 404, { error: 'Active tenant not found' });
+    return null;
+  }
+  return { session, site };
+}
+
 export async function getSession(req: http.IncomingMessage) {
   const token = parseCookies(req.headers.cookie)[SESSION_COOKIE];
   if (!token) return null;
@@ -391,8 +411,8 @@ export async function resolveAuthedSite(req: http.IncomingMessage, res: http.Ser
   return { session, site };
 }
 
-export async function resolveBcProjectContext(req: http.IncomingMessage, res: http.ServerResponse, siteSlug: string, projectIdValue: unknown) {
-  const context = await resolveAuthedSite(req, res, siteSlug);
+export async function resolveBcProjectContext(req: http.IncomingMessage, res: http.ServerResponse, projectIdValue: unknown) {
+  const context = await requireActiveSite(req, res);
   if (!context) return null;
   const projectId = Number(projectIdValue);
   if (!projectId) {
@@ -444,12 +464,12 @@ export async function findActiveJobByPayload(topic: string, payloadKey: string, 
   return job ?? null;
 }
 
-export async function resolveShSite(req: http.IncomingMessage, res: http.ServerResponse, siteSlug: string) {
-  return resolveAuthedSite(req, res, siteSlug);
+export async function resolveShSite(req: http.IncomingMessage, res: http.ServerResponse) {
+  return requireActiveSite(req, res);
 }
 
-export async function resolveShBriefContext(req: http.IncomingMessage, res: http.ServerResponse, siteSlug: string, briefIdValue: unknown) {
-  const context = await resolveShSite(req, res, siteSlug);
+export async function resolveShBriefContext(req: http.IncomingMessage, res: http.ServerResponse, briefIdValue: unknown) {
+  const context = await resolveShSite(req, res);
   if (!context) return null;
   const briefId = Number(briefIdValue);
   if (!briefId) {
