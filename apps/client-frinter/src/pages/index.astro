@@ -435,15 +435,15 @@ const pageCss = `
 
       .fade-in-up {
         opacity: 0;
-        transform: translateY(16px);
-        animation: fadeInUp 0.4s ease-out forwards;
+        transform: translateY(12px);
+        animation: fadeInUp 0.3s ease-out forwards;
         will-change: transform, opacity;
       }
 
-      .delay-1 { animation-delay: 0.1s; }
-      .delay-2 { animation-delay: 0.2s; }
-      .delay-3 { animation-delay: 0.3s; }
-      .delay-4 { animation-delay: 0.4s; }
+      .delay-1 { animation-delay: 0.05s; }
+      .delay-2 { animation-delay: 0.1s; }
+      .delay-3 { animation-delay: 0.15s; }
+      .delay-4 { animation-delay: 0.2s; }
       @keyframes fadeInUp {
         from { opacity: 0; transform: translateY(16px); }
         to { opacity: 1; transform: translateY(0); }
@@ -1595,20 +1595,20 @@ const pageCssMin = pageCss
         <section class="hero">
           <div class="container hero-inner">
             <div class="hero-copy">
-              <span class="hero-focus-label fade-in-up">Focus OS — Built for Founders</span>
+              <span class="hero-focus-label">Focus OS — Built for Founders</span>
 
-              <h1 class="hero-focus-h1 fade-in-up delay-1">
+              <h1 class="hero-focus-h1 fade-in-up">
                 <span class="hero-focus-h1-lead">Give me 3 minutes of setup.</span><br /><em>Get 90-minute work sessions<br />where your phone stops existing.</em>
               </h1>
 
-              <p class="hero-focus-subhead fade-in-up delay-2">frinter converts your sleep into a daily battery reading — then times and scores every deep work session you do. You see the data. You stop guessing.</p>
+              <p class="hero-focus-subhead fade-in-up delay-1">frinter converts your sleep into a daily battery reading — then times and scores every deep work session you do. You see the data. You stop guessing.</p>
 
-              <div class="hero-focus-cta-stack fade-in-up delay-3">
+              <div class="hero-focus-cta-stack fade-in-up delay-2">
                 <a class="btn-focus-primary" href={`${APP_URL}/register`}>Start Free — Join Beta Now</a>
                 <span class="btn-focus-ghost">No credit card. No catch. $0 to get in.</span>
               </div>
 
-              <div class="hero-platform-stack fade-in-up delay-4">
+              <div class="hero-platform-stack fade-in-up delay-3">
                 <div class="hero-platform-links">
                   <span class="hero-platform-chip is-live">
                     <span class="hero-platform-chip-icon" aria-hidden="true">
