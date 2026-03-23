@@ -1,6 +1,8 @@
 import type { AstroCookies } from 'astro';
 
 const DEFAULT_INTERNAL_API_BASE_URL = 'http://127.0.0.1:3001';
+const ADMIN_ACTIVE_SITE_COOKIE = 'frinter_admin_site';
+const ALLOWED_SITE_SLUGS = new Set(['przemyslawfilipiak', 'focusequalsfreedom', 'frinter']);
 const HOP_BY_HOP_HEADERS = new Set([
   'connection',
   'content-length',
@@ -23,6 +25,48 @@ export function getInternalApiBaseUrl() {
 
 export function getCurrentSiteSlug() {
   return process.env.SITE_SLUG ?? 'przemyslawfilipiak';
+}
+
+export function normalizeScopedSiteSlug(value: string | null | undefined, fallback = getCurrentSiteSlug()) {
+  if (value && ALLOWED_SITE_SLUGS.has(value)) return value;
+  return fallback;
+}
+
+export function parseCookieHeader(cookieHeader: string | null | undefined) {
+  const pairs = (cookieHeader ?? '').split(';');
+  const parsed: Record<string, string> = {};
+  for (const pair of pairs) {
+    const [rawKey, ...rawValue] = pair.trim().split('=');
+    if (!rawKey) continue;
+    parsed[rawKey] = decodeURIComponent(rawValue.join('='));
+  }
+  return parsed;
+}
+
+export function resolveAdminActiveSiteSlug(cookieHeader: string | null | undefined, fallback = getCurrentSiteSlug()) {
+  const cookies = parseCookieHeader(cookieHeader);
+  return normalizeScopedSiteSlug(cookies[ADMIN_ACTIVE_SITE_COOKIE], fallback);
+}
+
+export function resolveScopedSiteSlugForRequest(
+  request: Request,
+  { useAdminActiveSite = false }: { useAdminActiveSite?: boolean } = {},
+) {
+  const currentSiteSlug = getCurrentSiteSlug();
+  const requestPath = new URL(request.url).pathname;
+  const shouldUseAdminSite =
+    useAdminActiveSite
+    || (
+      currentSiteSlug === 'frinter'
+      && requestPath.startsWith('/api/')
+      && requestPath !== '/api/auth'
+      && requestPath !== '/api/logout'
+    );
+
+  if (shouldUseAdminSite && currentSiteSlug === 'frinter') {
+    return resolveAdminActiveSiteSlug(request.headers.get('cookie'), currentSiteSlug);
+  }
+  return currentSiteSlug;
 }
 
 export function isAuthenticated(cookies: AstroCookies) {
@@ -73,6 +117,7 @@ export async function proxyInternalApiRequest({
   method,
   requireAuth = true,
   includeSiteSlug = false,
+  useAdminActiveSite = false,
 }: {
   request: Request;
   cookies: AstroCookies;
@@ -80,6 +125,7 @@ export async function proxyInternalApiRequest({
   method?: string;
   requireAuth?: boolean;
   includeSiteSlug?: boolean;
+  useAdminActiveSite?: boolean;
 }) {
   if (requireAuth && !isAuthenticated(cookies)) return jsonUnauthorized();
 
@@ -89,9 +135,10 @@ export async function proxyInternalApiRequest({
   const headers = cloneForwardHeaders(request.headers, request.headers.get('cookie'));
   let body: string | undefined;
   const shouldIncludeSiteSlug = includeSiteSlug || pathname.startsWith('/v1/social-hub');
+  const resolvedSiteSlug = resolveScopedSiteSlugForRequest(request, { useAdminActiveSite });
 
   if (shouldIncludeSiteSlug) {
-    targetUrl.searchParams.set('siteSlug', getCurrentSiteSlug());
+    targetUrl.searchParams.set('siteSlug', resolvedSiteSlug);
   }
 
   if (resolvedMethod !== 'GET' && resolvedMethod !== 'HEAD') {
@@ -101,8 +148,8 @@ export async function proxyInternalApiRequest({
       if (contentType.includes('application/json')) {
         const parsed = rawBody ? JSON.parse(rawBody) : {};
         const payload = parsed && typeof parsed === 'object' && !Array.isArray(parsed)
-          ? { siteSlug: getCurrentSiteSlug(), ...parsed }
-          : { siteSlug: getCurrentSiteSlug() };
+          ? { siteSlug: resolvedSiteSlug, ...parsed }
+          : { siteSlug: resolvedSiteSlug };
         body = JSON.stringify(payload);
       } else {
         body = rawBody;
@@ -131,6 +178,7 @@ export async function fetchInternalApiJson({
   method = 'GET',
   body,
   includeSiteSlug = false,
+  useAdminActiveSite = false,
   query,
 }: {
   request: Request;
@@ -138,13 +186,15 @@ export async function fetchInternalApiJson({
   method?: string;
   body?: Record<string, unknown> | null;
   includeSiteSlug?: boolean;
+  useAdminActiveSite?: boolean;
   query?: Record<string, string | number | boolean | null | undefined>;
 }) {
   const incomingUrl = new URL(request.url);
   const targetUrl = buildInternalApiUrl(pathname, incomingUrl.search);
   const shouldIncludeSiteSlug = includeSiteSlug || pathname.startsWith('/v1/social-hub');
+  const resolvedSiteSlug = resolveScopedSiteSlugForRequest(request, { useAdminActiveSite });
   if (shouldIncludeSiteSlug) {
-    targetUrl.searchParams.set('siteSlug', getCurrentSiteSlug());
+    targetUrl.searchParams.set('siteSlug', resolvedSiteSlug);
   }
   if (query) {
     for (const [key, value] of Object.entries(query)) {
@@ -159,7 +209,7 @@ export async function fetchInternalApiJson({
   if (cookie) headers.set('cookie', cookie);
 
   const payload = shouldIncludeSiteSlug
-    ? { siteSlug: getCurrentSiteSlug(), ...(body ?? {}) }
+    ? { siteSlug: resolvedSiteSlug, ...(body ?? {}) }
     : (body ?? null);
 
   const response = await fetch(targetUrl, {

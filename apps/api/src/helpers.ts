@@ -171,6 +171,10 @@ export function clearSessionCookie() {
   return `${SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0`;
 }
 
+export function sessionCanAccessSite(session: Pick<SessionRecord, 'siteId'>, site: Pick<SiteRecord, 'id'>) {
+  return !session.siteId || session.siteId === site.id;
+}
+
 export function getPathSegments(req: http.IncomingMessage) {
   const url = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`);
   return { url, pathname: url.pathname, segments: url.pathname.split('/').filter(Boolean) };
@@ -368,7 +372,7 @@ export async function requireAuth(req: http.IncomingMessage, res: http.ServerRes
 }
 
 export function ensureSiteAccess(session: SessionRecord, site: SiteRecord, res: http.ServerResponse) {
-  if (session.siteId && session.siteId !== site.id) {
+  if (!sessionCanAccessSite(session, site)) {
     json(res, 403, { error: 'Forbidden for selected site' });
     return false;
   }

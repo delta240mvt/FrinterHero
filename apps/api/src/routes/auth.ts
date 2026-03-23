@@ -11,15 +11,15 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   if (method === 'POST' && pathname === '/v1/auth/login') {
     const body = await readJsonBody(req);
     const password = typeof body.password === 'string' ? body.password : '';
-    const site = await getSiteBySlug(normalizeSiteSlug(body.siteSlug));
     const hash = process.env.ADMIN_PASSWORD_HASH;
     if (!password || !hash) return json(res, 400, { error: 'Password required or server misconfigured' }), true;
-    if (!site) return json(res, 404, { error: 'Site not found' }), true;
     if (!(await bcrypt.compare(password, hash))) return json(res, 401, { error: 'Invalid credentials' }), true;
     const token = crypto.randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-    await db.insert(sessions).values({ token, expiresAt, siteId: site.id });
-    json(res, 200, { ok: true, siteSlug: site.slug }, { 'Set-Cookie': createSessionCookie(token) });
+    const requestedSiteSlug = normalizeSiteSlug(body.siteSlug);
+    const site = requestedSiteSlug ? await getSiteBySlug(requestedSiteSlug) : null;
+    await db.insert(sessions).values({ token, expiresAt, siteId: null });
+    json(res, 200, { ok: true, siteSlug: site?.slug ?? null }, { 'Set-Cookie': createSessionCookie(token) });
     return true;
   }
 
