@@ -1,264 +1,7 @@
 ---
 export const prerender = true;
 
-const APP_URL = import.meta.env.PUBLIC_APP_URL || 'https://web.frinter.app';
-const year = new Date().getFullYear();
-
-const content = {
-  badge: 'High-Performance System',
-  heroTitle1: 'Wholebeing',
-  heroTitleMid: 'for',
-  heroTitle2: 'High Performers',
-  heroSubtitle:
-    'Deep sleep, uninterrupted focus. Optimize 3 spheres of your life based on hard data.',
-  ctaPrimary: 'Unlock Wholebeing',
-  ctaSecondary: 'For High Performers: $0',
-  heroMicroCopy: 'Fully ready in 3 minutes. Zero risk.',
-  sphereLabels: {
-    rozkwit: 'FLOURISHING',
-    relacje: 'RELATIONSHIPS',
-    'praca-gleboka': 'DEEP WORK',
-  },
-  problemTitle: 'Your calendar is perfect. Why are you exhausted?',
-  problemText1:
-    'Shallow work. Messengers and notifications drain your nervous system, blocking entry into deep focus.',
-  problemText2:
-    'Disrupted recovery. Overstimulation prevents deep rest, leading to sleep deficit and a drastic drop in focus.',
-  problemText3:
-    'Traditional time management is an outdated model that leads to burnout.',
-  problemCta: 'See how High-Performance optimization works.',
-  featuresTitle: 'Achieve Wholebeing',
-  featuresSubtitle: 'Optimized focus, recovery and deep work based on data.',
-  featureCards: [
-    {
-      category: 'rozkwit',
-      title: 'Flourishing (You)',
-      mechanism: 'Timer for sports, reading, meditation.',
-      goal: 'Recharging. Because an exhausted High Performer makes stupid decisions.',
-      color: '#4a8d83',
-      offsetClass: '',
-    },
-    {
-      category: 'relacje',
-      title: 'Relationships (Loved Ones)',
-      mechanism: 'Yes, we measure time with loved ones.',
-      goal:
-        "So you see in black and white if you're neglecting those you're building all this for.",
-      color: '#8a4e64',
-      offsetClass: 'feature-card-offset-large',
-    },
-    {
-      category: 'praca-gleboka',
-      title: 'Deep Work (World)',
-      mechanism: 'Start a Frint. Phone goes away.',
-      goal: "Measure only pure creation time (coding, writing, strategy). Zero 'admin'.",
-      color: '#d6b779',
-      offsetClass: 'feature-card-offset-small',
-    },
-  ],
-  energy: {
-    badge: 'New',
-    title: 'Your Energy Bar',
-    subtitle: 'No more driving on reserve.',
-    description:
-      "You wouldn't start a car without fuel.\nWhy do you expect that from yourself?\nFrinter algorithm converts your sleep into battery %.",
-    statLabel: 'Energy Level',
-    statValue: '78%',
-  },
-  quote: {
-    line1: 'I expand in abundance, success, and love',
-    line2: 'every day, as I inspire those around me,',
-    line3: 'to do the same.',
-    author: 'Gay Hendricks',
-  },
-  socialProof: {
-    title: 'A tool built\nby a High Performer\nfor High Performers.',
-    story:
-      '"I built Frinter because other apps wanted me to do MORE tasks. I wanted to do the key ones BETTER. I needed a whip for my own distraction and a mirror to show me the truth about my relationships, health and sleep quality. Now I give this tool to you."',
-    author: '— Przemysław Filipiak, Founder of Frinter.app',
-  },
-  faqTitle: 'Frequently Asked Questions',
-  faqSubtitle: 'Answers before you even ask.',
-  faqs: [
-    {
-      q: 'What is "Wholebeing"?',
-      a: "Wholebeing is a condition where your biological energy (measured by Sleep Bank and Deep Sleep Bank) and focus quality (measured across 3 Spheres: Flourishing, Relationships, Deep Work) operate in full synchronization. It's not about doing more. It's about doing the things that truly matter BETTER.",
-    },
-    {
-      q: 'How is Frinter different from Notion, Todoist or other productivity apps?',
-      a: "Those apps manage your TASKS. Frinter manages your ENERGY and FOCUS. We have no to-do lists. We have a timer that measures pure time across 3 key life spheres, and an algorithm that converts your sleep into a battery percentage. If your Energy Bar is at 40%, it's not time for deep work — it's time to recover.",
-    },
-    {
-      q: 'What is the "Sleep Bank" and "Deep Sleep Bank"?',
-      a: 'Your Sleep Bank is a 30-day balance of sleep surpluses and deficits. If you sleep 5 hours for a week, your bank is in the red — and it shows on your Energy Bar. The Deep Sleep Bank measures the N3 phase — the only phase where your brain truly recovers and clears toxins. One lost hour of sleep affects 3 hours of your functioning (multiplier × 3).',
-    },
-    {
-      q: "Is this another tool I don't have time for?",
-      a: 'Setup takes 3 minutes. Daily use is literally one click — "Start Frint" and begin measuring. Log sleep once a day (30 seconds). The rest runs automatically. Frinter is designed for people who do not have time to configure tools.',
-    },
-    {
-      q: 'Who is Frinter for?',
-      a: "For High Performers — founders, CEOs, creators, leaders, anyone building something with passion who doesn't want to burn out in the process. If you feel that 'time management' isn't enough because the real problem is your energy and focus — Frinter is for you.",
-    },
-    {
-      q: 'How much does it cost?',
-      a: "In Beta: $0. No card required, no hidden fees. We're looking for Founding Members who want to co-create the tool and influence its development. Your spot in this group is yours forever.",
-    },
-    {
-      q: 'What devices does Frinter work on?',
-      a: 'The web app (PWA) works on desktop and mobile in any browser. The mobile app (Expo) is in development. Your data syncs across devices in real time.',
-    },
-  ],
-  offerTitle: 'Join the High Performers',
-  benefits: [
-    'Wholebeing Ecosystem: Measure energy and focus on desktop and mobile.',
-    '3 Spheres Method: Ready-made framework for Flourishing, Relationships and Deep Work.',
-    'Founding Member Status: $0 forever (no card required).',
-    'Impact on development: Your suggestions really change the app.',
-  ],
-  offerScarcity: 'Join the group of leaders who have optimized their work time.',
-  finalCtaTitle: 'Your ultimate state of mind',
-  finalCtaSubtitle: 'is a matter of the right system.',
-  finalCtaButton: 'Unlock Wholebeing',
-  finalCtaFooter: 'Last chance for Founding Member status.',
-};
-
-const organizationJsonLd = [
-  {
-    '@type': 'Organization',
-    '@id': 'https://frinter.app/#organization',
-    name: 'frinter.',
-    url: 'https://frinter.app',
-    logo: { '@type': 'ImageObject', url: 'https://frinter.app/favicon.png' },
-    sameAs: [
-      'https://github.com/delta240mvt',
-      'https://www.linkedin.com/in/przemyslaw-filipiak-8a9b77113/',
-    ],
-  },
-  {
-    '@type': 'Person',
-    '@id': 'https://frinter.app/#person',
-    name: 'Przemysław Filipiak',
-    url: 'https://przemyslawfilipiak.com',
-    jobTitle: 'Deep Focus Founder',
-    worksFor: { '@id': 'https://frinter.app/#organization' },
-  },
-  {
-    '@type': 'WebSite',
-    '@id': 'https://frinter.app/#website',
-    name: 'frinter.',
-    url: 'https://frinter.app',
-    publisher: { '@id': 'https://frinter.app/#organization' },
-    inLanguage: ['pl-PL', 'en-US'],
-  },
-  {
-    '@type': 'WebPage',
-    '@id': 'https://frinter.app/en/#webpage',
-    url: 'https://frinter.app/en/',
-    name: 'frinter. — WholeBeing for Founders | Focus System',
-    isPartOf: { '@id': 'https://frinter.app/#website' },
-    about: { '@id': 'https://frinter.app/#organization' },
-    description:
-      'frinter is the operating system for Founders building in deep focus.',
-    inLanguage: 'en-US',
-  },
-  {
-    '@type': 'SoftwareApplication',
-    '@id': 'https://frinter.app/#software',
-    name: 'frinter.',
-    applicationCategory: 'ProductivityApplication',
-    operatingSystem: 'Web, iOS, Android',
-    url: 'https://frinter.app',
-    description:
-      'Focus timer, activity tracker, bullet journal and gamification system for High Performers.',
-    author: { '@id': 'https://frinter.app/#person' },
-    offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
-    featureList: [
-      'Focus Timer (Frint)',
-      'Activity Tracker (3 spheres)',
-      'Energy Bar',
-      'Bullet Journal',
-      'Gamification & rankings',
-      'FRINT Check-in',
-    ],
-    inLanguage: 'en-US',
-  },
-];
-
-const faqJsonLd = {
-  '@context': 'https://schema.org',
-  '@type': 'FAQPage',
-  mainEntity: content.faqs.map((faq) => ({
-    '@type': 'Question',
-    name: faq.q,
-    acceptedAnswer: {
-      '@type': 'Answer',
-      text: faq.a,
-    },
-  })),
-};
-
-const ldString = JSON.stringify({
-  '@context': 'https://schema.org',
-  '@graph': organizationJsonLd,
-});
----
-
-<!doctype html>
-<html lang="en" class="scroll-smooth">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>frinter. — WholeBeing for Founders | Focus System</title>
-    <meta
-      name="description"
-      content="frinter is the operating system for Founders building in deep focus. Focus timer (Frint), Energy Bar, Activity Tracker and 3 life spheres in one app."
-    />
-    <meta
-      name="robots"
-      content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1"
-    />
-    <link rel="canonical" href="https://frinter.app/" />
-    <link rel="alternate" hreflang="pl" href="https://frinter.app/" />
-    <link rel="alternate" hreflang="en" href="https://frinter.app/en/" />
-    <link rel="alternate" hreflang="x-default" href="https://frinter.app/" />
-    <link rel="sitemap" type="application/xml" href="/sitemap.xml" />
-    <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://frinter.app/en/" />
-    <meta property="og:title" content="frinter. — WholeBeing for Founders | Focus System" />
-    <meta
-      property="og:description"
-      content="frinter is the operating system for Founders building in deep focus."
-    />
-    <meta property="og:image" content="https://frinter.app/og-image.svg" />
-    <meta property="og:image:alt" content="frinter. — WholeBeing for Founders | Focus System" />
-    <meta property="og:image:width" content="1200" />
-    <meta property="og:image:height" content="630" />
-    <meta property="og:image:type" content="image/svg+xml" />
-    <meta property="og:site_name" content="frinter." />
-    <meta property="og:locale" content="en_US" />
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="frinter. — WholeBeing for Founders | Focus System" />
-    <meta
-      name="twitter:description"
-      content="frinter is the operating system for Founders building in deep focus."
-    />
-    <meta name="twitter:image" content="https://frinter.app/og-image.svg" />
-    <meta name="twitter:image:alt" content="frinter. — WholeBeing for Founders | Focus System" />
-    <link rel="me" href="https://github.com/delta240mvt" />
-    <link rel="me" href="https://www.linkedin.com/in/przemyslaw-filipiak-8a9b77113/" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
-    <link rel="icon" type="image/png" href="/favicon.png" sizes="32x32" />
-    <link rel="apple-touch-icon" href="/icon-180.png" />
-    <meta name="theme-color" content="#4a8d83" />
-    <link rel="preload" href="/fonts/Poppins-700.woff2" as="font" type="font/woff2" crossorigin />
-    <link rel="preload" href="/fonts/Poppins-600.woff2" as="font" type="font/woff2" crossorigin />
-    <link rel="preload" href="/fonts/CourierPrime-Regular.woff2" as="font" type="font/woff2" crossorigin />
-    <link rel="preload" href="/fonts/Roboto-400.woff2" as="font" type="font/woff2" crossorigin />
-    <script type="application/ld+json" set:html={ldString}></script>
-    <script type="application/ld+json" set:html={JSON.stringify(faqJsonLd)}></script>
-    <style is:global>
+const pageCss = `
       @font-face {
         font-family: 'Courier Prime';
         src: url('/fonts/CourierPrime-Regular.woff2') format('woff2');
@@ -2546,7 +2289,7 @@ const ldString = JSON.stringify({
       }
 
       .qcard-new::before {
-        content: '\201C';
+        content: '\\201C';
         font-size: 5rem;
         color: var(--green);
         opacity: 0.12;
@@ -2728,7 +2471,266 @@ const ldString = JSON.stringify({
         .wyg-check-new { font-size: 0.9rem; }
         .big-price-new { font-size: 3rem; }
       }
-    </style>
+    `;
+
+const APP_URL = import.meta.env.PUBLIC_APP_URL || 'https://web.frinter.app';
+const year = new Date().getFullYear();
+
+const content = {
+  badge: 'High-Performance System',
+  heroTitle1: 'Wholebeing',
+  heroTitleMid: 'for',
+  heroTitle2: 'High Performers',
+  heroSubtitle:
+    'Deep sleep, uninterrupted focus. Optimize 3 spheres of your life based on hard data.',
+  ctaPrimary: 'Unlock Wholebeing',
+  ctaSecondary: 'For High Performers: $0',
+  heroMicroCopy: 'Fully ready in 3 minutes. Zero risk.',
+  sphereLabels: {
+    rozkwit: 'FLOURISHING',
+    relacje: 'RELATIONSHIPS',
+    'praca-gleboka': 'DEEP WORK',
+  },
+  problemTitle: 'Your calendar is perfect. Why are you exhausted?',
+  problemText1:
+    'Shallow work. Messengers and notifications drain your nervous system, blocking entry into deep focus.',
+  problemText2:
+    'Disrupted recovery. Overstimulation prevents deep rest, leading to sleep deficit and a drastic drop in focus.',
+  problemText3:
+    'Traditional time management is an outdated model that leads to burnout.',
+  problemCta: 'See how High-Performance optimization works.',
+  featuresTitle: 'Achieve Wholebeing',
+  featuresSubtitle: 'Optimized focus, recovery and deep work based on data.',
+  featureCards: [
+    {
+      category: 'rozkwit',
+      title: 'Flourishing (You)',
+      mechanism: 'Timer for sports, reading, meditation.',
+      goal: 'Recharging. Because an exhausted High Performer makes stupid decisions.',
+      color: '#4a8d83',
+      offsetClass: '',
+    },
+    {
+      category: 'relacje',
+      title: 'Relationships (Loved Ones)',
+      mechanism: 'Yes, we measure time with loved ones.',
+      goal:
+        "So you see in black and white if you're neglecting those you're building all this for.",
+      color: '#8a4e64',
+      offsetClass: 'feature-card-offset-large',
+    },
+    {
+      category: 'praca-gleboka',
+      title: 'Deep Work (World)',
+      mechanism: 'Start a Frint. Phone goes away.',
+      goal: "Measure only pure creation time (coding, writing, strategy). Zero 'admin'.",
+      color: '#d6b779',
+      offsetClass: 'feature-card-offset-small',
+    },
+  ],
+  energy: {
+    badge: 'New',
+    title: 'Your Energy Bar',
+    subtitle: 'No more driving on reserve.',
+    description:
+      "You wouldn't start a car without fuel.\nWhy do you expect that from yourself?\nFrinter algorithm converts your sleep into battery %.",
+    statLabel: 'Energy Level',
+    statValue: '78%',
+  },
+  quote: {
+    line1: 'I expand in abundance, success, and love',
+    line2: 'every day, as I inspire those around me,',
+    line3: 'to do the same.',
+    author: 'Gay Hendricks',
+  },
+  socialProof: {
+    title: 'A tool built\nby a High Performer\nfor High Performers.',
+    story:
+      '"I built Frinter because other apps wanted me to do MORE tasks. I wanted to do the key ones BETTER. I needed a whip for my own distraction and a mirror to show me the truth about my relationships, health and sleep quality. Now I give this tool to you."',
+    author: '— Przemysław Filipiak, Founder of Frinter.app',
+  },
+  faqTitle: 'Frequently Asked Questions',
+  faqSubtitle: 'Answers before you even ask.',
+  faqs: [
+    {
+      q: 'What is "Wholebeing"?',
+      a: "Wholebeing is a condition where your biological energy (measured by Sleep Bank and Deep Sleep Bank) and focus quality (measured across 3 Spheres: Flourishing, Relationships, Deep Work) operate in full synchronization. It's not about doing more. It's about doing the things that truly matter BETTER.",
+    },
+    {
+      q: 'How is Frinter different from Notion, Todoist or other productivity apps?',
+      a: "Those apps manage your TASKS. Frinter manages your ENERGY and FOCUS. We have no to-do lists. We have a timer that measures pure time across 3 key life spheres, and an algorithm that converts your sleep into a battery percentage. If your Energy Bar is at 40%, it's not time for deep work — it's time to recover.",
+    },
+    {
+      q: 'What is the "Sleep Bank" and "Deep Sleep Bank"?',
+      a: 'Your Sleep Bank is a 30-day balance of sleep surpluses and deficits. If you sleep 5 hours for a week, your bank is in the red — and it shows on your Energy Bar. The Deep Sleep Bank measures the N3 phase — the only phase where your brain truly recovers and clears toxins. One lost hour of sleep affects 3 hours of your functioning (multiplier × 3).',
+    },
+    {
+      q: "Is this another tool I don't have time for?",
+      a: 'Setup takes 3 minutes. Daily use is literally one click — "Start Frint" and begin measuring. Log sleep once a day (30 seconds). The rest runs automatically. Frinter is designed for people who do not have time to configure tools.',
+    },
+    {
+      q: 'Who is Frinter for?',
+      a: "For High Performers — founders, CEOs, creators, leaders, anyone building something with passion who doesn't want to burn out in the process. If you feel that 'time management' isn't enough because the real problem is your energy and focus — Frinter is for you.",
+    },
+    {
+      q: 'How much does it cost?',
+      a: "In Beta: $0. No card required, no hidden fees. We're looking for Founding Members who want to co-create the tool and influence its development. Your spot in this group is yours forever.",
+    },
+    {
+      q: 'What devices does Frinter work on?',
+      a: 'The web app (PWA) works on desktop and mobile in any browser. The mobile app (Expo) is in development. Your data syncs across devices in real time.',
+    },
+  ],
+  offerTitle: 'Join the High Performers',
+  benefits: [
+    'Wholebeing Ecosystem: Measure energy and focus on desktop and mobile.',
+    '3 Spheres Method: Ready-made framework for Flourishing, Relationships and Deep Work.',
+    'Founding Member Status: $0 forever (no card required).',
+    'Impact on development: Your suggestions really change the app.',
+  ],
+  offerScarcity: 'Join the group of leaders who have optimized their work time.',
+  finalCtaTitle: 'Your ultimate state of mind',
+  finalCtaSubtitle: 'is a matter of the right system.',
+  finalCtaButton: 'Unlock Wholebeing',
+  finalCtaFooter: 'Last chance for Founding Member status.',
+};
+
+const organizationJsonLd = [
+  {
+    '@type': 'Organization',
+    '@id': 'https://frinter.app/#organization',
+    name: 'frinter.',
+    url: 'https://frinter.app',
+    logo: { '@type': 'ImageObject', url: 'https://frinter.app/favicon.png' },
+    sameAs: [
+      'https://github.com/delta240mvt',
+      'https://www.linkedin.com/in/przemyslaw-filipiak-8a9b77113/',
+    ],
+  },
+  {
+    '@type': 'Person',
+    '@id': 'https://frinter.app/#person',
+    name: 'Przemysław Filipiak',
+    url: 'https://przemyslawfilipiak.com',
+    jobTitle: 'Deep Focus Founder',
+    worksFor: { '@id': 'https://frinter.app/#organization' },
+  },
+  {
+    '@type': 'WebSite',
+    '@id': 'https://frinter.app/#website',
+    name: 'frinter.',
+    url: 'https://frinter.app',
+    publisher: { '@id': 'https://frinter.app/#organization' },
+    inLanguage: ['pl-PL', 'en-US'],
+  },
+  {
+    '@type': 'WebPage',
+    '@id': 'https://frinter.app/en/#webpage',
+    url: 'https://frinter.app/en/',
+    name: 'frinter. — WholeBeing for Founders | Focus System',
+    isPartOf: { '@id': 'https://frinter.app/#website' },
+    about: { '@id': 'https://frinter.app/#organization' },
+    description:
+      'frinter is the operating system for Founders building in deep focus.',
+    inLanguage: 'en-US',
+  },
+  {
+    '@type': 'SoftwareApplication',
+    '@id': 'https://frinter.app/#software',
+    name: 'frinter.',
+    applicationCategory: 'ProductivityApplication',
+    operatingSystem: 'Web, iOS, Android',
+    url: 'https://frinter.app',
+    description:
+      'Focus timer, activity tracker, bullet journal and gamification system for High Performers.',
+    author: { '@id': 'https://frinter.app/#person' },
+    offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+    featureList: [
+      'Focus Timer (Frint)',
+      'Activity Tracker (3 spheres)',
+      'Energy Bar',
+      'Bullet Journal',
+      'Gamification & rankings',
+      'FRINT Check-in',
+    ],
+    inLanguage: 'en-US',
+  },
+];
+
+const faqJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: content.faqs.map((faq) => ({
+    '@type': 'Question',
+    name: faq.q,
+    acceptedAnswer: {
+      '@type': 'Answer',
+      text: faq.a,
+    },
+  })),
+};
+
+const ldString = JSON.stringify({
+  '@context': 'https://schema.org',
+  '@graph': organizationJsonLd,
+});
+---
+
+<!doctype html>
+<html lang="en" class="scroll-smooth">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>frinter. — WholeBeing for Founders | Focus System</title>
+    <meta
+      name="description"
+      content="frinter is the operating system for Founders building in deep focus. Focus timer (Frint), Energy Bar, Activity Tracker and 3 life spheres in one app."
+    />
+    <meta
+      name="robots"
+      content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1"
+    />
+    <link rel="canonical" href="https://frinter.app/" />
+    <link rel="alternate" hreflang="pl" href="https://frinter.app/" />
+    <link rel="alternate" hreflang="en" href="https://frinter.app/en/" />
+    <link rel="alternate" hreflang="x-default" href="https://frinter.app/" />
+    <link rel="sitemap" type="application/xml" href="/sitemap.xml" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://frinter.app/en/" />
+    <meta property="og:title" content="frinter. — WholeBeing for Founders | Focus System" />
+    <meta
+      property="og:description"
+      content="frinter is the operating system for Founders building in deep focus."
+    />
+    <meta property="og:image" content="https://frinter.app/og-image.svg" />
+    <meta property="og:image:alt" content="frinter. — WholeBeing for Founders | Focus System" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:type" content="image/svg+xml" />
+    <meta property="og:site_name" content="frinter." />
+    <meta property="og:locale" content="en_US" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="frinter. — WholeBeing for Founders | Focus System" />
+    <meta
+      name="twitter:description"
+      content="frinter is the operating system for Founders building in deep focus."
+    />
+    <meta name="twitter:image" content="https://frinter.app/og-image.svg" />
+    <meta name="twitter:image:alt" content="frinter. — WholeBeing for Founders | Focus System" />
+    <link rel="me" href="https://github.com/delta240mvt" />
+    <link rel="me" href="https://www.linkedin.com/in/przemyslaw-filipiak-8a9b77113/" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="icon" type="image/png" href="/favicon.png" sizes="32x32" />
+    <link rel="apple-touch-icon" href="/icon-180.png" />
+    <meta name="theme-color" content="#4a8d83" />
+    <link rel="preload" href="/fonts/Poppins-700.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/Poppins-600.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/CourierPrime-Regular.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/Roboto-400.woff2" as="font" type="font/woff2" crossorigin />
+    <script type="application/ld+json" set:html={ldString}></script>
+    <script type="application/ld+json" set:html={JSON.stringify(faqJsonLd)}></script>
+    <style set:html={pageCss}></style>
   </head>
   <body>
     <div class="page-shell">
