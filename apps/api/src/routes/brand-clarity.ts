@@ -1,7 +1,7 @@
 import type { RouteContext } from '../helpers.js';
 import {
-  json, readJsonBody, normalizeSiteSlug, toPositiveInt, firstQueryValue,
-  resolveAuthedSite, resolveBcProjectContext, enqueueAppJob, runBcScript,
+  json, readJsonBody, firstQueryValue,
+  requireActiveSite, resolveBcProjectContext, enqueueAppJob, runBcScript,
   bcProjectScope, bcChannelScope, bcVideoScope, bcPainPointScope, bcClusterScope,
   db, and, asc, desc, eq, inArray, isNull, or, sql,
   bcProjects, bcTargetChannels, bcTargetVideos, bcExtractedPainPoints, bcIterations, bcIterationSelections, bcPainClusters, bcLandingPageVariants, bcSettings, appJobs,
@@ -13,14 +13,14 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   const { req, res, method, url, pathname, segments } = ctx;
 
   if (method === 'GET' && pathname === '/v1/admin/bc/settings') {
-    const context = await resolveAuthedSite(req, res, normalizeSiteSlug(url.searchParams.get('siteSlug')));
+    const context = await requireActiveSite(req, res);
     if (!context) return true;
     json(res, 200, await getBcSettings(context.site.id));
     return true;
   }
 
   if (method === 'PUT' && pathname === '/v1/admin/bc/settings') {
-    const context = await resolveAuthedSite(req, res, normalizeSiteSlug(url.searchParams.get('siteSlug')));
+    const context = await requireActiveSite(req, res);
     if (!context) return true;
     const body = await readJsonBody(req);
     const config = {
@@ -45,7 +45,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   }
 
   if (method === 'GET' && pathname === '/v1/admin/bc/projects') {
-    const context = await resolveAuthedSite(req, res, normalizeSiteSlug(url.searchParams.get('siteSlug')));
+    const context = await requireActiveSite(req, res);
     if (!context) return true;
     const projects = await db.select().from(bcProjects).where(bcProjectScope(context.site.id)).orderBy(desc(bcProjects.createdAt));
     json(res, 200, projects);
@@ -54,7 +54,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
 
   if (method === 'POST' && pathname === '/v1/admin/bc/projects') {
     const body = await readJsonBody(req);
-    const context = await resolveAuthedSite(req, res, normalizeSiteSlug(body.siteSlug ?? url.searchParams.get('siteSlug')));
+    const context = await requireActiveSite(req, res);
     if (!context) return true;
     const name = typeof body.name === 'string' ? body.name.trim() : '';
     const founderDescription = typeof body.founderDescription === 'string' ? body.founderDescription.trim() : '';
@@ -78,7 +78,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   }
 
   if (segments[0] === 'v1' && segments[1] === 'admin' && segments[2] === 'bc' && segments[3] === 'projects' && segments[4] && !segments[5]) {
-    const context = await resolveBcProjectContext(req, res, normalizeSiteSlug(firstQueryValue(url, 'siteSlug')), segments[4]);
+    const context = await resolveBcProjectContext(req, res, segments[4]);
     if (!context) return true;
     const { site, projectId: id } = context;
 
@@ -112,7 +112,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   }
 
   if (method === 'PUT' && segments[0] === 'v1' && segments[1] === 'admin' && segments[2] === 'bc' && segments[3] === 'projects' && segments[4] && segments[5] === 'documentation') {
-    const context = await resolveBcProjectContext(req, res, normalizeSiteSlug(firstQueryValue(url, 'siteSlug')), segments[4]);
+    const context = await resolveBcProjectContext(req, res, segments[4]);
     if (!context) return true;
     const { site, projectId: id } = context;
     const body = await readJsonBody(req);
@@ -139,7 +139,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   }
 
   if (segments[0] === 'v1' && segments[1] === 'admin' && segments[2] === 'bc' && segments[3] === 'projects' && segments[4] && segments[5] === 'channels' && !segments[6]) {
-    const context = await resolveBcProjectContext(req, res, normalizeSiteSlug(firstQueryValue(url, 'siteSlug')), segments[4]);
+    const context = await resolveBcProjectContext(req, res, segments[4]);
     if (!context) return true;
     const { site, projectId } = context;
 
@@ -176,7 +176,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   }
 
   if (segments[0] === 'v1' && segments[1] === 'admin' && segments[2] === 'bc' && segments[3] === 'projects' && segments[4] && segments[5] === 'channels' && segments[6] && !segments[7]) {
-    const context = await resolveBcProjectContext(req, res, normalizeSiteSlug(firstQueryValue(url, 'siteSlug')), segments[4]);
+    const context = await resolveBcProjectContext(req, res, segments[4]);
     if (!context) return true;
     const { site, projectId } = context;
     const channelRowId = Number(segments[6]);
@@ -202,7 +202,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   }
 
   if (method === 'POST' && segments[0] === 'v1' && segments[1] === 'admin' && segments[2] === 'bc' && segments[3] === 'projects' && segments[4] && segments[5] === 'channels' && segments[6] === 'confirm-all') {
-    const context = await resolveBcProjectContext(req, res, normalizeSiteSlug(firstQueryValue(url, 'siteSlug')), segments[4]);
+    const context = await resolveBcProjectContext(req, res, segments[4]);
     if (!context) return true;
     const { site, projectId } = context;
     await db.update(bcTargetChannels).set({ isConfirmed: true }).where(and(eq(bcTargetChannels.projectId, projectId), bcChannelScope(site.id)));
@@ -213,7 +213,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   }
 
   if (segments[0] === 'v1' && segments[1] === 'admin' && segments[2] === 'bc' && segments[3] === 'projects' && segments[4] && segments[5] === 'videos' && !segments[6]) {
-    const context = await resolveBcProjectContext(req, res, normalizeSiteSlug(firstQueryValue(url, 'siteSlug')), segments[4]);
+    const context = await resolveBcProjectContext(req, res, segments[4]);
     if (!context) return true;
     const { site, projectId } = context;
 
@@ -238,7 +238,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   }
 
   if (method === 'PUT' && segments[0] === 'v1' && segments[1] === 'admin' && segments[2] === 'bc' && segments[3] === 'projects' && segments[4] && segments[5] === 'videos' && segments[6] && !segments[7]) {
-    const context = await resolveBcProjectContext(req, res, normalizeSiteSlug(firstQueryValue(url, 'siteSlug')), segments[4]);
+    const context = await resolveBcProjectContext(req, res, segments[4]);
     if (!context) return true;
     const { site, projectId } = context;
     const videoRowId = Number(segments[6]);
@@ -252,7 +252,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   }
 
   if (method === 'POST' && segments[0] === 'v1' && segments[1] === 'admin' && segments[2] === 'bc' && segments[3] === 'projects' && segments[4] && segments[5] === 'videos' && segments[6] === 'add-manual') {
-    const context = await resolveBcProjectContext(req, res, normalizeSiteSlug(firstQueryValue(url, 'siteSlug')), segments[4]);
+    const context = await resolveBcProjectContext(req, res, segments[4]);
     if (!context) return true;
     const { site, projectId } = context;
     const body = await readJsonBody(req);
@@ -332,7 +332,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   }
 
   if (method === 'POST' && segments[0] === 'v1' && segments[1] === 'admin' && segments[2] === 'bc' && segments[3] === 'projects' && segments[4] && segments[5] === 'discover-channels') {
-    const context = await resolveBcProjectContext(req, res, normalizeSiteSlug(firstQueryValue(url, 'siteSlug')), segments[4]);
+    const context = await resolveBcProjectContext(req, res, segments[4]);
     if (!context) return true;
     const { site, projectId } = context;
     const [project] = await db.select().from(bcProjects).where(and(eq(bcProjects.id, projectId), bcProjectScope(site.id))).limit(1);
@@ -347,7 +347,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   }
 
   if (method === 'POST' && segments[0] === 'v1' && segments[1] === 'admin' && segments[2] === 'bc' && segments[3] === 'projects' && segments[4] && segments[5] === 'discover-videos') {
-    const context = await resolveBcProjectContext(req, res, normalizeSiteSlug(firstQueryValue(url, 'siteSlug')), segments[4]);
+    const context = await resolveBcProjectContext(req, res, segments[4]);
     if (!context) return true;
     const { site, projectId } = context;
     const [project] = await db.select().from(bcProjects).where(and(eq(bcProjects.id, projectId), bcProjectScope(site.id))).limit(1);
@@ -361,7 +361,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   }
 
   if (segments[0] === 'v1' && segments[1] === 'admin' && segments[2] === 'bc' && segments[3] === 'projects' && segments[4] && segments[5] === 'pain-points' && !segments[6]) {
-    const context = await resolveBcProjectContext(req, res, normalizeSiteSlug(firstQueryValue(url, 'siteSlug')), segments[4]);
+    const context = await resolveBcProjectContext(req, res, segments[4]);
     if (!context) return true;
     const { site, projectId } = context;
 
@@ -377,7 +377,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   }
 
   if (segments[0] === 'v1' && segments[1] === 'admin' && segments[2] === 'bc' && segments[3] === 'projects' && segments[4] && segments[5] === 'pain-points' && segments[6] && !segments[7]) {
-    const context = await resolveBcProjectContext(req, res, normalizeSiteSlug(firstQueryValue(url, 'siteSlug')), segments[4]);
+    const context = await resolveBcProjectContext(req, res, segments[4]);
     if (!context) return true;
     const { site, projectId } = context;
     const painPointId = Number(segments[6]);
@@ -402,7 +402,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   }
 
   if (method === 'POST' && segments[0] === 'v1' && segments[1] === 'admin' && segments[2] === 'bc' && segments[3] === 'projects' && segments[4] && segments[5] === 'pain-points' && segments[6] === 'auto-filter') {
-    const context = await resolveBcProjectContext(req, res, normalizeSiteSlug(firstQueryValue(url, 'siteSlug')), segments[4]);
+    const context = await resolveBcProjectContext(req, res, segments[4]);
     if (!context) return true;
     const { site, projectId } = context;
     const pending = await db.select().from(bcExtractedPainPoints).where(and(eq(bcExtractedPainPoints.projectId, projectId), bcPainPointScope(site.id), eq(bcExtractedPainPoints.status, 'pending')));
@@ -419,7 +419,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   }
 
   if (segments[0] === 'v1' && segments[1] === 'admin' && segments[2] === 'bc' && segments[3] === 'projects' && segments[4] && segments[5] === 'iterations' && !segments[6]) {
-    const context = await resolveBcProjectContext(req, res, normalizeSiteSlug(firstQueryValue(url, 'siteSlug')), segments[4]);
+    const context = await resolveBcProjectContext(req, res, segments[4]);
     if (!context) return true;
     const { site, projectId } = context;
 
@@ -451,7 +451,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   }
 
   if (segments[0] === 'v1' && segments[1] === 'admin' && segments[2] === 'bc' && segments[3] === 'projects' && segments[4] && segments[5] === 'iterations' && segments[6] && !segments[7]) {
-    const context = await resolveBcProjectContext(req, res, normalizeSiteSlug(firstQueryValue(url, 'siteSlug')), segments[4]);
+    const context = await resolveBcProjectContext(req, res, segments[4]);
     if (!context) return true;
     const { site, projectId } = context;
     const iterationId = Number(segments[6]);
@@ -477,7 +477,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   }
 
   if (method === 'GET' && segments[0] === 'v1' && segments[1] === 'admin' && segments[2] === 'bc' && segments[3] === 'projects' && segments[4] && segments[5] === 'iterations' && segments[6] && segments[7] === 'selections') {
-    const context = await resolveBcProjectContext(req, res, normalizeSiteSlug(firstQueryValue(url, 'siteSlug')), segments[4]);
+    const context = await resolveBcProjectContext(req, res, segments[4]);
     if (!context) return true;
     const { site, projectId } = context;
     const iterationId = Number(segments[6]);
@@ -506,7 +506,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   }
 
   if (method === 'GET' && segments[0] === 'v1' && segments[1] === 'admin' && segments[2] === 'bc' && segments[3] === 'projects' && segments[4] && segments[5] === 'iterations' && segments[6] && segments[7] === 'detail') {
-    const context = await resolveBcProjectContext(req, res, normalizeSiteSlug(firstQueryValue(url, 'siteSlug')), segments[4]);
+    const context = await resolveBcProjectContext(req, res, segments[4]);
     if (!context) return true;
     const { site, projectId } = context;
     const iterationId = Number(segments[6]);
@@ -538,7 +538,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   }
 
   if (segments[0] === 'v1' && segments[1] === 'admin' && segments[2] === 'bc' && segments[3] === 'projects' && segments[4] && segments[5] === 'variants' && !segments[6]) {
-    const context = await resolveBcProjectContext(req, res, normalizeSiteSlug(firstQueryValue(url, 'siteSlug')), segments[4]);
+    const context = await resolveBcProjectContext(req, res, segments[4]);
     if (!context) return true;
     const { site, projectId } = context;
     const variants = await db.select({
@@ -556,7 +556,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   }
 
   if (segments[0] === 'v1' && segments[1] === 'admin' && segments[2] === 'bc' && segments[3] === 'projects' && segments[4] && segments[5] === 'variants-list') {
-    const context = await resolveBcProjectContext(req, res, normalizeSiteSlug(firstQueryValue(url, 'siteSlug')), segments[4]);
+    const context = await resolveBcProjectContext(req, res, segments[4]);
     if (!context) return true;
     const { site, projectId } = context;
     const [project] = await db.select({ status: bcProjects.status }).from(bcProjects).where(and(eq(bcProjects.id, projectId), bcProjectScope(site.id))).limit(1);
@@ -575,7 +575,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   }
 
   if (segments[0] === 'v1' && segments[1] === 'admin' && segments[2] === 'bc' && segments[3] === 'projects' && segments[4] && segments[5] === 'variants' && segments[6] && !segments[7]) {
-    const context = await resolveBcProjectContext(req, res, normalizeSiteSlug(firstQueryValue(url, 'siteSlug')), segments[4]);
+    const context = await resolveBcProjectContext(req, res, segments[4]);
     if (!context) return true;
     const { site, projectId } = context;
     const variantId = Number(segments[6]);
@@ -599,7 +599,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   }
 
   if (segments[0] === 'v1' && segments[1] === 'admin' && segments[2] === 'bc' && segments[3] === 'projects' && segments[4] && segments[5] === 'scrape-data') {
-    const context = await resolveBcProjectContext(req, res, normalizeSiteSlug(firstQueryValue(url, 'siteSlug')), segments[4]);
+    const context = await resolveBcProjectContext(req, res, segments[4]);
     if (!context) return true;
     const { site, projectId } = context;
     const [project] = await db.select().from(bcProjects).where(and(eq(bcProjects.id, projectId), bcProjectScope(site.id))).limit(1);
@@ -628,7 +628,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   }
 
   if (segments[0] === 'v1' && segments[1] === 'admin' && segments[2] === 'bc' && segments[3] === 'projects' && segments[4] && segments[5] === 'job-status') {
-    const context = await resolveBcProjectContext(req, res, normalizeSiteSlug(firstQueryValue(url, 'siteSlug')), segments[4]);
+    const context = await resolveBcProjectContext(req, res, segments[4]);
     if (!context) return true;
     const { site, projectId } = context;
     const topic = firstQueryValue(url, 'topic') ?? 'bc-parse';
@@ -644,7 +644,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   }
 
   if (segments[0] === 'v1' && segments[1] === 'admin' && segments[2] === 'bc' && segments[3] === 'projects' && segments[4] && segments[5] === 'cluster-pain-points') {
-    const context = await resolveBcProjectContext(req, res, normalizeSiteSlug(firstQueryValue(url, 'siteSlug')), segments[4]);
+    const context = await resolveBcProjectContext(req, res, segments[4]);
     if (!context) return true;
     const { site, projectId } = context;
 
