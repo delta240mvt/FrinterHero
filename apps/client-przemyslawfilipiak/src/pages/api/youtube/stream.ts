@@ -20,7 +20,7 @@ export const GET: APIRoute = async ({ request, cookies }) => {
       const send = (payload: object) => controller.enqueue(encoder.encode(`data: ${JSON.stringify(payload)}\n\n`));
 
       const tick = async () => {
-        const { data } = await fetchInternalApiJson({ request, pathname: '/v1/jobs/latest', includeSiteSlug: true, query: { topic: 'youtube' } });
+        const { data } = await fetchInternalApiJson({ request, pathname: '/v1/jobs/latest', query: { topic: 'youtube' } });
         const job = data?.job ?? null;
         const lines = toLines(job?.result?.stdout);
         while (sent < lines.length) {

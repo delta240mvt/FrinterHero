@@ -7,7 +7,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     request,
     pathname: '/v1/jobs/active',
     method: 'DELETE',
-    includeSiteSlug: true,
+    
     query: { topic: 'bc-scrape' },
   });
   return new Response(JSON.stringify(data), { status: response.status, headers: JSON_HEADERS });

@@ -6,5 +6,5 @@ export const GET: APIRoute = ({ request, cookies }) =>
     request,
     cookies,
     pathname: '/v1/admin/article-generations',
-    includeSiteSlug: true,
+    
   });

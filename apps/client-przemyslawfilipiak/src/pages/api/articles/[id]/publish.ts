@@ -10,5 +10,5 @@ export const POST: APIRoute = ({ params, request, cookies }) =>
     request,
     cookies,
     pathname: publishPath(params.id),
-    includeSiteSlug: true,
+    
   });

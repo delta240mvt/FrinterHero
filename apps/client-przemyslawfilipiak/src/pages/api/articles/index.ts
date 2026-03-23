@@ -6,7 +6,7 @@ export const GET: APIRoute = ({ request, cookies }) =>
     request,
     cookies,
     pathname: '/v1/admin/articles',
-    includeSiteSlug: true,
+    
   });
 
 export const POST: APIRoute = ({ request, cookies }) =>
@@ -14,5 +14,5 @@ export const POST: APIRoute = ({ request, cookies }) =>
     request,
     cookies,
     pathname: '/v1/admin/articles',
-    includeSiteSlug: true,
+    
   });

@@ -6,4 +6,4 @@ function path(projectId: string | undefined, videoId: string | undefined) {
 }
 
 export const PUT: APIRoute = ({ params, request, cookies }) =>
-  proxyInternalApiRequest({ request, cookies, pathname: path(params.projectId, params.videoId), includeSiteSlug: true });
+  proxyInternalApiRequest({ request, cookies, pathname: path(params.projectId, params.videoId) });

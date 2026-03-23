@@ -6,4 +6,4 @@ function route(id: string | undefined) {
 }
 
 export const POST: APIRoute = ({ params, request, cookies }) =>
-  proxyInternalApiRequest({ request, cookies, pathname: route(params.id), includeSiteSlug: true });
+  proxyInternalApiRequest({ request, cookies, pathname: route(params.id) });

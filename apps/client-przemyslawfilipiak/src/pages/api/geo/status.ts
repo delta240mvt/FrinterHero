@@ -11,8 +11,8 @@ export const GET: APIRoute = async ({ request, cookies }) => {
   if (!isAuthenticated(cookies)) return jsonUnauthorized();
 
   const [{ data: activeData }, { data: latestData }] = await Promise.all([
-    fetchInternalApiJson({ request, pathname: '/v1/jobs/active', includeSiteSlug: true, query: { topic: 'geo' } }),
-    fetchInternalApiJson({ request, pathname: '/v1/jobs/latest', includeSiteSlug: true, query: { topic: 'geo' } }),
+    fetchInternalApiJson({ request, pathname: '/v1/jobs/active', query: { topic: 'geo' } }),
+    fetchInternalApiJson({ request, pathname: '/v1/jobs/latest', query: { topic: 'geo' } }),
   ]);
 
   const activeJob = activeData?.job ?? null;

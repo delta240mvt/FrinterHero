@@ -12,7 +12,7 @@ export const GET: APIRoute = async ({ params, request, cookies }) => {
   const { data } = await fetchInternalApiJson({
     request,
     pathname: `/v1/admin/bc/projects/${params.projectId ?? ''}/job-status`,
-    includeSiteSlug: true,
+    
     query: { topic: 'bc-scrape' },
   });
   const job = data?.job ?? null;

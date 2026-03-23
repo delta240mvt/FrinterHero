@@ -57,7 +57,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       authorNotes: author_notes || '',
       model: model || 'anthropic/claude-sonnet-4-6',
     },
-    includeSiteSlug: true,
+    
   });
 
   return new Response(JSON.stringify(data ?? { success: true, message: 'Draft generation started in background' }), {
@@ -74,13 +74,13 @@ export const GET: APIRoute = async ({ request, cookies }) => {
       request,
       pathname: '/v1/jobs/active',
       query: { topic: 'draft' },
-      includeSiteSlug: true,
+      
     }),
     fetchInternalApiJson({
       request,
       pathname: '/v1/jobs/latest',
       query: { topic: 'draft' },
-      includeSiteSlug: true,
+      
     }),
   ]);
 
@@ -111,7 +111,7 @@ export const DELETE: APIRoute = async ({ request, cookies }) => {
     pathname: '/v1/jobs/active',
     method: 'DELETE',
     query: { topic: 'draft' },
-    includeSiteSlug: true,
+    
   });
 
   return new Response(JSON.stringify(data ?? { success: false }), {

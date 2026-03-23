@@ -16,7 +16,7 @@ export const GET: APIRoute = async ({ request, cookies }) => {
     start(controller) {
       const send = (payload: object) => controller.enqueue(encoder.encode(`data: ${JSON.stringify(payload)}\n\n`));
       const tick = async () => {
-        const { data } = await fetchInternalApiJson({ request, pathname: '/v1/jobs/latest', includeSiteSlug: true, query: { topic: 'bc-parse' } });
+        const { data } = await fetchInternalApiJson({ request, pathname: '/v1/jobs/latest', query: { topic: 'bc-parse' } });
         const job = data?.job ?? null;
         const lines = toLines(job?.result?.stdout);
         while (sent < lines.length) send({ line: lines[sent++] });

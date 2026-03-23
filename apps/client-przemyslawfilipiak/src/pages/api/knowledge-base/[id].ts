@@ -10,7 +10,7 @@ export const GET: APIRoute = ({ params, request, cookies }) =>
     request,
     cookies,
     pathname: entryPath(params.id),
-    includeSiteSlug: true,
+    
   });
 
 export const PUT: APIRoute = ({ params, request, cookies }) =>
@@ -18,7 +18,7 @@ export const PUT: APIRoute = ({ params, request, cookies }) =>
     request,
     cookies,
     pathname: entryPath(params.id),
-    includeSiteSlug: true,
+    
   });
 
 export const DELETE: APIRoute = ({ params, request, cookies }) =>
@@ -26,5 +26,5 @@ export const DELETE: APIRoute = ({ params, request, cookies }) =>
     request,
     cookies,
     pathname: entryPath(params.id),
-    includeSiteSlug: true,
+    
   });

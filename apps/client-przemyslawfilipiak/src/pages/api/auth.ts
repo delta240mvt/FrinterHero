@@ -7,5 +7,5 @@ export const POST: APIRoute = ({ request, cookies }) =>
     cookies,
     pathname: '/v1/auth/login',
     requireAuth: false,
-    includeSiteSlug: true,
+    
   });

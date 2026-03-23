@@ -29,7 +29,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       request,
       pathname: '/v1/admin/knowledge-base/import',
       method: 'POST',
-      includeSiteSlug: true,
+      
       body: { folderName, files },
     });
 

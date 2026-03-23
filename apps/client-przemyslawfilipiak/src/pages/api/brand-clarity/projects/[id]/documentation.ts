@@ -6,5 +6,5 @@ export const PUT: APIRoute = ({ params, request, cookies }) =>
     request,
     cookies,
     pathname: `/v1/admin/bc/projects/${params.id ?? ''}/documentation`,
-    includeSiteSlug: true,
+    
   });

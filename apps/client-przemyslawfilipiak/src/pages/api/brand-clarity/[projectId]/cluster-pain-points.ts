@@ -6,7 +6,7 @@ export const GET: APIRoute = ({ params, request, cookies }) =>
     request,
     cookies,
     pathname: `/v1/admin/bc/projects/${params.projectId ?? ''}/cluster-pain-points`,
-    includeSiteSlug: true,
+    
   });
 
 export const POST: APIRoute = ({ params, request, cookies }) =>
@@ -14,5 +14,5 @@ export const POST: APIRoute = ({ params, request, cookies }) =>
     request,
     cookies,
     pathname: `/v1/admin/bc/projects/${params.projectId ?? ''}/cluster-pain-points`,
-    includeSiteSlug: true,
+    
   });

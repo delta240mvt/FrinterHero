@@ -6,5 +6,5 @@ export const GET: APIRoute = ({ params, request, cookies }) =>
     request,
     cookies,
     pathname: `/v1/admin/content-gaps/${params.id ?? ''}`,
-    includeSiteSlug: true,
+    
   });

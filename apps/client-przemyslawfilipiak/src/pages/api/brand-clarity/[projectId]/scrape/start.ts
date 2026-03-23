@@ -6,5 +6,5 @@ export const POST: APIRoute = ({ request, cookies }) =>
     request,
     cookies,
     pathname: '/v1/jobs/bc-scrape',
-    includeSiteSlug: true,
+    
   });

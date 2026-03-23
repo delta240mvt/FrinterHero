@@ -2,7 +2,7 @@ import type { APIRoute } from 'astro';
 import { proxyInternalApiRequest } from '@/lib/internal-api';
 
 export const GET: APIRoute = ({ request, cookies }) =>
-  proxyInternalApiRequest({ request, cookies, pathname: '/v1/admin/reddit/targets', includeSiteSlug: true });
+  proxyInternalApiRequest({ request, cookies, pathname: '/v1/admin/reddit/targets' });
 
 export const POST: APIRoute = ({ request, cookies }) =>
-  proxyInternalApiRequest({ request, cookies, pathname: '/v1/admin/reddit/targets', includeSiteSlug: true });
+  proxyInternalApiRequest({ request, cookies, pathname: '/v1/admin/reddit/targets' });

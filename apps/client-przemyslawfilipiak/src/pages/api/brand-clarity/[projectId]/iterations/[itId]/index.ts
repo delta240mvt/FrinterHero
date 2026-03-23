@@ -6,7 +6,7 @@ function path(projectId: string | undefined, itId: string | undefined) {
 }
 
 export const PUT: APIRoute = ({ params, request, cookies }) =>
-  proxyInternalApiRequest({ request, cookies, pathname: path(params.projectId, params.itId), includeSiteSlug: true });
+  proxyInternalApiRequest({ request, cookies, pathname: path(params.projectId, params.itId) });
 
 export const DELETE: APIRoute = ({ params, request, cookies }) =>
-  proxyInternalApiRequest({ request, cookies, pathname: path(params.projectId, params.itId), includeSiteSlug: true });
+  proxyInternalApiRequest({ request, cookies, pathname: path(params.projectId, params.itId) });

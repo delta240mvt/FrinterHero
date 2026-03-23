@@ -10,7 +10,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     pathname: '/v1/jobs/youtube',
     method: 'POST',
     body,
-    includeSiteSlug: true,
+    
   });
   return new Response(JSON.stringify(data), {
     status: response.status,

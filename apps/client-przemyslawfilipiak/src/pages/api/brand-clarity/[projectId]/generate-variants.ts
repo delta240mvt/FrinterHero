@@ -8,7 +8,7 @@ export const POST: APIRoute = async ({ params, request, cookies }) => {
     request,
     pathname: '/v1/jobs/bc-generate',
     method: 'POST',
-    includeSiteSlug: true,
+    
     body: { projectId: Number(params.projectId), ...body },
   });
   return new Response(JSON.stringify(data), { status: response.status, headers: JSON_HEADERS });

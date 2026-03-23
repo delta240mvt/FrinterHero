@@ -6,10 +6,10 @@ function projectPath(id: string | undefined) {
 }
 
 export const GET: APIRoute = ({ params, request, cookies }) =>
-  proxyInternalApiRequest({ request, cookies, pathname: projectPath(params.id), includeSiteSlug: true });
+  proxyInternalApiRequest({ request, cookies, pathname: projectPath(params.id) });
 
 export const PUT: APIRoute = ({ params, request, cookies }) =>
-  proxyInternalApiRequest({ request, cookies, pathname: projectPath(params.id), includeSiteSlug: true });
+  proxyInternalApiRequest({ request, cookies, pathname: projectPath(params.id) });
 
 export const DELETE: APIRoute = ({ params, request, cookies }) =>
-  proxyInternalApiRequest({ request, cookies, pathname: projectPath(params.id), includeSiteSlug: true });
+  proxyInternalApiRequest({ request, cookies, pathname: projectPath(params.id) });
