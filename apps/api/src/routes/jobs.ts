@@ -197,7 +197,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
     if (existingJob) return json(res, 409, { error: 'Brand Clarity selector job already active', jobId: existingJob.id, status: existingJob.status }), true;
 
     const job = await enqueueAppJob(site.id, 'bc-selector', 'bc-selector', { siteId: site.id, projectId, iterationId });
-    await db.update(bcIterations).set({ status: 'selecting' }).where(eq(bcIterations.id, iterationId));
+    await db.update(bcIterations).set({ status: 'selecting' }).where(and(eq(bcIterations.id, iterationId), eq(bcIterations.siteId, site.id)));
     json(res, 202, { jobId: job.id, projectId, iterationId, status: job.status, approvedCount: approved.length });
     return true;
   }
@@ -240,7 +240,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
       projectId,
       ...(iterationId ? { iterationId } : {}),
     });
-    if (iterationId) await db.update(bcIterations).set({ status: 'clustering' }).where(eq(bcIterations.id, iterationId));
+    if (iterationId) await db.update(bcIterations).set({ status: 'clustering' }).where(and(eq(bcIterations.id, iterationId), eq(bcIterations.siteId, site.id)));
     json(res, 202, { jobId: job.id, projectId, iterationId, status: job.status });
     return true;
   }
@@ -375,7 +375,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
         await db.update(contentGaps).set({
           status: 'new',
           acknowledgedAt: null,
-        }).where(inArray(contentGaps.id, gapIds));
+        }).where(and(inArray(contentGaps.id, gapIds), eq(contentGaps.siteId, site.id)));
       }
     }
 
