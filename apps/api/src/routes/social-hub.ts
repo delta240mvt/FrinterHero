@@ -1,7 +1,7 @@
 import type { RouteContext } from '../helpers.js';
 import {
-  json, readJsonBody, normalizeSiteSlug, toPositiveInt, toNonNegativeInt, firstQueryValue,
-  resolveShSite, resolveShBriefContext, resolveAuthedSite,
+  json, readJsonBody, toPositiveInt, toNonNegativeInt, firstQueryValue,
+  resolveShSite, resolveShBriefContext, requireActiveSite,
   shPreview, shFormatMeta, parseShSuggestionPrompt, normalizeShViralEnginePayload, encodeShSuggestionPrompt,
   findActiveJobByPayload, findLatestJobByPayload, fetchUploadPostMetrics, enqueueAppJob,
   shAccountScope, shBriefScope, shCopyScope, shTemplateScope, shMediaScope, shPublishScope, shMetricsScope, shQueueScope,
@@ -22,14 +22,14 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   const { req, res, method, url, pathname, segments } = ctx;
 
   if (method === 'GET' && pathname === '/v1/social-hub/settings') {
-    const context = await resolveShSite(req, res, normalizeSiteSlug(url.searchParams.get('siteSlug')));
+    const context = await resolveShSite(req, res);
     if (!context) return true;
     json(res, 200, await getShSettings(context.site.id));
     return true;
   }
 
   if (method === 'PUT' && pathname === '/v1/social-hub/settings') {
-    const context = await resolveShSite(req, res, normalizeSiteSlug(url.searchParams.get('siteSlug')));
+    const context = await resolveShSite(req, res);
     if (!context) return true;
     const body = await readJsonBody(req);
     const config = normalizeShSettingsConfig(body);
@@ -39,7 +39,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   }
 
   if (method === 'GET' && pathname === '/v1/social-hub/accounts') {
-    const context = await resolveShSite(req, res, normalizeSiteSlug(url.searchParams.get('siteSlug')));
+    const context = await resolveShSite(req, res);
     if (!context) return true;
     const accounts = await db.select().from(shSocialAccounts).where(shAccountScope(context.site.id)).orderBy(asc(shSocialAccounts.platform), desc(shSocialAccounts.createdAt));
     json(res, 200, accounts);
@@ -47,7 +47,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   }
 
   if (method === 'POST' && pathname === '/v1/social-hub/accounts') {
-    const context = await resolveShSite(req, res, normalizeSiteSlug(url.searchParams.get('siteSlug')));
+    const context = await resolveShSite(req, res);
     if (!context) return true;
     const body = await readJsonBody(req);
     if (!body.platform || !body.accountName) return json(res, 400, { error: 'platform and accountName are required' }), true;
@@ -64,7 +64,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   }
 
   if ((method === 'PUT' || method === 'DELETE') && segments[0] === 'v1' && segments[1] === 'social-hub' && segments[2] === 'accounts' && segments[3]) {
-    const context = await resolveShSite(req, res, normalizeSiteSlug(firstQueryValue(url, 'siteSlug')));
+    const context = await resolveShSite(req, res);
     if (!context) return true;
     const accountId = Number(segments[3]);
     if (!accountId) return json(res, 400, { error: 'Invalid id' }), true;
@@ -87,7 +87,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   }
 
   if (method === 'GET' && pathname === '/v1/social-hub/templates') {
-    const context = await resolveShSite(req, res, normalizeSiteSlug(url.searchParams.get('siteSlug')));
+    const context = await resolveShSite(req, res);
     if (!context) return true;
     const [{ total }] = await db.select({ total: sql<number>`count(*)::int` }).from(shTemplates).where(shTemplateScope(context.site.id));
     if ((total ?? 0) === 0) await db.insert(shTemplates).values(getDefaultTemplates().map((template) => ({ ...template, siteId: context.site.id })));
@@ -97,7 +97,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   }
 
   if (method === 'POST' && pathname === '/v1/social-hub/templates') {
-    const context = await resolveShSite(req, res, normalizeSiteSlug(url.searchParams.get('siteSlug')));
+    const context = await resolveShSite(req, res);
     if (!context) return true;
     const body = await readJsonBody(req);
     const missing = SH_TEMPLATE_REQUIRED_FIELDS.filter((field) => !body[field]);
@@ -120,7 +120,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   }
 
   if ((method === 'PUT' || method === 'DELETE') && segments[0] === 'v1' && segments[1] === 'social-hub' && segments[2] === 'templates' && segments[3]) {
-    const context = await resolveShSite(req, res, normalizeSiteSlug(firstQueryValue(url, 'siteSlug')));
+    const context = await resolveShSite(req, res);
     if (!context) return true;
     const templateId = Number(segments[3]);
     if (!templateId) return json(res, 400, { error: 'Invalid id' }), true;
@@ -152,7 +152,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   }
 
   if (pathname === '/v1/social-hub/calendar') {
-    const context = await resolveShSite(req, res, normalizeSiteSlug(url.searchParams.get('siteSlug')));
+    const context = await resolveShSite(req, res);
     if (!context) return true;
 
     if (method === 'GET') {
@@ -247,7 +247,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   }
 
   if (method === 'POST' && pathname === '/v1/social-hub/repurpose') {
-    const context = await resolveShSite(req, res, normalizeSiteSlug(url.searchParams.get('siteSlug')));
+    const context = await resolveShSite(req, res);
     if (!context) return true;
     const body = await readJsonBody(req);
     const sourceType = typeof body.sourceType === 'string' ? body.sourceType : '';
@@ -318,7 +318,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   }
 
   if (method === 'POST' && pathname === '/v1/social-hub/seed-templates') {
-    const context = await resolveShSite(req, res, normalizeSiteSlug(url.searchParams.get('siteSlug')));
+    const context = await resolveShSite(req, res);
     if (!context) return true;
     const templates = getDefaultTemplates();
     const results: string[] = [];
@@ -343,7 +343,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   }
 
   if (method === 'GET' && pathname === '/v1/social-hub/briefs') {
-    const context = await resolveShSite(req, res, normalizeSiteSlug(url.searchParams.get('siteSlug')));
+    const context = await resolveShSite(req, res);
     if (!context) return true;
     const status = url.searchParams.get('status') || '';
     const offset = toNonNegativeInt(url.searchParams.get('offset'), 0, 10000);
@@ -372,7 +372,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   }
 
   if (method === 'POST' && pathname === '/v1/social-hub/briefs') {
-    const context = await resolveShSite(req, res, normalizeSiteSlug(url.searchParams.get('siteSlug')));
+    const context = await resolveShSite(req, res);
     if (!context) return true;
     const body = await readJsonBody(req);
     const sourceType = typeof body.sourceType === 'string' ? body.sourceType : '';
@@ -411,7 +411,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   }
 
   if ((method === 'GET' || method === 'DELETE') && segments[0] === 'v1' && segments[1] === 'social-hub' && segments[2] === 'briefs' && segments[3] && !segments[4]) {
-    const context = await resolveShBriefContext(req, res, normalizeSiteSlug(firstQueryValue(url, 'siteSlug')), segments[3]);
+    const context = await resolveShBriefContext(req, res, segments[3]);
     if (!context) return true;
     const { site, briefId } = context;
     if (method === 'DELETE') {
@@ -445,7 +445,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   }
 
   if (method === 'GET' && pathname === '/v1/social-hub/analytics') {
-    const context = await resolveShSite(req, res, normalizeSiteSlug(url.searchParams.get('siteSlug')));
+    const context = await resolveShSite(req, res);
     if (!context) return true;
     const daysParam = url.searchParams.get('days');
     const days = daysParam ? Number.parseInt(daysParam, 10) : null;
@@ -531,7 +531,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   }
 
   if (segments[0] === 'v1' && segments[1] === 'social-hub' && segments[2] === 'briefs' && segments[3] && segments[4] === 'job-status') {
-    const context = await resolveShBriefContext(req, res, normalizeSiteSlug(firstQueryValue(url, 'siteSlug')), segments[3]);
+    const context = await resolveShBriefContext(req, res, segments[3]);
     if (!context) return true;
     const { site, briefId } = context;
     const topic = firstQueryValue(url, 'topic') ?? 'sh-copy';
@@ -542,7 +542,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   }
 
   if (method === 'PUT' && segments[0] === 'v1' && segments[1] === 'social-hub' && segments[2] === 'briefs' && segments[3] && segments[4] === 'copy') {
-    const context = await resolveShBriefContext(req, res, normalizeSiteSlug(firstQueryValue(url, 'siteSlug')), segments[3]);
+    const context = await resolveShBriefContext(req, res, segments[3]);
     if (!context) return true;
     const { site, briefId } = context;
     const body = await readJsonBody(req);
@@ -578,7 +578,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   }
 
   if (method === 'GET' && segments[0] === 'v1' && segments[1] === 'social-hub' && segments[2] === 'briefs' && segments[3] && segments[4] === 'metrics') {
-    const context = await resolveShBriefContext(req, res, normalizeSiteSlug(firstQueryValue(url, 'siteSlug')), segments[3]);
+    const context = await resolveShBriefContext(req, res, segments[3]);
     if (!context) return true;
     const { site, briefId } = context;
 
@@ -660,7 +660,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   }
 
   if (segments[0] === 'v1' && segments[1] === 'social-hub' && segments[2] === 'briefs' && segments[3] && segments[4] === 'generate-copy' && method === 'POST') {
-    const context = await resolveShBriefContext(req, res, normalizeSiteSlug(firstQueryValue(url, 'siteSlug')), segments[3]);
+    const context = await resolveShBriefContext(req, res, segments[3]);
     if (!context) return true;
     const { site, briefId } = context;
 
@@ -685,7 +685,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   }
 
   if (segments[0] === 'v1' && segments[1] === 'social-hub' && segments[2] === 'briefs' && segments[3] && segments[4] === 'render') {
-    const context = await resolveShBriefContext(req, res, normalizeSiteSlug(firstQueryValue(url, 'siteSlug')), segments[3]);
+    const context = await resolveShBriefContext(req, res, segments[3]);
     if (!context) return true;
     const { site, briefId, brief } = context;
 
@@ -781,7 +781,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   }
 
   if (segments[0] === 'v1' && segments[1] === 'social-hub' && segments[2] === 'briefs' && segments[3] && segments[4] === 'publish' && method === 'POST') {
-    const context = await resolveShBriefContext(req, res, normalizeSiteSlug(firstQueryValue(url, 'siteSlug')), segments[3]);
+    const context = await resolveShBriefContext(req, res, segments[3]);
     if (!context) return true;
     const { site, briefId } = context;
     const body = await readJsonBody(req);
@@ -816,7 +816,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   }
 
   if (pathname === '/v1/social-hub/queue') {
-    const context = await resolveShSite(req, res, normalizeSiteSlug(firstQueryValue(url, 'siteSlug')));
+    const context = await resolveShSite(req, res);
     if (!context) return true;
     const { site } = context;
 
@@ -959,7 +959,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   }
 
   if (method === 'GET' && pathname === '/v1/social-hub/sources') {
-    const context = await resolveAuthedSite(req, res, normalizeSiteSlug(url.searchParams.get('siteSlug')));
+    const context = await requireActiveSite(req, res);
     if (!context) return true;
     const { site } = context;
     const typeParam = url.searchParams.get('type') || '';

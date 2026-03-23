@@ -1,6 +1,6 @@
 import type { RouteContext } from '../helpers.js';
 import {
-  json, normalizeSiteSlug, resolveAuthedSite,
+  json, requireActiveSite,
   articleScope, gapScope, kbScope,
   db, and, sql, desc, articles, contentGaps, knowledgeEntries,
 } from '../helpers.js';
@@ -9,7 +9,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   const { req, res, method, url, pathname } = ctx;
 
   if (method === 'GET' && pathname === '/v1/admin/dashboard') {
-    const context = await resolveAuthedSite(req, res, normalizeSiteSlug(url.searchParams.get('siteSlug')));
+    const context = await requireActiveSite(req, res);
     if (!context) return true;
     const { site } = context;
     const [articleStats, gapStats, kbStats] = await Promise.all([
