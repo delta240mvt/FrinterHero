@@ -13,7 +13,7 @@ export default defineConfig({
     host: true,
     port: process.env.PORT ? parseInt(process.env.PORT, 10) : 4321,
   },
-  adapter: node({ mode: 'standalone' }),
+  adapter: node({ mode: 'middleware' }),
   integrations: [tailwind({ configFile: './tailwind.config.mjs', applyBaseStyles: false })],
   vite: {
     define: {
