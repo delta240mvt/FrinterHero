@@ -1,7 +1,7 @@
 import type { RouteContext } from '../helpers.js';
 import {
-  json, readJsonBody, normalizeSiteSlug, toPositiveInt, firstQueryValue,
-  resolveAuthedSite, ytStatuses, hydrateYtGaps, ytSourceComments, enqueueAppJob,
+  json, readJsonBody, toPositiveInt,
+  requireActiveSite, ytStatuses, hydrateYtGaps, ytSourceComments,
   ytTargetScope, ytRunScope, ytGapScope, ytCommentScope,
   db, and, desc, eq, inArray, sql,
   ytTargets, ytScrapeRuns, ytExtractedGaps, ytComments, contentGaps,
@@ -12,7 +12,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   const { req, res, method, url, pathname, segments } = ctx;
 
   if (method === 'GET' && pathname === '/v1/admin/youtube/overview') {
-    const context = await resolveAuthedSite(req, res, normalizeSiteSlug(firstQueryValue(url, 'siteSlug')));
+    const context = await requireActiveSite(req, res);
     if (!context) return true;
     const { site } = context;
     const [gapStats, runStats, targetStats, commentStats] = await Promise.all([
@@ -35,7 +35,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   }
 
   if (method === 'GET' && pathname === '/v1/admin/youtube/targets') {
-    const context = await resolveAuthedSite(req, res, normalizeSiteSlug(firstQueryValue(url, 'siteSlug')));
+    const context = await requireActiveSite(req, res);
     if (!context) return true;
     const { site } = context;
     const targets = await db.select().from(ytTargets).where(ytTargetScope(site.id)).orderBy(desc(ytTargets.priority), desc(ytTargets.createdAt));
@@ -44,7 +44,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   }
 
   if (method === 'POST' && pathname === '/v1/admin/youtube/targets') {
-    const context = await resolveAuthedSite(req, res, normalizeSiteSlug(firstQueryValue(url, 'siteSlug')));
+    const context = await requireActiveSite(req, res);
     if (!context) return true;
     const { site } = context;
     const body = await readJsonBody(req);
@@ -81,7 +81,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   }
 
   if (segments[0] === 'v1' && segments[1] === 'admin' && segments[2] === 'youtube' && segments[3] === 'targets' && segments[4] && !segments[5]) {
-    const context = await resolveAuthedSite(req, res, normalizeSiteSlug(firstQueryValue(url, 'siteSlug')));
+    const context = await requireActiveSite(req, res);
     if (!context) return true;
     const { site } = context;
     const id = Number(segments[4]);
@@ -110,7 +110,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   }
 
   if (method === 'GET' && pathname === '/v1/admin/youtube/runs') {
-    const context = await resolveAuthedSite(req, res, normalizeSiteSlug(firstQueryValue(url, 'siteSlug')));
+    const context = await requireActiveSite(req, res);
     if (!context) return true;
     const { site } = context;
     const page = toPositiveInt(url.searchParams.get('page'), 1, { max: 1000 });
@@ -125,7 +125,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   }
 
   if (segments[0] === 'v1' && segments[1] === 'admin' && segments[2] === 'youtube' && segments[3] === 'runs' && segments[4] && !segments[5]) {
-    const context = await resolveAuthedSite(req, res, normalizeSiteSlug(firstQueryValue(url, 'siteSlug')));
+    const context = await requireActiveSite(req, res);
     if (!context) return true;
     const { site } = context;
     const id = Number(segments[4]);
@@ -150,7 +150,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   }
 
   if (method === 'GET' && pathname === '/v1/admin/youtube/gaps') {
-    const context = await resolveAuthedSite(req, res, normalizeSiteSlug(firstQueryValue(url, 'siteSlug')));
+    const context = await requireActiveSite(req, res);
     if (!context) return true;
     const { site } = context;
     const page = toPositiveInt(url.searchParams.get('page'), 1, { max: 1000 });
@@ -185,7 +185,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   }
 
   if (method === 'POST' && pathname === '/v1/admin/youtube/gaps/auto-filter') {
-    const context = await resolveAuthedSite(req, res, normalizeSiteSlug(firstQueryValue(url, 'siteSlug')));
+    const context = await requireActiveSite(req, res);
     if (!context) return true;
     const { site } = context;
     const pendingGaps = await db.select().from(ytExtractedGaps).where(and(ytGapScope(site.id), eq(ytExtractedGaps.status, 'pending')));
@@ -205,7 +205,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   }
 
   if (method === 'POST' && segments[0] === 'v1' && segments[1] === 'admin' && segments[2] === 'youtube' && segments[3] === 'gaps' && segments[4] && segments[5] === 'approve') {
-    const context = await resolveAuthedSite(req, res, normalizeSiteSlug(firstQueryValue(url, 'siteSlug')));
+    const context = await requireActiveSite(req, res);
     if (!context) return true;
     const { site } = context;
     const id = Number(segments[4]);
@@ -239,7 +239,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   }
 
   if (method === 'POST' && segments[0] === 'v1' && segments[1] === 'admin' && segments[2] === 'youtube' && segments[3] === 'gaps' && segments[4] && segments[5] === 'reject') {
-    const context = await resolveAuthedSite(req, res, normalizeSiteSlug(firstQueryValue(url, 'siteSlug')));
+    const context = await requireActiveSite(req, res);
     if (!context) return true;
     const { site } = context;
     const id = Number(segments[4]);
