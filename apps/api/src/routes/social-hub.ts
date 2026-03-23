@@ -634,7 +634,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
         };
 
         if (existing) {
-          const [updated] = await db.update(shPostMetrics).set(metricsPayload).where(eq(shPostMetrics.id, existing.id)).returning();
+          const [updated] = await db.update(shPostMetrics).set(metricsPayload).where(and(eq(shPostMetrics.id, existing.id), shMetricsScope(site.id))).returning();
           updatedMetrics.push(updated);
         } else {
           const [inserted] = await db.insert(shPostMetrics).values(metricsPayload).returning();

@@ -411,7 +411,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
     for (const pp of pending) {
       const offBrand = findOffBrandMatch(pp.painPointTitle, pp.painPointDescription, pp.vocabularyQuotes, pp.emotionalIntensity);
       const newStatus = offBrand ? 'rejected' : 'approved';
-      await db.update(bcExtractedPainPoints).set({ status: newStatus }).where(eq(bcExtractedPainPoints.id, pp.id));
+      await db.update(bcExtractedPainPoints).set({ status: newStatus }).where(and(eq(bcExtractedPainPoints.id, pp.id), bcPainPointScope(site.id)));
       if (offBrand) rejected += 1; else approved += 1;
     }
     json(res, 200, { processed: pending.length, approved, rejected });
