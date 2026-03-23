@@ -169,7 +169,7 @@ const canonicalUrl = slug ? absoluteUrl(`/blog/${slug}`) : Astro.url.href;
     padding: 0.2rem 0.6rem;
     border-radius: 9999px;
     background: var(--violet-glow);
-    color: #e2e8f0;
+    color: var(--text-primary);
     border: 1px solid rgba(138,78,100,0.2);
     text-decoration: none;
     transition: background 0.15s;
@@ -194,17 +194,17 @@ const canonicalUrl = slug ? absoluteUrl(`/blog/${slug}`) : Astro.url.href;
   .article-content :global(h3) { font-size: 1.25rem; font-weight: 600; }
   .article-content :global(p) { margin-bottom: 1.25rem; }
   .article-content :global(a) { color: var(--teal); text-decoration: underline; text-underline-offset: 2px; }
-  .article-content :global(a:hover) { color: var(--gold); }
+  .article-content :global(a:hover) { color: var(--violet); }
   .article-content :global(code) {
     font-family: var(--font-mono);
     font-size: 0.875em;
-    background: var(--bg-elevated);
+    background: var(--bg-surface);
     padding: 0.15em 0.4em;
     border-radius: 4px;
-    color: var(--gold);
+    color: var(--violet);
   }
   .article-content :global(pre) {
-    background: var(--bg-elevated);
+    background: var(--bg-surface);
     padding: 1.25rem;
     border-radius: 0.5rem;
     overflow-x: auto;
@@ -218,17 +218,17 @@ const canonicalUrl = slug ? absoluteUrl(`/blog/${slug}`) : Astro.url.href;
     font-size: var(--text-sm);
   }
   .article-content :global(blockquote) {
-    border-left: 3px solid var(--teal);
+    border-left: 3px solid var(--violet);
     padding-left: 1.25rem;
-    color: var(--gold);
+    color: var(--text-secondary);
     font-style: italic;
     margin: 1.5rem 0;
-    background: var(--gold-glow);
+    background: var(--bg-surface);
     padding: 1rem 1.25rem;
     border-radius: 0 0.5rem 0.5rem 0;
   }
   .article-content :global(strong) {
-    color: var(--gold);
+    color: var(--text-primary);
     font-weight: 600;
   }
   .article-content :global(ul), .article-content :global(ol) {
@@ -248,7 +248,7 @@ const canonicalUrl = slug ? absoluteUrl(`/blog/${slug}`) : Astro.url.href;
     text-align: left;
   }
   .article-content :global(th) {
-    background: var(--bg-elevated);
+    background: var(--bg-surface);
     color: var(--text-primary);
     font-weight: 600;
   }
