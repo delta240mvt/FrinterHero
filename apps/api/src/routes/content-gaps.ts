@@ -86,7 +86,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
       const job = await enqueueDraftJob(site.id, gapId, typeof body.model === 'string' ? body.model : 'anthropic/claude-sonnet-4-6', authorNotes);
       jobId = job.id;
     }
-    await db.update(contentGaps).set({ status: nextStatus, authorNotes, acknowledgedAt: now }).where(eq(contentGaps.id, gapId));
+    await db.update(contentGaps).set({ status: nextStatus, authorNotes, acknowledgedAt: now }).where(and(eq(contentGaps.id, gapId), gapScope(site.id)));
     json(res, 200, { gapId, gap_id: gapId, status: nextStatus, authorNotes, author_notes: authorNotes, acknowledgedAt: now.toISOString(), acknowledged_at: now.toISOString(), jobId, draftGenerationStarted: action === 'generate_draft', draft_generation_started: action === 'generate_draft', draft_id: null });
     return true;
   }
@@ -101,7 +101,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
     const [gap] = await db.select({ id: contentGaps.id }).from(contentGaps).where(and(gapScope(site.id), eq(contentGaps.id, gapId))).limit(1);
     if (!gap) return json(res, 404, { error: 'Gap not found' }), true;
     const now = new Date();
-    await db.update(contentGaps).set({ status: 'archived', acknowledgedAt: now }).where(eq(contentGaps.id, gapId));
+    await db.update(contentGaps).set({ status: 'archived', acknowledgedAt: now }).where(and(eq(contentGaps.id, gapId), gapScope(site.id)));
     json(res, 200, { gapId, gap_id: gapId, status: 'archived', archivedAt: now.toISOString(), archived_at: now.toISOString(), reason: typeof body.reason === 'string' ? body.reason : null });
     return true;
   }

@@ -29,7 +29,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
     const runStart = new Date(run.runAt.getTime() - 5 * 60 * 1000);
     const runEnd = new Date(run.runAt.getTime() + 60 * 60 * 1000);
     const [queries, drafts] = await Promise.all([
-      db.select().from(geoQueries).where(and(gte(geoQueries.createdAt, runStart), lte(geoQueries.createdAt, runEnd))),
+      db.select().from(geoQueries).where(and(eq(geoQueries.siteId, site.id), gte(geoQueries.createdAt, runStart), lte(geoQueries.createdAt, runEnd))),
       db.select().from(articles).where(and(articleScope(site.id), eq(articles.status, 'draft'), gte(articles.createdAt, runStart), lte(articles.createdAt, runEnd))),
     ]);
     json(res, 200, { run, queries, drafts });

@@ -126,7 +126,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
     if (body.project_name !== undefined) updates.projectName = body.project_name ? String(body.project_name) : null;
     if (body.importance_score !== undefined) { const importanceScore = Number(body.importance_score); if (Number.isNaN(importanceScore) || importanceScore < 0 || importanceScore > 100) fieldErrors.importance_score = 'Must be 0-100'; else updates.importanceScore = importanceScore; }
     if (Object.keys(fieldErrors).length > 0) return json(res, 400, { error: 'Validation failed', fields: fieldErrors }), true;
-    const [updated] = await db.update(knowledgeEntries).set(updates).where(eq(knowledgeEntries.id, entryId)).returning();
+    const [updated] = await db.update(knowledgeEntries).set(updates).where(and(eq(knowledgeEntries.id, entryId), kbScope(site.id))).returning();
     json(res, 200, updated);
     return true;
   }
@@ -139,7 +139,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
     const { site } = context;
     const [existing] = await db.select({ id: knowledgeEntries.id }).from(knowledgeEntries).where(and(kbScope(site.id), eq(knowledgeEntries.id, entryId))).limit(1);
     if (!existing) return json(res, 404, { error: 'Knowledge entry not found' }), true;
-    await db.delete(knowledgeEntries).where(eq(knowledgeEntries.id, entryId));
+    await db.delete(knowledgeEntries).where(and(eq(knowledgeEntries.id, entryId), kbScope(site.id)));
     json(res, 200, { success: true, deletedId: entryId });
     return true;
   }
