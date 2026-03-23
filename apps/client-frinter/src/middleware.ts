@@ -1,36 +1,18 @@
 import { defineMiddleware } from 'astro:middleware';
-import { getInternalApiBaseUrl } from '@/lib/internal-api';
 
-export const onRequest = defineMiddleware(async (context: any, next: any) => {
-  const pathname = context.url.pathname;
+const STATIC_PREFIXES = ['/fonts/', '/faces/', '/_astro/'];
+const ONE_YEAR = 31_536_000;
 
-  if (pathname.startsWith('/admin') && pathname !== '/admin/login') {
-    const token = context.cookies.get('session')?.value;
+export const onRequest = defineMiddleware(async (context, next) => {
+  const response = await next();
 
-    if (!token) {
-      return context.redirect('/admin/login');
-    }
-
-    try {
-      const apiBase = getInternalApiBaseUrl();
-      const response = await fetch(`${apiBase}/v1/auth/me`, {
-        headers: { cookie: `session=${encodeURIComponent(token)}` },
-      });
-
-      if (!response.ok) {
-        context.cookies.delete('session', { path: '/' });
-        return context.redirect('/admin/login');
-      }
-
-      const data = await response.json();
-      if (!data.authenticated) {
-        context.cookies.delete('session', { path: '/' });
-        return context.redirect('/admin/login');
-      }
-    } catch {
-      return context.redirect('/admin/login');
-    }
+  const path = context.url.pathname;
+  if (STATIC_PREFIXES.some((prefix) => path.startsWith(prefix))) {
+    response.headers.set(
+      'Cache-Control',
+      `public, max-age=${ONE_YEAR}, immutable`,
+    );
   }
 
-  return next();
+  return response;
 });
