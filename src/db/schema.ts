@@ -103,6 +103,7 @@ export const geoRuns = pgTable('geo_runs', {
 export const sessions = pgTable('sessions', {
   id: serial('id').primaryKey(),
   siteId: integer('site_id').references(() => sites.id, { onDelete: 'set null' }),
+  activeSiteId: integer('active_site_id').references(() => sites.id, { onDelete: 'set null' }),
   token: varchar('token', { length: 255 }).notNull().unique(),
   expiresAt: timestamp('expires_at').notNull(),
   createdAt: timestamp('created_at').notNull().defaultNow(),
