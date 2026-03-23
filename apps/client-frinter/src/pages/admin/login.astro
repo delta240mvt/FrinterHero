@@ -1,12 +1,6 @@
 ---
 import Base from '@/components/layouts/Base.astro';
 
-// If already logged in, redirect to admin
-const token = Astro.cookies.get('session')?.value;
-if (token) {
-  return Astro.redirect('/admin');
-}
-
 const error = Astro.url.searchParams.get('error');
 ---
 

@@ -20,15 +20,20 @@ test('resolveAdminActiveSiteSlug reads the frinter admin cookie', () => {
   assert.equal(resolveAdminActiveSiteSlug('session=abc', 'frinter'), 'frinter');
 });
 
-test('resolveScopedSiteSlugForRequest uses admin override only for frinter api requests', () => {
-  const request = new Request('https://frinter.app/api/reddit/gaps', {
+test('resolveScopedSiteSlugForRequest uses admin override for admin api requests on any client', () => {
+  process.env.SITE_SLUG = 'focusequalsfreedom';
+
+  const request = new Request('https://focusequalsfreedom.com/api/reddit/gaps', {
     headers: { cookie: 'frinter_admin_site=przemyslawfilipiak' },
   });
-  const fallbackRequest = new Request('https://frinter.app/admin', {
+  const fallbackRequest = new Request('https://focusequalsfreedom.com/admin', {
+    headers: { cookie: 'frinter_admin_site=przemyslawfilipiak' },
+  });
+  const authRequest = new Request('https://focusequalsfreedom.com/api/auth', {
     headers: { cookie: 'frinter_admin_site=przemyslawfilipiak' },
   });
 
-  process.env.SITE_SLUG = 'frinter';
   assert.equal(resolveScopedSiteSlugForRequest(request), 'przemyslawfilipiak');
-  assert.equal(resolveScopedSiteSlugForRequest(fallbackRequest), 'frinter');
+  assert.equal(resolveScopedSiteSlugForRequest(fallbackRequest), 'focusequalsfreedom');
+  assert.equal(resolveScopedSiteSlugForRequest(authRequest), 'focusequalsfreedom');
 });

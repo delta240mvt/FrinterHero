@@ -57,13 +57,12 @@ export function resolveScopedSiteSlugForRequest(
   const shouldUseAdminSite =
     useAdminActiveSite
     || (
-      currentSiteSlug === 'frinter'
-      && requestPath.startsWith('/api/')
+      requestPath.startsWith('/api/')
       && requestPath !== '/api/auth'
       && requestPath !== '/api/logout'
     );
 
-  if (shouldUseAdminSite && currentSiteSlug === 'frinter') {
+  if (shouldUseAdminSite) {
     return resolveAdminActiveSiteSlug(request.headers.get('cookie'), currentSiteSlug);
   }
   return currentSiteSlug;
