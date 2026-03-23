@@ -64,8 +64,8 @@ ALTER TABLE "sh_publish_log" ADD CONSTRAINT "sh_publish_log_site_id_sites_id_fk"
 ALTER TABLE "sh_post_metrics" ADD CONSTRAINT "sh_post_metrics_site_id_sites_id_fk" FOREIGN KEY ("site_id") REFERENCES "public"."sites"("id") ON DELETE restrict ON UPDATE no action;
 ALTER TABLE "sh_queue" ADD CONSTRAINT "sh_queue_site_id_sites_id_fk" FOREIGN KEY ("site_id") REFERENCES "public"."sites"("id") ON DELETE restrict ON UPDATE no action;
 
-DROP INDEX IF EXISTS "sh_templates_slug_unique";
-CREATE UNIQUE INDEX "uq_sh_templates_site_slug" ON "sh_templates" USING btree ("site_id","slug");
+ALTER TABLE "sh_templates" DROP CONSTRAINT IF EXISTS "sh_templates_slug_unique";
+CREATE UNIQUE INDEX IF NOT EXISTS "uq_sh_templates_site_slug" ON "sh_templates" USING btree ("site_id","slug");
 
 CREATE INDEX "idx_sh_settings_site" ON "sh_settings" USING btree ("site_id");
 CREATE INDEX "idx_sh_accounts_site" ON "sh_social_accounts" USING btree ("site_id");
