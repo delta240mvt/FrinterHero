@@ -14,7 +14,7 @@ export default defineConfig({
     port: process.env.PORT ? parseInt(process.env.PORT, 10) : 4321,
   },
   adapter: node({ mode: 'standalone' }),
-  integrations: [tailwind({ configFile: './tailwind.config.mjs' })],
+  integrations: [tailwind({ configFile: './tailwind.config.mjs', applyBaseStyles: false })],
   vite: {
     define: {
       'process.env.SITE_SLUG': JSON.stringify('frinter'),

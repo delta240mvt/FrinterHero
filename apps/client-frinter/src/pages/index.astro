@@ -1475,6 +1475,13 @@ const ldString = JSON.stringify({
   '@context': 'https://schema.org',
   '@graph': organizationJsonLd,
 });
+
+// Minify inline CSS: strip comments, collapse whitespace
+const pageCssMin = pageCss
+  .replace(/\/\*[\s\S]*?\*\//g, '')
+  .replace(/[ \t]*\n[ \t]*/g, '\n')
+  .replace(/\n{2,}/g, '\n')
+  .trim();
 ---
 
 <!doctype html>
@@ -1527,11 +1534,13 @@ const ldString = JSON.stringify({
     <meta name="theme-color" content="#4a8d83" />
     <link rel="preload" href="/fonts/Poppins-700.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="/fonts/Poppins-600.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/Poppins-500.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="/fonts/CourierPrime-Regular.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/CourierPrime-Bold.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="/fonts/Roboto-400.woff2" as="font" type="font/woff2" crossorigin />
     <script type="application/ld+json" set:html={ldString}></script>
     <script type="application/ld+json" set:html={JSON.stringify(faqJsonLd)}></script>
-    <style set:html={pageCss}></style>
+    <style set:html={pageCssMin}></style>
   </head>
   <body>
     <div class="page-shell">
