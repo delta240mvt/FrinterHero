@@ -1,7 +1,7 @@
 import type { RouteContext } from '../helpers.js';
 import {
   json, readJsonBody, normalizeSiteSlug, toPositiveInt, toNonNegativeInt, firstQueryValue, parseTags,
-  getSiteBySlug, resolveAuthedSite, enqueueDraftJob, articleScope, kbScope,
+  getSiteBySlug, requireActiveSite, enqueueDraftJob, articleScope, kbScope,
   db, and, desc, eq, ilike, inArray, sql, articles, articleGenerations, contentGaps, knowledgeEntries,
 } from '../helpers.js';
 import { generateSlug } from '../../../../src/utils/slug';
@@ -92,7 +92,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   // --- Admin routes ---
 
   if (method === 'GET' && pathname === '/v1/admin/articles') {
-    const context = await resolveAuthedSite(req, res, normalizeSiteSlug(url.searchParams.get('siteSlug')));
+    const context = await requireActiveSite(req, res);
     if (!context) return true;
     const { site } = context;
     const page = toPositiveInt(url.searchParams.get('page'), 1, { max: 1000 });
@@ -113,7 +113,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   }
 
   if (method === 'GET' && segments[0] === 'v1' && segments[1] === 'admin' && segments[2] === 'articles' && segments[3] && !segments[4]) {
-    const context = await resolveAuthedSite(req, res, normalizeSiteSlug(url.searchParams.get('siteSlug')));
+    const context = await requireActiveSite(req, res);
     if (!context) return true;
     const { site } = context;
     const articleId = Number(segments[3]);
@@ -126,7 +126,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
 
   if (method === 'POST' && pathname === '/v1/admin/articles') {
     const body = await readJsonBody(req);
-    const context = await resolveAuthedSite(req, res, normalizeSiteSlug(body.siteSlug));
+    const context = await requireActiveSite(req, res);
     if (!context) return true;
     const { site } = context;
     const title = typeof body.title === 'string' ? body.title.trim() : '';
@@ -157,7 +157,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
     const articleId = Number(segments[3]);
     if (!articleId) return json(res, 400, { error: 'Invalid article id' }), true;
     const body = await readJsonBody(req);
-    const context = await resolveAuthedSite(req, res, normalizeSiteSlug(body.siteSlug ?? url.searchParams.get('siteSlug')));
+    const context = await requireActiveSite(req, res);
     if (!context) return true;
     const { site } = context;
     const [existing] = await db.select().from(articles).where(and(articleScope(site.id), eq(articles.id, articleId))).limit(1);
@@ -192,7 +192,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   if (method === 'DELETE' && segments[0] === 'v1' && segments[1] === 'admin' && segments[2] === 'articles' && segments[3] && !segments[4]) {
     const articleId = Number(segments[3]);
     if (!articleId) return json(res, 400, { error: 'Invalid article id' }), true;
-    const context = await resolveAuthedSite(req, res, normalizeSiteSlug(url.searchParams.get('siteSlug')));
+    const context = await requireActiveSite(req, res);
     if (!context) return true;
     const { site } = context;
     const [existing] = await db.select({ id: articles.id }).from(articles).where(and(articleScope(site.id), eq(articles.id, articleId))).limit(1);
@@ -204,7 +204,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
 
   if (method === 'POST' && pathname === '/v1/admin/articles/bulk-delete') {
     const body = await readJsonBody(req);
-    const context = await resolveAuthedSite(req, res, normalizeSiteSlug(body.siteSlug ?? url.searchParams.get('siteSlug')));
+    const context = await requireActiveSite(req, res);
     if (!context) return true;
     const { site } = context;
     const ids = Array.isArray(body.ids) ? body.ids.map((id) => Number(id)).filter(Boolean) : [];
@@ -220,7 +220,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
     const articleId = Number(segments[3]);
     if (!articleId) return json(res, 400, { error: 'Invalid article id' }), true;
     const body = await readJsonBody(req);
-    const context = await resolveAuthedSite(req, res, normalizeSiteSlug(body.siteSlug ?? url.searchParams.get('siteSlug')));
+    const context = await requireActiveSite(req, res);
     if (!context) return true;
     const { site } = context;
     const [article] = await db.select().from(articles).where(and(articleScope(site.id), eq(articles.id, articleId))).limit(1);
@@ -238,7 +238,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   }
 
   if (method === 'GET' && pathname === '/v1/admin/article-generations') {
-    const context = await resolveAuthedSite(req, res, normalizeSiteSlug(url.searchParams.get('siteSlug')));
+    const context = await requireActiveSite(req, res);
     if (!context) return true;
     const { site } = context;
     const articleId = toPositiveInt(firstQueryValue(url, 'articleId', 'article_id'), 0);
