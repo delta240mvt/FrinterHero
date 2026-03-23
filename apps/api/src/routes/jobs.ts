@@ -1,7 +1,7 @@
 import type { RouteContext } from '../helpers.js';
 import {
-  json, readJsonBody, normalizeSiteSlug, firstQueryValue,
-  resolveAuthedSite, requireAuth, enqueueDraftJob, enqueueAppJob,
+  json, readJsonBody, firstQueryValue,
+  requireActiveSite, requireAuth, enqueueDraftJob, enqueueAppJob,
   gapScope, bcProjectScope, ytTargetScope, redditTargetScope,
   db, and, desc, eq, inArray, sql,
   appJobs, contentGaps, bcProjects, bcIterations, bcExtractedPainPoints, bcPainPointScope,
@@ -14,7 +14,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
 
   if (method === 'POST' && pathname === '/v1/jobs/draft') {
     const body = await readJsonBody(req);
-    const context = await resolveAuthedSite(req, res, normalizeSiteSlug(body.siteSlug));
+    const context = await requireActiveSite(req, res);
     if (!context) return true;
     const { site } = context;
     const gapId = Number(body.gapId ?? 0);
@@ -32,7 +32,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
 
   if (method === 'POST' && pathname === '/v1/jobs/geo') {
     const body = await readJsonBody(req);
-    const context = await resolveAuthedSite(req, res, normalizeSiteSlug(body.siteSlug));
+    const context = await requireActiveSite(req, res);
     if (!context) return true;
     const { site } = context;
     const [existingJob] = await db.select({ id: appJobs.id, status: appJobs.status }).from(appJobs).where(and(eq(appJobs.siteId, site.id), eq(appJobs.topic, 'geo'), inArray(appJobs.status, ['pending', 'running']))).limit(1);
@@ -44,7 +44,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
 
   if (method === 'POST' && pathname === '/v1/jobs/reddit') {
     const body = await readJsonBody(req);
-    const context = await resolveAuthedSite(req, res, normalizeSiteSlug(body.siteSlug));
+    const context = await requireActiveSite(req, res);
     if (!context) return true;
     const { site } = context;
     const [existingJob] = await db.select({ id: appJobs.id, status: appJobs.status }).from(appJobs).where(and(eq(appJobs.siteId, site.id), eq(appJobs.topic, 'reddit'), inArray(appJobs.status, ['pending', 'running']))).limit(1);
@@ -78,7 +78,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
 
   if (method === 'POST' && pathname === '/v1/jobs/youtube') {
     const body = await readJsonBody(req);
-    const context = await resolveAuthedSite(req, res, normalizeSiteSlug(body.siteSlug));
+    const context = await requireActiveSite(req, res);
     if (!context) return true;
     const { site } = context;
     const [existingJob] = await db.select({ id: appJobs.id, status: appJobs.status }).from(appJobs).where(and(eq(appJobs.siteId, site.id), eq(appJobs.topic, 'youtube'), inArray(appJobs.status, ['pending', 'running']))).limit(1);
@@ -109,7 +109,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
 
   if (method === 'POST' && pathname === '/v1/jobs/bc-scrape') {
     const body = await readJsonBody(req);
-    const context = await resolveAuthedSite(req, res, normalizeSiteSlug(body.siteSlug));
+    const context = await requireActiveSite(req, res);
     if (!context) return true;
     const { site } = context;
     const projectId = Number(body.projectId ?? 0);
@@ -144,7 +144,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
 
   if (method === 'POST' && pathname === '/v1/jobs/bc-parse') {
     const body = await readJsonBody(req);
-    const context = await resolveAuthedSite(req, res, normalizeSiteSlug(body.siteSlug));
+    const context = await requireActiveSite(req, res);
     if (!context) return true;
     const { site } = context;
     const projectId = Number(body.projectId ?? 0);
@@ -169,7 +169,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
 
   if (method === 'POST' && pathname === '/v1/jobs/bc-selector') {
     const body = await readJsonBody(req);
-    const context = await resolveAuthedSite(req, res, normalizeSiteSlug(body.siteSlug));
+    const context = await requireActiveSite(req, res);
     if (!context) return true;
     const { site } = context;
     const projectId = Number(body.projectId ?? 0);
@@ -204,7 +204,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
 
   if (method === 'POST' && pathname === '/v1/jobs/bc-cluster') {
     const body = await readJsonBody(req);
-    const context = await resolveAuthedSite(req, res, normalizeSiteSlug(body.siteSlug));
+    const context = await requireActiveSite(req, res);
     if (!context) return true;
     const { site } = context;
     const projectId = Number(body.projectId ?? 0);
@@ -247,7 +247,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
 
   if (method === 'POST' && pathname === '/v1/jobs/bc-generate') {
     const body = await readJsonBody(req);
-    const context = await resolveAuthedSite(req, res, normalizeSiteSlug(body.siteSlug));
+    const context = await requireActiveSite(req, res);
     if (!context) return true;
     const { site } = context;
     const projectId = Number(body.projectId ?? 0);
@@ -301,7 +301,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   }
 
   if (method === 'GET' && pathname === '/v1/jobs/latest') {
-    const context = await resolveAuthedSite(req, res, normalizeSiteSlug(firstQueryValue(url, 'siteSlug')));
+    const context = await requireActiveSite(req, res);
     if (!context) return true;
     const { site } = context;
     const topic = firstQueryValue(url, 'topic') ?? 'draft';
@@ -318,7 +318,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   }
 
   if (method === 'GET' && pathname === '/v1/jobs/active') {
-    const context = await resolveAuthedSite(req, res, normalizeSiteSlug(firstQueryValue(url, 'siteSlug')));
+    const context = await requireActiveSite(req, res);
     if (!context) return true;
     const { site } = context;
     const topic = firstQueryValue(url, 'topic') ?? 'draft';
@@ -340,7 +340,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   }
 
   if (method === 'DELETE' && pathname === '/v1/jobs/active') {
-    const context = await resolveAuthedSite(req, res, normalizeSiteSlug(firstQueryValue(url, 'siteSlug')));
+    const context = await requireActiveSite(req, res);
     if (!context) return true;
     const { site } = context;
     const topic = firstQueryValue(url, 'topic') ?? 'draft';
