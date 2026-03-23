@@ -13,6 +13,7 @@
     "start": "npm run start:client1",
     "build": "npm run build:client1",
     "preview": "npm run preview:client1",
+    "setup:hooks": "powershell -ExecutionPolicy Bypass -File ./scripts/setup-git-hooks.ps1",
     "migrate": "npm run db:push && npm run seed:sites && npm run backfill:sh-site-scope",
     "dev:api": "npm --workspace apps/api run dev",
     "build:api": "npm --workspace apps/api run build",
