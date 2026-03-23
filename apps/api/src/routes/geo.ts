@@ -1,6 +1,6 @@
 import type { RouteContext } from '../helpers.js';
 import {
-  json, normalizeSiteSlug, toPositiveInt, serializeRecentRun, resolveAuthedSite,
+  json, toPositiveInt, serializeRecentRun, requireActiveSite,
   geoRunScope, articleScope,
   db, and, eq, desc, gte, lte, sql, geoRuns, geoQueries, articles,
 } from '../helpers.js';
@@ -9,7 +9,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   const { req, res, method, url, pathname, segments } = ctx;
 
   if (method === 'GET' && pathname === '/v1/admin/geo/runs') {
-    const context = await resolveAuthedSite(req, res, normalizeSiteSlug(url.searchParams.get('siteSlug')));
+    const context = await requireActiveSite(req, res);
     if (!context) return true;
     const { site } = context;
     const limit = toPositiveInt(url.searchParams.get('limit'), 20, { max: 100 });
@@ -19,7 +19,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   }
 
   if (method === 'GET' && segments[0] === 'v1' && segments[1] === 'admin' && segments[2] === 'geo' && segments[3] === 'runs' && segments[4]) {
-    const context = await resolveAuthedSite(req, res, normalizeSiteSlug(url.searchParams.get('siteSlug')));
+    const context = await requireActiveSite(req, res);
     if (!context) return true;
     const { site } = context;
     const runId = Number(segments[4]);

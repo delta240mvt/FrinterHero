@@ -1,7 +1,7 @@
 import type { RouteContext } from '../helpers.js';
 import {
-  json, readJsonBody, normalizeSiteSlug, toPositiveInt, toNonNegativeInt, firstQueryValue, serializeRecentRun,
-  resolveAuthedSite, enqueueDraftJob, gapScope, geoRunScope, kbScope, articleScope, ACK_ACTIONS,
+  json, readJsonBody, toPositiveInt, toNonNegativeInt, firstQueryValue, serializeRecentRun,
+  requireActiveSite, enqueueDraftJob, gapScope, geoRunScope, kbScope, articleScope, ACK_ACTIONS,
   db, and, desc, eq, gte, ilike, inArray, isNotNull, lte, or, sql,
   contentGaps, geoRuns, knowledgeEntries, appJobs,
 } from '../helpers.js';
@@ -10,7 +10,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   const { req, res, method, url, pathname, segments } = ctx;
 
   if (method === 'GET' && pathname === '/v1/admin/content-gaps') {
-    const context = await resolveAuthedSite(req, res, normalizeSiteSlug(url.searchParams.get('siteSlug')));
+    const context = await requireActiveSite(req, res);
     if (!context) return true;
     const { site } = context;
     const statusParam = firstQueryValue(url, 'status') ?? '';
@@ -54,7 +54,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   if (method === 'GET' && segments[0] === 'v1' && segments[1] === 'admin' && segments[2] === 'content-gaps' && segments[3] && !segments[4]) {
     const gapId = Number(segments[3]);
     if (!gapId) return json(res, 400, { error: 'Invalid gap id' }), true;
-    const context = await resolveAuthedSite(req, res, normalizeSiteSlug(url.searchParams.get('siteSlug')));
+    const context = await requireActiveSite(req, res);
     if (!context) return true;
     const { site } = context;
     const [gap] = await db.select().from(contentGaps).where(and(gapScope(site.id), eq(contentGaps.id, gapId))).limit(1);
@@ -67,7 +67,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
     const gapId = Number(segments[3]);
     if (!gapId) return json(res, 400, { error: 'Invalid gap id' }), true;
     const body = await readJsonBody(req);
-    const context = await resolveAuthedSite(req, res, normalizeSiteSlug(body.siteSlug ?? url.searchParams.get('siteSlug')));
+    const context = await requireActiveSite(req, res);
     if (!context) return true;
     const { site } = context;
     const action = typeof body.action === 'string' ? body.action : '';
@@ -95,7 +95,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
     const gapId = Number(segments[3]);
     if (!gapId) return json(res, 400, { error: 'Invalid gap id' }), true;
     const body = await readJsonBody(req);
-    const context = await resolveAuthedSite(req, res, normalizeSiteSlug(body.siteSlug ?? url.searchParams.get('siteSlug')));
+    const context = await requireActiveSite(req, res);
     if (!context) return true;
     const { site } = context;
     const [gap] = await db.select({ id: contentGaps.id }).from(contentGaps).where(and(gapScope(site.id), eq(contentGaps.id, gapId))).limit(1);

@@ -1,7 +1,7 @@
 import type { RouteContext } from '../helpers.js';
 import {
-  json, readJsonBody, normalizeSiteSlug, toPositiveInt, toNonNegativeInt, parseTags,
-  resolveAuthedSite, kbScope, KB_TYPES,
+  json, readJsonBody, toPositiveInt, toNonNegativeInt, parseTags,
+  requireActiveSite, kbScope, KB_TYPES,
   db, and, desc, eq, ilike, isNull, or, sql, knowledgeEntries, knowledgeSources,
 } from '../helpers.js';
 import { importMarkdownFiles } from '../../../../src/utils/kb-importer';
@@ -10,7 +10,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   const { req, res, method, url, pathname, segments } = ctx;
 
   if (method === 'GET' && pathname === '/v1/admin/knowledge-base') {
-    const context = await resolveAuthedSite(req, res, normalizeSiteSlug(url.searchParams.get('siteSlug')));
+    const context = await requireActiveSite(req, res);
     if (!context) return true;
     const { site } = context;
     const search = url.searchParams.get('search')?.trim() ?? '';
@@ -36,7 +36,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   if (method === 'GET' && segments[0] === 'v1' && segments[1] === 'admin' && segments[2] === 'knowledge-base' && segments[3]) {
     const entryId = Number(segments[3]);
     if (!entryId) return json(res, 400, { error: 'Invalid id' }), true;
-    const context = await resolveAuthedSite(req, res, normalizeSiteSlug(url.searchParams.get('siteSlug')));
+    const context = await requireActiveSite(req, res);
     if (!context) return true;
     const { site } = context;
     const [entry] = await db.select().from(knowledgeEntries).where(and(kbScope(site.id), eq(knowledgeEntries.id, entryId))).limit(1);
@@ -47,7 +47,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
 
   if (method === 'POST' && pathname === '/v1/admin/knowledge-base') {
     const body = await readJsonBody(req);
-    const context = await resolveAuthedSite(req, res, normalizeSiteSlug(body.siteSlug));
+    const context = await requireActiveSite(req, res);
     if (!context) return true;
     const { site } = context;
     const fieldErrors: Record<string, string> = {};
@@ -77,7 +77,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
 
   if (method === 'POST' && pathname === '/v1/admin/knowledge-base/import') {
     const body = await readJsonBody(req);
-    const context = await resolveAuthedSite(req, res, normalizeSiteSlug(body.siteSlug));
+    const context = await requireActiveSite(req, res);
     if (!context) return true;
     const { site } = context;
     const folderName = typeof body.folderName === 'string' && body.folderName.trim() ? body.folderName.trim() : null;
@@ -111,7 +111,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
     const entryId = Number(segments[3]);
     if (!entryId) return json(res, 400, { error: 'Invalid id' }), true;
     const body = await readJsonBody(req);
-    const context = await resolveAuthedSite(req, res, normalizeSiteSlug(body.siteSlug ?? url.searchParams.get('siteSlug')));
+    const context = await requireActiveSite(req, res);
     if (!context) return true;
     const { site } = context;
     const [existing] = await db.select().from(knowledgeEntries).where(and(kbScope(site.id), eq(knowledgeEntries.id, entryId))).limit(1);
@@ -134,7 +134,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   if (method === 'DELETE' && segments[0] === 'v1' && segments[1] === 'admin' && segments[2] === 'knowledge-base' && segments[3]) {
     const entryId = Number(segments[3]);
     if (!entryId) return json(res, 400, { error: 'Invalid id' }), true;
-    const context = await resolveAuthedSite(req, res, normalizeSiteSlug(url.searchParams.get('siteSlug')));
+    const context = await requireActiveSite(req, res);
     if (!context) return true;
     const { site } = context;
     const [existing] = await db.select({ id: knowledgeEntries.id }).from(knowledgeEntries).where(and(kbScope(site.id), eq(knowledgeEntries.id, entryId))).limit(1);
