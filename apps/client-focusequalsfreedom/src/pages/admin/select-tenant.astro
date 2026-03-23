@@ -1,0 +1,60 @@
+---
+import Base from '@/components/layouts/Base.astro';
+---
+
+<Base title="Select Tenant — Admin">
+  <main style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;gap:1.5rem;">
+    <h1 style="font-size:1.5rem;color:#e2e8f0;">Select active tenant</h1>
+    <p style="color:#94a3b8;">Choose which brand you want to manage in this session.</p>
+    <div id="tenant-picker" style="display:flex;flex-direction:column;gap:0.75rem;width:100%;max-width:320px;">
+      <button data-slug="przemyslawfilipiak" class="tenant-btn">PrzemyslawFilipiak</button>
+      <button data-slug="focusequalsfreedom" class="tenant-btn">FocusEqualsFreedom</button>
+      <button data-slug="frinter" class="tenant-btn">Frinter</button>
+    </div>
+    <p id="tenant-error" style="color:#f87171;display:none;"></p>
+  </main>
+  <style>
+    .tenant-btn {
+      padding: 0.75rem 1.25rem;
+      background: rgba(74,141,131,0.15);
+      border: 1px solid rgba(74,141,131,0.4);
+      border-radius: 0.5rem;
+      color: #e2e8f0;
+      font-size: 1rem;
+      cursor: pointer;
+      text-align: left;
+      transition: background 0.15s;
+    }
+    .tenant-btn:hover { background: rgba(74,141,131,0.3); }
+  </style>
+  <script is:inline>
+    document.getElementById('tenant-picker')?.addEventListener('click', async (e) => {
+      const btn = e.target.closest('[data-slug]');
+      if (!btn) return;
+      const siteSlug = btn.dataset.slug;
+      btn.textContent = 'Switching...';
+      btn.disabled = true;
+      try {
+        const res = await fetch('/api/admin/switch-tenant', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ siteSlug }),
+        });
+        if (res.ok) {
+          window.location.assign('/admin');
+        } else {
+          const data = await res.json().catch(() => ({}));
+          document.getElementById('tenant-error').textContent = data.error ?? 'Switch failed';
+          document.getElementById('tenant-error').style.display = '';
+          btn.textContent = siteSlug;
+          btn.disabled = false;
+        }
+      } catch {
+        document.getElementById('tenant-error').textContent = 'Network error';
+        document.getElementById('tenant-error').style.display = '';
+        btn.textContent = siteSlug;
+        btn.disabled = false;
+      }
+    });
+  </script>
+</Base>

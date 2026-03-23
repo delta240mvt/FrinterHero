@@ -27,6 +27,13 @@ export const onRequest = defineMiddleware(async (context: any, next: any) => {
         context.cookies.delete('session', { path: '/' });
         return context.redirect('/admin/login');
       }
+
+      context.locals.activeSiteSlug = data.session?.activeSiteSlug ?? null;
+      context.locals.activeSiteId = data.session?.activeSiteId ?? null;
+
+      if (!context.locals.activeSiteId && pathname !== '/admin/select-tenant') {
+        return context.redirect('/admin/select-tenant');
+      }
     } catch {
       return context.redirect('/admin/login');
     }

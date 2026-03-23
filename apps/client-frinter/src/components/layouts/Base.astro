@@ -2,7 +2,7 @@
 import '@/styles/global.css';
 import '@/styles/animations.css';
 import { absoluteUrl, getSitePresentation } from '@/lib/site-config';
-import { normalizeScopedSiteSlug } from '@/lib/internal-api';
+
 
 export interface Props {
   title?: string;
@@ -26,9 +26,7 @@ const {
 
 const site = getSitePresentation();
 const isAdminPage = Astro.url.pathname.startsWith('/admin') && Astro.url.pathname !== '/admin/login';
-const adminActiveSite = isAdminPage
-  ? normalizeScopedSiteSlug(Astro.cookies.get('frinter_admin_site')?.value, 'frinter')
-  : 'frinter';
+const adminActiveSite = isAdminPage ? (Astro.locals.activeSiteSlug ?? null) : null;
 const resolvedTitle = title ?? site.defaultTitle;
 const resolvedDescription = description ?? site.defaultDescription;
 const ogImageAbsolute = ogImage.startsWith('http') ? ogImage : absoluteUrl(ogImage);
@@ -164,7 +162,7 @@ const entityGraphNode = site.entityType === 'Person'
           <select
             id="admin-site-switcher-select"
             class="admin-site-switcher__select"
-            data-current-site={adminActiveSite}
+            data-current-site={adminActiveSite ?? ''}
           >
             <option value="frinter" selected={adminActiveSite === 'frinter'}>Frinter</option>
             <option value="przemyslawfilipiak" selected={adminActiveSite === 'przemyslawfilipiak'}>PrzemyslawFilipiak</option>
@@ -176,11 +174,29 @@ const entityGraphNode = site.entityType === 'Person'
             const root = document.querySelector('[data-admin-site-switcher]');
             const select = document.getElementById('admin-site-switcher-select');
             if (!root || !(select instanceof HTMLSelectElement)) return;
-            select.addEventListener('change', () => {
-              const url = new URL('/api/admin/switch-site', window.location.origin);
-              url.searchParams.set('siteSlug', select.value);
-              url.searchParams.set('returnTo', `${window.location.pathname}${window.location.search}`);
-              window.location.assign(url.toString());
+            select.addEventListener('change', async () => {
+              const siteSlug = select.value;
+              const originalValue = select.dataset.currentSite;
+              select.disabled = true;
+              try {
+                const res = await fetch('/api/admin/switch-tenant', {
+                  method: 'POST',
+                  headers: { 'content-type': 'application/json' },
+                  body: JSON.stringify({ siteSlug }),
+                });
+                if (res.ok) {
+                  window.location.reload();
+                } else {
+                  const data = await res.json().catch(() => ({}));
+                  alert(data.error ?? 'Failed to switch tenant');
+                  select.value = originalValue || '';
+                  select.disabled = false;
+                }
+              } catch {
+                alert('Network error switching tenant');
+                select.value = originalValue || '';
+                select.disabled = false;
+              }
             });
           })();
         </script>
