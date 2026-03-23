@@ -198,7 +198,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
       matches.push({ id: gap.id, keyword: match });
     }
     if (rejectedIds.length > 0) {
-      await db.update(ytExtractedGaps).set({ status: 'rejected', rejectedAt: new Date() }).where(inArray(ytExtractedGaps.id, rejectedIds));
+      await db.update(ytExtractedGaps).set({ status: 'rejected', rejectedAt: new Date() }).where(and(inArray(ytExtractedGaps.id, rejectedIds), ytGapScope(site.id)));
     }
     json(res, 200, { success: true, processed: pendingGaps.length, rejectedCount: rejectedIds.length, matches });
     return true;
@@ -233,7 +233,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
       authorNotes: authorNotes || null,
       status: 'new',
     }).returning();
-    await db.update(ytExtractedGaps).set({ status: 'approved', approvedAt: new Date(), contentGapId: contentGap.id }).where(eq(ytExtractedGaps.id, id));
+    await db.update(ytExtractedGaps).set({ status: 'approved', approvedAt: new Date(), contentGapId: contentGap.id }).where(and(eq(ytExtractedGaps.id, id), ytGapScope(site.id)));
     json(res, 200, { ok: true, contentGapId: contentGap.id });
     return true;
   }

@@ -159,7 +159,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
       matches.push({ id: gap.id, keyword: match });
     }
     if (rejectedIds.length > 0) {
-      await db.update(redditExtractedGaps).set({ status: 'rejected', rejectedAt: new Date() }).where(inArray(redditExtractedGaps.id, rejectedIds));
+      await db.update(redditExtractedGaps).set({ status: 'rejected', rejectedAt: new Date() }).where(and(inArray(redditExtractedGaps.id, rejectedIds), redditGapScope(site.id)));
     }
     json(res, 200, { success: true, processed: pendingGaps.length, rejectedCount: rejectedIds.length, matches });
     return true;
