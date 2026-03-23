@@ -177,8 +177,10 @@ const entityGraphNode = site.entityType === 'Person'
             const select = document.getElementById('admin-site-switcher-select');
             if (!root || !(select instanceof HTMLSelectElement)) return;
             select.addEventListener('change', () => {
-              document.cookie = `frinter_admin_site=${encodeURIComponent(select.value)}; Path=/; Max-Age=${60 * 60 * 24 * 365}; SameSite=Strict`;
-              window.location.reload();
+              const url = new URL('/api/admin/switch-site', window.location.origin);
+              url.searchParams.set('siteSlug', select.value);
+              url.searchParams.set('returnTo', `${window.location.pathname}${window.location.search}`);
+              window.location.assign(url.toString());
             });
           })();
         </script>

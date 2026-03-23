@@ -1,7 +1,7 @@
 import type { AstroCookies } from 'astro';
 
 const DEFAULT_INTERNAL_API_BASE_URL = 'http://127.0.0.1:3001';
-const ADMIN_ACTIVE_SITE_COOKIE = 'frinter_admin_site';
+export const ADMIN_ACTIVE_SITE_COOKIE = 'frinter_admin_site';
 const ALLOWED_SITE_SLUGS = new Set(['przemyslawfilipiak', 'focusequalsfreedom', 'frinter']);
 const HOP_BY_HOP_HEADERS = new Set([
   'connection',
@@ -46,6 +46,17 @@ export function parseCookieHeader(cookieHeader: string | null | undefined) {
 export function resolveAdminActiveSiteSlug(cookieHeader: string | null | undefined, fallback = getCurrentSiteSlug()) {
   const cookies = parseCookieHeader(cookieHeader);
   return normalizeScopedSiteSlug(cookies[ADMIN_ACTIVE_SITE_COOKIE], fallback);
+}
+
+export function createAdminActiveSiteCookie(siteSlug: string) {
+  const parts = [
+    `${ADMIN_ACTIVE_SITE_COOKIE}=${encodeURIComponent(normalizeScopedSiteSlug(siteSlug))}`,
+    'Path=/',
+    `Max-Age=${60 * 60 * 24 * 365}`,
+    'SameSite=Strict',
+  ];
+  if (process.env.NODE_ENV === 'production') parts.push('Secure');
+  return parts.join('; ');
 }
 
 export function resolveScopedSiteSlugForRequest(
