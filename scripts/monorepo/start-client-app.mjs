@@ -3,7 +3,7 @@ import process from 'node:process';
 
 const nodeCmd = process.execPath;
 
-const child = spawn(nodeCmd, ['./server.mjs'], {
+const child = spawn(nodeCmd, ['./dist/server/entry.mjs'], {
   cwd: process.cwd(),
   stdio: 'inherit',
   env: {
