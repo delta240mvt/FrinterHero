@@ -92,51 +92,95 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
     return true;
   }
 
-  // POST /v1/admin/yolo/run/pain-points — bulk approve top-N YT pain points → content gaps (automation)
+  // POST /v1/admin/yolo/run/pain-points — bulk approve top-N pain points (YT + Reddit) → content gaps
   if (method === 'POST' && pathname === '/v1/admin/yolo/run/pain-points') {
     const body = await readJsonBody(req);
     const settings = await getOrCreateSettings(site.id);
     const limit = typeof body.limit === 'number' ? Math.max(1, Math.min(100, body.limit)) : settings.ytPainPointsLimit;
     const minIntensity = typeof body.minIntensity === 'number' ? body.minIntensity : settings.ytPainPointsMinIntensity;
 
-    const pending = await db.select()
-      .from(ytExtractedGaps)
-      .where(and(ytGapScope(site.id), eq(ytExtractedGaps.status, 'pending'), gte(ytExtractedGaps.emotionalIntensity, minIntensity)))
-      .orderBy(desc(ytExtractedGaps.emotionalIntensity), desc(ytExtractedGaps.createdAt))
-      .limit(limit);
+    const rdScope = or(eq(redditExtractedGaps.siteId, site.id), isNull(redditExtractedGaps.siteId));
+
+    // Fetch top pain points from both sources, merge and take top-N by intensity
+    const [ytItems, rdItems] = await Promise.all([
+      db.select().from(ytExtractedGaps)
+        .where(and(ytGapScope(site.id), eq(ytExtractedGaps.status, 'pending'), gte(ytExtractedGaps.emotionalIntensity, minIntensity)))
+        .orderBy(desc(ytExtractedGaps.emotionalIntensity), desc(ytExtractedGaps.createdAt))
+        .limit(limit),
+      db.select().from(redditExtractedGaps)
+        .where(and(rdScope, eq(redditExtractedGaps.status, 'pending'), gte(redditExtractedGaps.emotionalIntensity, minIntensity)))
+        .orderBy(desc(redditExtractedGaps.emotionalIntensity), desc(redditExtractedGaps.createdAt))
+        .limit(limit),
+    ]);
+
+    // Merge and sort by intensity descending, take top-N
+    const merged: Array<{ source: 'yt' | 'rd'; item: (typeof ytItems)[0] | (typeof rdItems)[0] }> = [
+      ...ytItems.map((item) => ({ source: 'yt' as const, item })),
+      ...rdItems.map((item) => ({ source: 'rd' as const, item })),
+    ]
+      .sort((a, b) => b.item.emotionalIntensity - a.item.emotionalIntensity)
+      .slice(0, limit);
 
     let created = 0;
     const createdGapIds: number[] = [];
 
-    for (const gap of pending) {
-      const sourceComments = await ytSourceComments((gap.sourceCommentIds || []).slice(0, 5));
-      const gapDescription = [
-        `Problem Context\n${gap.painPointDescription}`,
-        gap.sourceVideoTitle ? `\n\nSource Context\n- Video: "${gap.sourceVideoTitle}"\n- Frequency: ${gap.frequency} total mentions analyzed` : '',
-        sourceComments.length > 0 ? `\n\nRepresentative Voices\n${sourceComments.map((c) => `- "${String(c.commentText ?? '').slice(0, 150)}" (${c.voteCount} votes)`).join('\n')}` : '',
-        gap.vocabularyQuotes.length > 0 ? `\n\nVoice of Customer\n${gap.vocabularyQuotes.join(', ')}` : '',
-      ].filter(Boolean).join('');
+    for (const { source, item } of merged) {
+      if (source === 'yt') {
+        const gap = item as (typeof ytItems)[0];
+        const sourceComments = await ytSourceComments((gap.sourceCommentIds || []).slice(0, 5));
+        const gapDescription = [
+          `Problem Context\n${gap.painPointDescription}`,
+          gap.sourceVideoTitle ? `\n\nSource Context\n- Video: "${gap.sourceVideoTitle}"\n- Frequency: ${gap.frequency} total mentions analyzed` : '',
+          sourceComments.length > 0 ? `\n\nRepresentative Voices\n${sourceComments.map((c) => `- "${String(c.commentText ?? '').slice(0, 150)}" (${c.voteCount} votes)`).join('\n')}` : '',
+          gap.vocabularyQuotes.length > 0 ? `\n\nVoice of Customer\n${gap.vocabularyQuotes.join(', ')}` : '',
+        ].filter(Boolean).join('');
 
-      const [contentGap] = await db.insert(contentGaps).values({
-        siteId: site.id,
-        gapTitle: gap.painPointTitle,
-        gapDescription,
-        confidenceScore: Math.min(100, gap.emotionalIntensity * 10),
-        suggestedAngle: gap.suggestedArticleAngle,
-        relatedQueries: gap.vocabularyQuotes,
-        sourceModels: ['youtube-apify', 'claude-sonnet'],
-        status: 'new',
-      }).returning();
+        const [contentGap] = await db.insert(contentGaps).values({
+          siteId: site.id,
+          gapTitle: gap.painPointTitle,
+          gapDescription,
+          confidenceScore: Math.min(100, gap.emotionalIntensity * 10),
+          suggestedAngle: gap.suggestedArticleAngle,
+          relatedQueries: gap.vocabularyQuotes,
+          sourceModels: ['youtube-apify', 'claude-sonnet'],
+          status: 'new',
+        }).returning();
 
-      await db.update(ytExtractedGaps)
-        .set({ status: 'approved', approvedAt: new Date(), contentGapId: contentGap.id })
-        .where(and(eq(ytExtractedGaps.id, gap.id), ytGapScope(site.id)));
+        await db.update(ytExtractedGaps)
+          .set({ status: 'approved', approvedAt: new Date(), contentGapId: contentGap.id })
+          .where(and(eq(ytExtractedGaps.id, gap.id), ytGapScope(site.id)));
 
-      created++;
-      createdGapIds.push(contentGap.id);
+        created++;
+        createdGapIds.push(contentGap.id);
+      } else {
+        const gap = item as (typeof rdItems)[0];
+        const gapDescription = [
+          `Problem Context\n${gap.painPointDescription}`,
+          `\n\nFrequency: ${gap.frequency} mentions analyzed`,
+          gap.vocabularyQuotes.length > 0 ? `\n\nVoice of Customer\n${gap.vocabularyQuotes.join(', ')}` : '',
+        ].filter(Boolean).join('');
+
+        const [contentGap] = await db.insert(contentGaps).values({
+          siteId: site.id,
+          gapTitle: gap.painPointTitle,
+          gapDescription,
+          confidenceScore: Math.min(100, gap.emotionalIntensity * 10),
+          suggestedAngle: gap.suggestedArticleAngle,
+          relatedQueries: gap.vocabularyQuotes,
+          sourceModels: ['reddit-apify', 'claude-sonnet'],
+          status: 'new',
+        }).returning();
+
+        await db.update(redditExtractedGaps)
+          .set({ status: 'approved', approvedAt: new Date(), contentGapId: contentGap.id })
+          .where(and(eq(redditExtractedGaps.id, gap.id), rdScope));
+
+        created++;
+        createdGapIds.push(contentGap.id);
+      }
     }
 
-    json(res, 200, { processed: pending.length, created, createdGapIds });
+    json(res, 200, { processed: merged.length, created, createdGapIds });
     return true;
   }
 
