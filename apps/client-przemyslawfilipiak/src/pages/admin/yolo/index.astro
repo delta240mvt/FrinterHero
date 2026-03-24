@@ -122,6 +122,7 @@ const TABS = [
           <div class="sidebar-stage-actions">
             <button class="btn-save-stage" data-stage="1">Save</button>
             <button class="btn-run-stage" data-stage="pain-points">▶ Run</button>
+            <button class="btn-sel" onclick="ppShuffle()">🔀 Shuffle</button>
           </div>
           <div class="stage-log" id="log-1"></div>
         </div>
@@ -223,7 +224,6 @@ const TABS = [
               <button class="btn-sel" onclick="ppSelectAll()">All</button>
               <button class="btn-sel" onclick="ppDeselectAll()">None</button>
               <button class="btn-sel" onclick="ppSelectHot()">Hot 8+</button>
-              <button class="btn-sel" onclick="ppShuffle()">Shuffle</button>
               <div class="spacer"></div>
               <button class="btn-approve" id="btn-pp-approve" disabled onclick="ppApprove()">✓ Approve selected</button>
             </div>
