@@ -1,6 +1,6 @@
 import type { AstroCookies } from 'astro';
 
-const DEFAULT_INTERNAL_API_BASE_URL = 'http://127.0.0.1:3001';
+const DEFAULT_INTERNAL_API_BASE_URL = 'https://new-pp-api-2026-03-19-new-pp-copy.up.railway.app';
 const HOP_BY_HOP_HEADERS = new Set([
   'connection',
   'content-length',
