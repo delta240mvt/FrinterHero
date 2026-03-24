@@ -152,8 +152,8 @@ const entityGraphNode = site.entityType === 'Person'
         }
       ]
     })} />
-    <!-- Umami Analytics -->
-    <script defer data-cfasync="false" src="https://umami-blogi-astro.up.railway.app/script.js" data-website-id="5f685e45-c10f-4d9f-9057-d582cfab9c5f"></script>
+    <!-- Umami Analytics (proxied via same-origin to bypass Cloudflare script filtering) -->
+    <script defer src="/umami.js" data-website-id="5f685e45-c10f-4d9f-9057-d582cfab9c5f" data-host-url="https://umami-blogi-astro.up.railway.app"></script>
   </head>
   <body>
     <slot />
