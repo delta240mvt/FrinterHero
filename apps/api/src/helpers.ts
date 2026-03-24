@@ -41,6 +41,7 @@ import {
   ytExtractedGaps,
   ytScrapeRuns,
   ytTargets,
+  yoloSettings,
 } from '../../../src/db/schema';
 
 export type Json = Record<string, unknown>;
@@ -494,4 +495,5 @@ export {
   redditExtractedGaps, redditPosts, redditScrapeRuns, redditTargets, sessions,
   shContentBriefs, shGeneratedCopy, shMediaAssets, shPostMetrics, shPublishLog, shQueue,
   shSettings, shSocialAccounts, shTemplates, sites, ytComments, ytExtractedGaps, ytScrapeRuns, ytTargets,
+  yoloSettings,
 };

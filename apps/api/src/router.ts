@@ -13,6 +13,7 @@ import { handle as handleReddit } from './routes/reddit.js';
 import { handle as handleSites } from './routes/sites.js';
 import { handle as handleSocialHub } from './routes/social-hub.js';
 import { handle as handleYoutube } from './routes/youtube.js';
+import { handle as handleYolo } from './routes/yolo.js';
 
 const routeHandlers = [
   handleSites,
@@ -26,6 +27,7 @@ const routeHandlers = [
   handleBrandClarity,
   handleReddit,
   handleYoutube,
+  handleYolo,
   handleJobs,
 ];
 

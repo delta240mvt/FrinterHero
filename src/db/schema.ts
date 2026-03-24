@@ -758,3 +758,29 @@ export const shQueue = pgTable('sh_queue', {
   statusIdx: index('idx_sh_queue_status').on(t.status),
   priorityIdx: index('idx_sh_queue_priority').on(t.priority),
 }));
+
+// ========================================
+// Yolo Mode: Mass-approval automation pipeline
+// ========================================
+
+// Per-site settings for automated content pipeline
+// Stage 1: YT pain points → content gaps (bulk approve)
+// Stage 2: Content gaps → draft jobs (bulk acknowledge + enqueue)
+// Stage 3: Completed drafts → published articles (auto-publish)
+export const yoloSettings = pgTable('yolo_settings', {
+  id: serial('id').primaryKey(),
+  siteId: integer('site_id').references(() => sites.id, { onDelete: 'cascade' }).unique(),
+  // Stage 1: bulk approve YT pain points → create content gaps
+  ytPainPointsEnabled: boolean('yt_pain_points_enabled').notNull().default(false),
+  ytPainPointsLimit: integer('yt_pain_points_limit').notNull().default(10),
+  ytPainPointsMinIntensity: integer('yt_pain_points_min_intensity').notNull().default(5),
+  // Stage 2: bulk acknowledge content gaps → enqueue draft jobs
+  gapsEnabled: boolean('gaps_enabled').notNull().default(false),
+  gapsLimit: integer('gaps_limit').notNull().default(5),
+  gapsModel: varchar('gaps_model', { length: 100 }).notNull().default('anthropic/claude-sonnet-4-6'),
+  // Stage 3: auto-publish completed draft articles
+  autoPublishEnabled: boolean('auto_publish_enabled').notNull().default(false),
+  autoPublishLimit: integer('auto_publish_limit').notNull().default(10),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
