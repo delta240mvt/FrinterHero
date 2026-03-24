@@ -9,13 +9,23 @@ import { getInternalApiBaseUrl } from '@/lib/internal-api';
 export async function getStaticPaths() {
   const siteSlug = getCurrentSiteSlug();
   const apiBase = getInternalApiBaseUrl();
+  const fullUrl = `${apiBase}/v1/articles?${new URLSearchParams({ siteSlug, status: 'published', limit: '500' })}`;
+  console.log('[getStaticPaths] siteSlug:', siteSlug);
+  console.log('[getStaticPaths] apiBase:', apiBase);
+  console.log('[getStaticPaths] fetching:', fullUrl);
   try {
-    const params = new URLSearchParams({ siteSlug, status: 'published', limit: '500' });
-    const res = await fetch(`${apiBase}/v1/articles?${params}`);
-    if (!res.ok) return [];
+    const res = await fetch(fullUrl);
+    console.log('[getStaticPaths] response status:', res.status);
+    if (!res.ok) {
+      console.log('[getStaticPaths] non-ok response, returning []');
+      return [];
+    }
     const data = await res.json();
-    return (data.results ?? []).map((a: any) => ({ params: { slug: a.slug } }));
-  } catch {
+    const slugs = (data.results ?? []).map((a: any) => a.slug);
+    console.log('[getStaticPaths] articles found:', slugs.length, slugs);
+    return slugs.map((slug: string) => ({ params: { slug } }));
+  } catch (e) {
+    console.log('[getStaticPaths] fetch error:', e);
     return [];
   }
 }

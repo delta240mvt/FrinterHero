@@ -27,7 +27,10 @@ function toValidDate(value: unknown) {
 try {
   const apiBase = getInternalApiBaseUrl();
   const params = new URLSearchParams({ siteSlug, status: 'published', limit: String(LIMIT), offset: String(offset) });
-  const response = await fetch(`${apiBase}/v1/articles?${params}`);
+  const fetchUrl = `${apiBase}/v1/articles?${params}`;
+  console.log('[blog/index] fetching:', fetchUrl);
+  const response = await fetch(fetchUrl);
+  console.log('[blog/index] response status:', response.status);
   if (response.ok) {
     const data = await response.json();
     posts = Array.isArray(data.results)
@@ -37,9 +40,10 @@ try {
         }))
       : [];
     totalCount = data.pagination?.total ?? posts.length;
+    console.log('[blog/index] posts loaded:', posts.length, 'total:', totalCount);
   }
-} catch {
-  // API not available
+} catch (e) {
+  console.log('[blog/index] fetch error:', e);
 }
 
 const totalPages = Math.ceil(totalCount / LIMIT);
