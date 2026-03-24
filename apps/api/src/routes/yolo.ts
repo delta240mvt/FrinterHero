@@ -1,7 +1,7 @@
 import type { RouteContext } from '../helpers.js';
 import {
   json, readJsonBody,
-  requireActiveSite, enqueueDraftJob, ytGapScope, gapScope, articleScope,
+  requireActiveSite, enqueueDraftJob, ytGapScope, gapScope, articleScope, redditGapScope,
   ytSourceComments,
   db, and, desc, eq, gte, inArray, isNotNull, or, isNull, sql,
   ytExtractedGaps, contentGaps, appJobs, articles, articleGenerations, yoloSettings, redditExtractedGaps,
@@ -15,7 +15,7 @@ const DEFAULT_SETTINGS: Omit<YoloSettingsRow, 'id' | 'siteId' | 'createdAt' | 'u
   ytPainPointsMinIntensity: 5,
   gapsEnabled: false,
   gapsLimit: 5,
-  gapsModel: 'anthropic/claude-sonnet-4-6',
+  gapsModel: 'claude-sonnet-4-6',
   autoPublishEnabled: false,
   autoPublishLimit: 10,
 };
@@ -65,22 +65,25 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   // GET /v1/admin/yolo/preview — pipeline counts
   if (method === 'GET' && pathname === '/v1/admin/yolo/preview') {
     const settings = await getOrCreateSettings(site.id);
-    const [ytPending, gapsNew, draftsReady, gapsInProgress] = await Promise.all([
+    const [ytPending, rdPending, gapsNew, draftsReady, gapsInProgress] = await Promise.all([
       db.select({ total: sql<number>`count(*)::int` })
         .from(ytExtractedGaps)
-        .where(and(ytGapScope(site.id), eq(ytExtractedGaps.status, 'pending'), gte(ytExtractedGaps.emotionalIntensity, settings.ytPainPointsMinIntensity))),
+        .where(and(ytGapScope(site.id), eq(ytExtractedGaps.status, 'pending'))),
+      db.select({ total: sql<number>`count(*)::int` })
+        .from(redditExtractedGaps)
+        .where(and(redditGapScope(site.id), eq(redditExtractedGaps.status, 'pending'))),
       db.select({ total: sql<number>`count(*)::int` })
         .from(contentGaps)
         .where(and(gapScope(site.id), eq(contentGaps.status, 'new'))),
       db.select({ total: sql<number>`count(*)::int` })
         .from(articles)
-        .where(and(articleScope(site.id), eq(articles.status, 'draft'), isNotNull(articles.sourceGapId))),
+        .where(and(articleScope(site.id), eq(articles.status, 'draft'))),
       db.select({ total: sql<number>`count(*)::int` })
         .from(contentGaps)
         .where(and(gapScope(site.id), eq(contentGaps.status, 'in_progress'))),
     ]);
     json(res, 200, {
-      ytPainPointsPending: ytPending[0]?.total ?? 0,
+      ytPainPointsPending: (ytPending[0]?.total ?? 0) + (rdPending[0]?.total ?? 0),
       gapsNew: gapsNew[0]?.total ?? 0,
       draftsReady: draftsReady[0]?.total ?? 0,
       gapsInProgress: gapsInProgress[0]?.total ?? 0,
@@ -490,7 +493,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
       try {
         const result = await db.update(articles)
           .set({ status: 'published', publishedAt: now, updatedAt: now })
-          .where(and(eq(articles.id, id), eq(articles.status, 'draft')))
+          .where(and(eq(articles.id, id), eq(articles.status, 'draft'), articleScope(site.id)))
           .returning({ id: articles.id, sourceGapId: articles.sourceGapId });
 
         if (result.length > 0) {
