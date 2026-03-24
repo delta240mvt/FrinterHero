@@ -709,8 +709,24 @@ async function saveStage(stage) {
 async function runStage(stageName, logId) {
   const logEl = document.getElementById(logId);
   logEl.textContent = '⏳ Running…'; logEl.className = 'stage-log log-running';
+
+  // Pass current UI values directly — no need to save first
+  const body = {};
+  if (stageName === 'pain-points') {
+    const limit = document.getElementById('yt-limit');
+    const intensity = document.getElementById('yt-intensity');
+    if (limit) body.limit = Number(limit.value);
+    if (intensity) body.minIntensity = Number(intensity.value);
+  } else if (stageName === 'gaps') {
+    const limit = document.getElementById('gaps-limit');
+    if (limit) body.limit = Number(limit.value);
+  } else if (stageName === 'publish') {
+    const limit = document.getElementById('publish-limit');
+    if (limit) body.limit = Number(limit.value);
+  }
+
   try {
-    const res = await fetch('/api/yolo/run/' + stageName, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
+    const res = await fetch('/api/yolo/run/' + stageName, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
     const data = await res.json();
     if (res.ok) { logEl.textContent = '✓ ' + JSON.stringify(data); logEl.className = 'stage-log log-ok'; }
     else { logEl.textContent = '✗ ' + (data.error || res.status); logEl.className = 'stage-log log-err'; }
