@@ -1,6 +1,6 @@
 import type { RouteContext } from '../helpers.js';
 import {
-  json, readJsonBody, toPositiveInt,
+  json, readJsonBody,
   requireActiveSite, enqueueDraftJob, ytGapScope, gapScope, articleScope,
   ytSourceComments,
   db, and, desc, eq, gte, inArray, isNotNull, or, isNull, sql,
@@ -28,7 +28,7 @@ async function getOrCreateSettings(siteId: number): Promise<YoloSettingsRow> {
 }
 
 export async function handle(ctx: RouteContext): Promise<boolean> {
-  const { req, res, method, pathname, segments } = ctx;
+  const { req, res, method, pathname } = ctx;
 
   if (!pathname.startsWith('/v1/admin/yolo')) return false;
 
@@ -62,38 +62,34 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
     return true;
   }
 
-  // GET /v1/admin/yolo/preview — preview counts for each stage
+  // GET /v1/admin/yolo/preview — pipeline counts
   if (method === 'GET' && pathname === '/v1/admin/yolo/preview') {
     const settings = await getOrCreateSettings(site.id);
-    const [ytPending, gapsNew, draftsReady] = await Promise.all([
+    const [ytPending, gapsNew, draftsReady, gapsInProgress] = await Promise.all([
       db.select({ total: sql<number>`count(*)::int` })
         .from(ytExtractedGaps)
-        .where(and(
-          ytGapScope(site.id),
-          eq(ytExtractedGaps.status, 'pending'),
-          gte(ytExtractedGaps.emotionalIntensity, settings.ytPainPointsMinIntensity),
-        )),
+        .where(and(ytGapScope(site.id), eq(ytExtractedGaps.status, 'pending'), gte(ytExtractedGaps.emotionalIntensity, settings.ytPainPointsMinIntensity))),
       db.select({ total: sql<number>`count(*)::int` })
         .from(contentGaps)
         .where(and(gapScope(site.id), eq(contentGaps.status, 'new'))),
       db.select({ total: sql<number>`count(*)::int` })
         .from(articles)
-        .where(and(
-          articleScope(site.id),
-          eq(articles.status, 'draft'),
-          isNotNull(articles.sourceGapId),
-        )),
+        .where(and(articleScope(site.id), eq(articles.status, 'draft'), isNotNull(articles.sourceGapId))),
+      db.select({ total: sql<number>`count(*)::int` })
+        .from(contentGaps)
+        .where(and(gapScope(site.id), eq(contentGaps.status, 'in_progress'))),
     ]);
     json(res, 200, {
       ytPainPointsPending: ytPending[0]?.total ?? 0,
       gapsNew: gapsNew[0]?.total ?? 0,
       draftsReady: draftsReady[0]?.total ?? 0,
+      gapsInProgress: gapsInProgress[0]?.total ?? 0,
       settings,
     });
     return true;
   }
 
-  // POST /v1/admin/yolo/run/pain-points — bulk approve YT pain points → content gaps
+  // POST /v1/admin/yolo/run/pain-points — bulk approve top-N YT pain points → content gaps (automation)
   if (method === 'POST' && pathname === '/v1/admin/yolo/run/pain-points') {
     const body = await readJsonBody(req);
     const settings = await getOrCreateSettings(site.id);
@@ -102,11 +98,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
 
     const pending = await db.select()
       .from(ytExtractedGaps)
-      .where(and(
-        ytGapScope(site.id),
-        eq(ytExtractedGaps.status, 'pending'),
-        gte(ytExtractedGaps.emotionalIntensity, minIntensity),
-      ))
+      .where(and(ytGapScope(site.id), eq(ytExtractedGaps.status, 'pending'), gte(ytExtractedGaps.emotionalIntensity, minIntensity)))
       .orderBy(desc(ytExtractedGaps.emotionalIntensity), desc(ytExtractedGaps.createdAt))
       .limit(limit);
 
@@ -145,7 +137,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
     return true;
   }
 
-  // POST /v1/admin/yolo/run/gaps — bulk acknowledge content gaps → enqueue draft jobs
+  // POST /v1/admin/yolo/run/gaps — bulk acknowledge top-N gaps → enqueue draft jobs (automation)
   if (method === 'POST' && pathname === '/v1/admin/yolo/run/gaps') {
     const body = await readJsonBody(req);
     const settings = await getOrCreateSettings(site.id);
@@ -163,7 +155,6 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
     const jobIds: number[] = [];
 
     for (const gap of newGaps) {
-      // Check if there's already an active draft job for this gap
       const [existing] = await db.select({ id: appJobs.id })
         .from(appJobs)
         .where(and(
@@ -171,15 +162,11 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
           eq(appJobs.topic, 'draft'),
           inArray(appJobs.status, ['pending', 'running']),
           sql`${appJobs.payload}->>'gapId' = ${String(gap.id)}`,
-        ))
-        .limit(1);
+        )).limit(1);
 
-      if (existing) {
-        skipped++;
-        continue;
-      }
+      if (existing) { skipped++; continue; }
 
-      const job = await enqueueDraftJob(site.id, gap.id, model, '');
+      const job = await enqueueDraftJob(site.id, gap.id, model, gap.authorNotes ?? '');
       await db.update(contentGaps)
         .set({ status: 'in_progress', acknowledgedAt: new Date() })
         .where(and(eq(contentGaps.id, gap.id), gapScope(site.id)));
@@ -192,7 +179,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
     return true;
   }
 
-  // POST /v1/admin/yolo/run/publish — auto-publish completed draft articles
+  // POST /v1/admin/yolo/run/publish — auto-publish completed draft articles (automation)
   if (method === 'POST' && pathname === '/v1/admin/yolo/run/publish') {
     const body = await readJsonBody(req);
     const settings = await getOrCreateSettings(site.id);
@@ -200,11 +187,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
 
     const drafts = await db.select()
       .from(articles)
-      .where(and(
-        articleScope(site.id),
-        eq(articles.status, 'draft'),
-        isNotNull(articles.sourceGapId),
-      ))
+      .where(and(articleScope(site.id), eq(articles.status, 'draft'), isNotNull(articles.sourceGapId)))
       .orderBy(desc(articles.createdAt))
       .limit(limit);
 
@@ -224,9 +207,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
       }
 
       const [generation] = await db.select({ id: articleGenerations.id, originalContent: articleGenerations.originalContent })
-        .from(articleGenerations)
-        .where(eq(articleGenerations.articleId, article.id))
-        .limit(1);
+        .from(articleGenerations).where(eq(articleGenerations.articleId, article.id)).limit(1);
 
       if (generation) {
         await db.update(articleGenerations)
@@ -244,7 +225,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
   // GET /v1/admin/yolo/pain-points — list pending pain points (YT + Reddit)
   if (method === 'GET' && pathname === '/v1/admin/yolo/pain-points') {
     const url = new URL(req.url ?? '/', `http://localhost`);
-    const source = url.searchParams.get('source') ?? 'all'; // 'youtube' | 'reddit' | 'all'
+    const source = url.searchParams.get('source') ?? 'all';
     const limit = Math.min(200, Math.max(1, parseInt(url.searchParams.get('limit') ?? '100')));
     const offset = Math.max(0, parseInt(url.searchParams.get('offset') ?? '0'));
     const minIntensity = Math.max(1, Math.min(10, parseInt(url.searchParams.get('minIntensity') ?? '1')));
@@ -274,20 +255,29 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
       .sort((a, b) => b.emotionalIntensity - a.emotionalIntensity || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       .slice(offset, offset + limit);
 
-    const total = ytItems.length + rdItems.length;
-
-    json(res, 200, { items: combined, total, limit, offset });
+    json(res, 200, { items: combined, total: ytItems.length + rdItems.length, limit, offset });
     return true;
   }
 
-  // POST /v1/admin/yolo/approve/pain-points — approve specific pain point IDs
+  // POST /v1/admin/yolo/approve/pain-points — approve specific pain points with authorNotes
   if (method === 'POST' && pathname === '/v1/admin/yolo/approve/pain-points') {
     const body = await readJsonBody(req);
-    const ytIds: number[] = Array.isArray(body.ytIds) ? body.ytIds.map(Number).filter(Boolean) : [];
-    const rdIds: number[] = Array.isArray(body.rdIds) ? body.rdIds.map(Number).filter(Boolean) : [];
 
-    if (ytIds.length === 0 && rdIds.length === 0) {
-      json(res, 400, { error: 'Provide ytIds or rdIds arrays' });
+    // Accept new {ytItems:[{id,authorNotes}]} OR old backward-compat {ytIds:[]}
+    const ytItems: { id: number; authorNotes: string }[] = Array.isArray(body.ytItems)
+      ? body.ytItems.map((x: any) => ({ id: Number(x.id), authorNotes: String(x.authorNotes ?? '') }))
+      : Array.isArray(body.ytIds)
+      ? body.ytIds.map((id: any) => ({ id: Number(id), authorNotes: '' }))
+      : [];
+
+    const rdItems: { id: number; authorNotes: string }[] = Array.isArray(body.rdItems)
+      ? body.rdItems.map((x: any) => ({ id: Number(x.id), authorNotes: String(x.authorNotes ?? '') }))
+      : Array.isArray(body.rdIds)
+      ? body.rdIds.map((id: any) => ({ id: Number(id), authorNotes: '' }))
+      : [];
+
+    if (ytItems.length === 0 && rdItems.length === 0) {
+      json(res, 400, { error: 'Provide ytItems or rdItems arrays' });
       return true;
     }
 
@@ -297,12 +287,13 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
     let created = 0;
     const createdGapIds: number[] = [];
 
-    // Process YT pain points
-    if (ytIds.length > 0) {
+    if (ytItems.length > 0) {
+      const ids = ytItems.map((x) => x.id).filter(Boolean);
       const pending = await db.select().from(ytExtractedGaps)
-        .where(and(ytScope, eq(ytExtractedGaps.status, 'pending'), inArray(ytExtractedGaps.id, ytIds)));
+        .where(and(ytScope, eq(ytExtractedGaps.status, 'pending'), inArray(ytExtractedGaps.id, ids)));
 
       for (const gap of pending) {
+        const item = ytItems.find((x) => x.id === gap.id)!;
         const sourceComments = await ytSourceComments((gap.sourceCommentIds || []).slice(0, 5));
         const gapDescription = [
           `Problem Context\n${gap.painPointDescription}`,
@@ -319,6 +310,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
           suggestedAngle: gap.suggestedArticleAngle,
           relatedQueries: gap.vocabularyQuotes,
           sourceModels: ['youtube-apify', 'claude-sonnet'],
+          authorNotes: item.authorNotes || null,
           status: 'new',
         }).returning();
 
@@ -331,12 +323,13 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
       }
     }
 
-    // Process Reddit pain points
-    if (rdIds.length > 0) {
+    if (rdItems.length > 0) {
+      const ids = rdItems.map((x) => x.id).filter(Boolean);
       const pending = await db.select().from(redditExtractedGaps)
-        .where(and(rdScope, eq(redditExtractedGaps.status, 'pending'), inArray(redditExtractedGaps.id, rdIds)));
+        .where(and(rdScope, eq(redditExtractedGaps.status, 'pending'), inArray(redditExtractedGaps.id, ids)));
 
       for (const gap of pending) {
+        const item = rdItems.find((x) => x.id === gap.id)!;
         const gapDescription = [
           `Problem Context\n${gap.painPointDescription}`,
           `\n\nFrequency: ${gap.frequency} mentions analyzed`,
@@ -351,6 +344,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
           suggestedAngle: gap.suggestedArticleAngle,
           relatedQueries: gap.vocabularyQuotes,
           sourceModels: ['reddit-apify', 'claude-sonnet'],
+          authorNotes: item.authorNotes || null,
           status: 'new',
         }).returning();
 
@@ -363,22 +357,26 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
       }
     }
 
-    json(res, 200, { processed: ytIds.length + rdIds.length, created, createdGapIds });
+    json(res, 200, { processed: ytItems.length + rdItems.length, created, createdGapIds });
     return true;
   }
 
-  // POST /v1/admin/yolo/acknowledge/gaps — acknowledge specific gap IDs → enqueue draft jobs
+  // POST /v1/admin/yolo/acknowledge/gaps — acknowledge specific gaps with per-item authorNotes
   if (method === 'POST' && pathname === '/v1/admin/yolo/acknowledge/gaps') {
     const body = await readJsonBody(req);
-    const ids: number[] = Array.isArray(body.ids) ? body.ids.map(Number).filter(Boolean) : [];
     const settings = await getOrCreateSettings(site.id);
     const model = typeof body.model === 'string' && body.model.trim() ? body.model.trim() : settings.gapsModel;
 
-    if (ids.length === 0) {
-      json(res, 400, { error: 'Provide ids array' });
-      return true;
-    }
+    // Accept new {items:[{id,authorNotes}]} OR old backward-compat {ids:[]}
+    const items: { id: number; authorNotes: string }[] = Array.isArray(body.items)
+      ? body.items.map((x: any) => ({ id: Number(x.id), authorNotes: String(x.authorNotes ?? '') }))
+      : Array.isArray(body.ids)
+      ? body.ids.map((id: any) => ({ id: Number(id), authorNotes: '' }))
+      : [];
 
+    if (items.length === 0) { json(res, 400, { error: 'Provide items array' }); return true; }
+
+    const ids = items.map((x) => x.id).filter(Boolean);
     const targetGaps = await db.select().from(contentGaps)
       .where(and(gapScope(site.id), inArray(contentGaps.id, ids), eq(contentGaps.status, 'new')));
 
@@ -387,19 +385,21 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
     const jobIds: number[] = [];
 
     for (const gap of targetGaps) {
-      const [existing] = await db.select({ id: appJobs.id })
-        .from(appJobs)
+      const itemNotes = items.find((x) => x.id === gap.id)?.authorNotes ?? '';
+      // Per-request notes override; fall back to gap's stored authorNotes from pain-point approval
+      const finalNotes = itemNotes.trim() || gap.authorNotes || '';
+
+      const [existing] = await db.select({ id: appJobs.id }).from(appJobs)
         .where(and(
           eq(appJobs.siteId, site.id),
           eq(appJobs.topic, 'draft'),
           inArray(appJobs.status, ['pending', 'running']),
           sql`${appJobs.payload}->>'gapId' = ${String(gap.id)}`,
-        ))
-        .limit(1);
+        )).limit(1);
 
       if (existing) { skipped++; continue; }
 
-      const job = await enqueueDraftJob(site.id, gap.id, model, '');
+      const job = await enqueueDraftJob(site.id, gap.id, model, finalNotes);
       await db.update(contentGaps)
         .set({ status: 'in_progress', acknowledgedAt: new Date() })
         .where(and(eq(contentGaps.id, gap.id), gapScope(site.id)));
@@ -409,6 +409,90 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
     }
 
     json(res, 200, { processed: ids.length, enqueued, skipped, jobIds });
+    return true;
+  }
+
+  // GET /v1/admin/yolo/drafts — list draft articles sourced from content gaps
+  if (method === 'GET' && pathname === '/v1/admin/yolo/drafts') {
+    const url = new URL(req.url ?? '/', 'http://localhost');
+    const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get('limit') ?? '50')));
+    const offset = Math.max(0, parseInt(url.searchParams.get('offset') ?? '0'));
+
+    const items = await db.select({
+      id: articles.id,
+      slug: articles.slug,
+      title: articles.title,
+      description: articles.description,
+      readingTime: articles.readingTime,
+      tags: articles.tags,
+      sourceGapId: articles.sourceGapId,
+      generatedByModel: articles.generatedByModel,
+      createdAt: articles.createdAt,
+    })
+      .from(articles)
+      .where(and(articleScope(site.id), eq(articles.status, 'draft')))
+      .orderBy(desc(articles.createdAt))
+      .limit(limit)
+      .offset(offset);
+
+    const gapIds = [...new Set(items.map((a) => a.sourceGapId).filter(Boolean))] as number[];
+    const gapTitles: Record<number, string> = {};
+    if (gapIds.length > 0) {
+      const gapRows = await db.select({ id: contentGaps.id, gapTitle: contentGaps.gapTitle })
+        .from(contentGaps).where(inArray(contentGaps.id, gapIds));
+      for (const g of gapRows) gapTitles[g.id] = g.gapTitle;
+    }
+
+    const enriched = items.map((a) => ({
+      ...a,
+      gapTitle: a.sourceGapId ? (gapTitles[a.sourceGapId] ?? null) : null,
+    }));
+
+    const [{ total }] = await db.select({ total: sql<number>`count(*)::int` })
+      .from(articles)
+      .where(and(articleScope(site.id), eq(articles.status, 'draft')));
+
+    json(res, 200, { items: enriched, total });
+    return true;
+  }
+
+  // POST /v1/admin/yolo/publish/selected — publish specific article IDs
+  if (method === 'POST' && pathname === '/v1/admin/yolo/publish/selected') {
+    const body = await readJsonBody(req);
+    const ids: number[] = Array.isArray(body.ids) ? body.ids.map(Number).filter(Boolean) : [];
+    if (ids.length === 0) { json(res, 400, { error: 'Provide ids array' }); return true; }
+
+    const drafts = await db.select().from(articles)
+      .where(and(articleScope(site.id), eq(articles.status, 'draft'), inArray(articles.id, ids)));
+
+    const publishedIds: number[] = [];
+    const now = new Date();
+
+    for (const article of drafts) {
+      const [updated] = await db.update(articles)
+        .set({ status: 'published', publishedAt: now, updatedAt: now })
+        .where(and(eq(articles.id, article.id), articleScope(site.id)))
+        .returning();
+
+      if (article.sourceGapId) {
+        await db.update(contentGaps)
+          .set({ status: 'acknowledged', acknowledgedAt: now })
+          .where(and(eq(contentGaps.id, article.sourceGapId), gapScope(site.id)));
+      }
+
+      const [generation] = await db.select({ id: articleGenerations.id, originalContent: articleGenerations.originalContent })
+        .from(articleGenerations).where(eq(articleGenerations.articleId, article.id)).limit(1);
+
+      if (generation) {
+        await db.update(articleGenerations)
+          .set({ publicationTimestamp: now, finalContent: updated.content, contentChanged: generation.originalContent !== updated.content })
+          .where(eq(articleGenerations.id, generation.id));
+      }
+
+      publishedIds.push(article.id);
+    }
+
+    json(res, 200, { published: publishedIds.length, publishedIds });
     return true;
   }
 

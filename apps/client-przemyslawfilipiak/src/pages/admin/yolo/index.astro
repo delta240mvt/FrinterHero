@@ -363,47 +363,47 @@ const TABS = [
 </div>
 </Base>
 
-<script>
+<script is:inline>
 // ── Pain Points tab ──────────────────────────────────────────────
-function ppCheckboxes() { return [...document.querySelectorAll<HTMLInputElement>('.pp-checkbox')]; }
+function ppCheckboxes() { return [...document.querySelectorAll('.pp-checkbox')]; }
 function ppUpdateCount() {
   const n = ppCheckboxes().filter(c => c.checked).length;
   const el = document.getElementById('pp-selected-count');
   if (el) el.textContent = String(n);
-  const btn = document.getElementById('btn-pp-approve') as HTMLButtonElement | null;
+  const btn = document.getElementById('btn-pp-approve');
   if (btn) btn.disabled = n === 0;
 }
-function ppOnCheck(cb: HTMLInputElement) {
-  const card = cb.closest('[data-id]') as HTMLElement;
-  const notes = card?.querySelector<HTMLTextAreaElement>('.author-notes-input');
+function ppOnCheck(cb) {
+  const card = cb.closest('[data-id]');
+  const notes = card && card.querySelector('.author-notes-input');
   if (notes) notes.style.display = cb.checked ? 'block' : 'none';
   if (!cb.checked && notes) notes.value = '';
   ppUpdateCount();
 }
 function ppSelectAll() { ppCheckboxes().forEach(c => { c.checked = true; ppOnCheck(c); }); }
 function ppDeselectAll() { ppCheckboxes().forEach(c => { c.checked = false; ppOnCheck(c); }); }
-function ppSelectHot() { ppCheckboxes().forEach(c => { const card = c.closest('[data-intensity]') as HTMLElement; c.checked = parseInt(card?.dataset.intensity ?? '0') >= 8; ppOnCheck(c); }); }
+function ppSelectHot() { ppCheckboxes().forEach(c => { const card = c.closest('[data-intensity]'); c.checked = parseInt((card && card.dataset.intensity) || '0') >= 8; ppOnCheck(c); }); }
 
 async function ppApprove() {
   const checked = ppCheckboxes().filter(c => c.checked);
   if (!checked.length) return;
-  const logEl = document.getElementById('pp-log')!;
-  const btn = document.getElementById('btn-pp-approve') as HTMLButtonElement;
+  const logEl = document.getElementById('pp-log');
+  const btn = document.getElementById('btn-pp-approve');
 
   const ytItems = checked.filter(c => c.dataset.source === 'youtube').map(c => {
-    const card = c.closest('[data-id]') as HTMLElement;
-    return { id: Number(c.value), authorNotes: card?.querySelector<HTMLTextAreaElement>('.author-notes-input')?.value ?? '' };
+    const card = c.closest('[data-id]');
+    return { id: Number(c.value), authorNotes: (card && card.querySelector('.author-notes-input') && card.querySelector('.author-notes-input').value) || '' };
   });
   const rdItems = checked.filter(c => c.dataset.source === 'reddit').map(c => {
-    const card = c.closest('[data-id]') as HTMLElement;
-    return { id: Number(c.value), authorNotes: card?.querySelector<HTMLTextAreaElement>('.author-notes-input')?.value ?? '' };
+    const card = c.closest('[data-id]');
+    return { id: Number(c.value), authorNotes: (card && card.querySelector('.author-notes-input') && card.querySelector('.author-notes-input').value) || '' };
   });
 
   btn.disabled = true;
   btn.textContent = '⏳ Approving…';
   logEl.style.display = 'block';
   logEl.className = 'action-log log-running';
-  logEl.textContent = `Approving ${checked.length} pain points…`;
+  logEl.textContent = 'Approving ' + checked.length + ' pain points…';
 
   try {
     const res = await fetch('/api/yolo/approve/pain-points', {
@@ -413,57 +413,58 @@ async function ppApprove() {
     const data = await res.json();
     if (res.ok) {
       logEl.className = 'action-log log-ok';
-      logEl.textContent = `✓ Created ${data.created} content gaps from ${data.processed} pain points.`;
-      checked.forEach(c => { const card = c.closest('[data-id]') as HTMLElement; if (card) card.style.opacity = '0.35'; });
+      logEl.textContent = '✓ Created ' + data.created + ' content gaps from ' + data.processed + ' pain points.';
+      checked.forEach(c => { const card = c.closest('[data-id]'); if (card) card.style.opacity = '0.35'; });
       btn.textContent = '✓ Done';
     } else {
       logEl.className = 'action-log log-err';
-      logEl.textContent = `✗ ${data.error ?? res.status}`;
+      logEl.textContent = '✗ ' + (data.error || res.status);
       btn.disabled = false; btn.textContent = '✓ Approve selected';
     }
-  } catch (e: any) {
+  } catch (e) {
     logEl.className = 'action-log log-err';
-    logEl.textContent = `✗ ${e.message}`;
+    logEl.textContent = '✗ ' + e.message;
     btn.disabled = false; btn.textContent = '✓ Approve selected';
   }
 }
 
 // ── Gaps tab ─────────────────────────────────────────────────────
-function gapsCheckboxes() { return [...document.querySelectorAll<HTMLInputElement>('.gap-checkbox')]; }
+function gapsCheckboxes() { return [...document.querySelectorAll('.gap-checkbox')]; }
 function gapsUpdateCount() {
   const n = gapsCheckboxes().filter(c => c.checked).length;
   const el = document.getElementById('gaps-selected-count');
   if (el) el.textContent = String(n);
-  const btn = document.getElementById('btn-gaps-queue') as HTMLButtonElement | null;
+  const btn = document.getElementById('btn-gaps-queue');
   if (btn) btn.disabled = n === 0;
 }
-function gapsOnCheck(cb: HTMLInputElement) {
-  const card = cb.closest('[data-id]') as HTMLElement;
-  const notes = card?.querySelector<HTMLTextAreaElement>('.author-notes-input');
+function gapsOnCheck(cb) {
+  const card = cb.closest('[data-id]');
+  const notes = card && card.querySelector('.author-notes-input');
   if (notes) notes.style.display = cb.checked ? 'block' : 'none';
   if (!cb.checked && notes) notes.value = '';
   gapsUpdateCount();
 }
 function gapsSelectAll() { gapsCheckboxes().forEach(c => { c.checked = true; gapsOnCheck(c); }); }
 function gapsDeselectAll() { gapsCheckboxes().forEach(c => { c.checked = false; gapsOnCheck(c); }); }
-function gapsSelectHigh() { gapsCheckboxes().forEach(c => { const card = c.closest('[data-confidence]') as HTMLElement; c.checked = parseInt(card?.dataset.confidence ?? '0') >= 70; gapsOnCheck(c); }); }
+function gapsSelectHigh() { gapsCheckboxes().forEach(c => { const card = c.closest('[data-confidence]'); c.checked = parseInt((card && card.dataset.confidence) || '0') >= 70; gapsOnCheck(c); }); }
 
 async function gapsQueue() {
   const checked = gapsCheckboxes().filter(c => c.checked);
   if (!checked.length) return;
-  const logEl = document.getElementById('gaps-log')!;
-  const btn = document.getElementById('btn-gaps-queue') as HTMLButtonElement;
-  const model = (document.getElementById('gaps-queue-model') as HTMLSelectElement)?.value ?? 'anthropic/claude-sonnet-4-6';
+  const logEl = document.getElementById('gaps-log');
+  const btn = document.getElementById('btn-gaps-queue');
+  const modelEl = document.getElementById('gaps-queue-model');
+  const model = (modelEl && modelEl.value) || 'anthropic/claude-sonnet-4-6';
 
   const items = checked.map(c => {
-    const card = c.closest('[data-id]') as HTMLElement;
-    return { id: Number(c.value), authorNotes: card?.querySelector<HTMLTextAreaElement>('.author-notes-input')?.value ?? '' };
+    const card = c.closest('[data-id]');
+    return { id: Number(c.value), authorNotes: (card && card.querySelector('.author-notes-input') && card.querySelector('.author-notes-input').value) || '' };
   });
 
   btn.disabled = true; btn.textContent = '⏳ Queuing…';
   logEl.style.display = 'block';
   logEl.className = 'action-log log-running';
-  logEl.textContent = `Queuing draft jobs for ${items.length} gaps…`;
+  logEl.textContent = 'Queuing draft jobs for ' + items.length + ' gaps…';
 
   try {
     const res = await fetch('/api/yolo/acknowledge/gaps', {
@@ -473,45 +474,45 @@ async function gapsQueue() {
     const data = await res.json();
     if (res.ok) {
       logEl.className = 'action-log log-ok';
-      logEl.textContent = `✓ Enqueued ${data.enqueued} draft job(s) (skipped ${data.skipped} already queued).`;
-      checked.forEach(c => { const card = c.closest('[data-id]') as HTMLElement; if (card) card.style.opacity = '0.35'; });
+      logEl.textContent = '✓ Enqueued ' + data.enqueued + ' draft job(s) (skipped ' + data.skipped + ' already queued).';
+      checked.forEach(c => { const card = c.closest('[data-id]'); if (card) card.style.opacity = '0.35'; });
       btn.textContent = '✓ Queued';
     } else {
       logEl.className = 'action-log log-err';
-      logEl.textContent = `✗ ${data.error ?? res.status}`;
+      logEl.textContent = '✗ ' + (data.error || res.status);
       btn.disabled = false; btn.textContent = '▶ Queue drafts';
     }
-  } catch (e: any) {
+  } catch (e) {
     logEl.className = 'action-log log-err';
-    logEl.textContent = `✗ ${e.message}`;
+    logEl.textContent = '✗ ' + e.message;
     btn.disabled = false; btn.textContent = '▶ Queue drafts';
   }
 }
 
 // ── Publish tab ──────────────────────────────────────────────────
-function pubCheckboxes() { return [...document.querySelectorAll<HTMLInputElement>('.pub-checkbox')]; }
+function pubCheckboxes() { return [...document.querySelectorAll('.pub-checkbox')]; }
 function pubUpdateCount() {
   const n = pubCheckboxes().filter(c => c.checked).length;
   const el = document.getElementById('pub-selected-count');
   if (el) el.textContent = String(n);
-  const btn = document.getElementById('btn-pub-publish') as HTMLButtonElement | null;
+  const btn = document.getElementById('btn-pub-publish');
   if (btn) btn.disabled = n === 0;
 }
-function pubOnCheck(_cb: HTMLInputElement) { pubUpdateCount(); }
+function pubOnCheck() { pubUpdateCount(); }
 function pubSelectAll() { pubCheckboxes().forEach(c => { c.checked = true; pubUpdateCount(); }); }
 function pubDeselectAll() { pubCheckboxes().forEach(c => { c.checked = false; pubUpdateCount(); }); }
 
 async function pubPublish() {
   const checked = pubCheckboxes().filter(c => c.checked);
   if (!checked.length) return;
-  const logEl = document.getElementById('pub-log')!;
-  const btn = document.getElementById('btn-pub-publish') as HTMLButtonElement;
+  const logEl = document.getElementById('pub-log');
+  const btn = document.getElementById('btn-pub-publish');
   const ids = checked.map(c => Number(c.value));
 
   btn.disabled = true; btn.textContent = '⏳ Publishing…';
   logEl.style.display = 'block';
   logEl.className = 'action-log log-running';
-  logEl.textContent = `Publishing ${ids.length} articles…`;
+  logEl.textContent = 'Publishing ' + ids.length + ' articles…';
 
   try {
     const res = await fetch('/api/yolo/publish/selected', {
@@ -521,76 +522,77 @@ async function pubPublish() {
     const data = await res.json();
     if (res.ok) {
       logEl.className = 'action-log log-ok';
-      logEl.textContent = `✓ Published ${data.published} article(s).`;
-      checked.forEach(c => { const card = c.closest('[data-id]') as HTMLElement; if (card) card.style.opacity = '0.35'; });
+      logEl.textContent = '✓ Published ' + data.published + ' article(s).';
+      checked.forEach(c => { const card = c.closest('[data-id]'); if (card) card.style.opacity = '0.35'; });
       btn.textContent = '✓ Published';
     } else {
       logEl.className = 'action-log log-err';
-      logEl.textContent = `✗ ${data.error ?? res.status}`;
+      logEl.textContent = '✗ ' + (data.error || res.status);
       btn.disabled = false; btn.textContent = '▶ Publish selected';
     }
-  } catch (e: any) {
+  } catch (e) {
     logEl.className = 'action-log log-err';
-    logEl.textContent = `✗ ${e.message}`;
+    logEl.textContent = '✗ ' + e.message;
     btn.disabled = false; btn.textContent = '▶ Publish selected';
   }
 }
 
 // ── Sidebar stage controls ────────────────────────────────────────
-async function saveStage(stage: number) {
-  const body: Record<string, unknown> = {};
+async function saveStage(stage) {
+  const body = {};
   if (stage === 1) {
-    body.ytPainPointsEnabled = (document.getElementById('yt-enabled') as HTMLInputElement).checked;
-    body.ytPainPointsLimit = Number((document.getElementById('yt-limit') as HTMLInputElement).value);
-    body.ytPainPointsMinIntensity = Number((document.getElementById('yt-intensity') as HTMLInputElement).value);
+    body.ytPainPointsEnabled = document.getElementById('yt-enabled').checked;
+    body.ytPainPointsLimit = Number(document.getElementById('yt-limit').value);
+    body.ytPainPointsMinIntensity = Number(document.getElementById('yt-intensity').value);
   } else if (stage === 2) {
-    body.gapsEnabled = (document.getElementById('gaps-enabled') as HTMLInputElement).checked;
-    body.gapsLimit = Number((document.getElementById('gaps-limit') as HTMLInputElement).value);
-    body.gapsModel = (document.getElementById('gaps-model') as HTMLSelectElement).value;
+    body.gapsEnabled = document.getElementById('gaps-enabled').checked;
+    body.gapsLimit = Number(document.getElementById('gaps-limit').value);
+    body.gapsModel = document.getElementById('gaps-model').value;
   } else if (stage === 3) {
-    body.autoPublishEnabled = (document.getElementById('publish-enabled') as HTMLInputElement).checked;
-    body.autoPublishLimit = Number((document.getElementById('publish-limit') as HTMLInputElement).value);
+    body.autoPublishEnabled = document.getElementById('publish-enabled').checked;
+    body.autoPublishLimit = Number(document.getElementById('publish-limit').value);
   }
-  const logEl = document.getElementById(`log-${stage}`)!;
+  const logEl = document.getElementById('log-' + stage);
   const res = await fetch('/api/yolo/settings', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
   if (res.ok) { logEl.textContent = '✓ Saved'; logEl.className = 'stage-log log-ok'; }
   else { logEl.textContent = '✗ Save failed'; logEl.className = 'stage-log log-err'; }
   setTimeout(() => { logEl.textContent = ''; logEl.className = 'stage-log'; }, 3000);
 }
 
-async function runStage(stageName: string, logId: string) {
-  const logEl = document.getElementById(logId)!;
+async function runStage(stageName, logId) {
+  const logEl = document.getElementById(logId);
   logEl.textContent = '⏳ Running…'; logEl.className = 'stage-log log-running';
   try {
-    const res = await fetch(`/api/yolo/run/${stageName}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
+    const res = await fetch('/api/yolo/run/' + stageName, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
     const data = await res.json();
-    if (res.ok) { logEl.textContent = `✓ ${JSON.stringify(data)}`; logEl.className = 'stage-log log-ok'; }
-    else { logEl.textContent = `✗ ${data.error ?? res.status}`; logEl.className = 'stage-log log-err'; }
-  } catch (e: any) { logEl.textContent = `✗ ${e.message}`; logEl.className = 'stage-log log-err'; }
+    if (res.ok) { logEl.textContent = '✓ ' + JSON.stringify(data); logEl.className = 'stage-log log-ok'; }
+    else { logEl.textContent = '✗ ' + (data.error || res.status); logEl.className = 'stage-log log-err'; }
+  } catch (e) { logEl.textContent = '✗ ' + e.message; logEl.className = 'stage-log log-err'; }
 }
 
-document.querySelectorAll('.btn-save-stage').forEach(btn => {
-  btn.addEventListener('click', () => saveStage(Number((btn as HTMLElement).dataset.stage)));
+document.querySelectorAll('.btn-save-stage').forEach(function(btn) {
+  btn.addEventListener('click', function() { saveStage(Number(btn.dataset.stage)); });
 });
-document.querySelectorAll('.btn-run-stage').forEach(btn => {
-  btn.addEventListener('click', () => {
-    const s = (btn as HTMLElement).dataset.stage!;
+document.querySelectorAll('.btn-run-stage').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    const s = btn.dataset.stage;
     const n = s === 'pain-points' ? '1' : s === 'gaps' ? '2' : '3';
-    runStage(s, `log-${n}`);
+    runStage(s, 'log-' + n);
   });
 });
-document.getElementById('btn-run-all')?.addEventListener('click', async () => {
-  const logEl = document.getElementById('log-all')!;
+const runAllBtn = document.getElementById('btn-run-all');
+if (runAllBtn) runAllBtn.addEventListener('click', async function() {
+  const logEl = document.getElementById('log-all');
   logEl.textContent = '⏳ Running pipeline…'; logEl.className = 'stage-log log-running';
-  const results: string[] = [];
-  const ppEnabled = (document.getElementById('yt-enabled') as HTMLInputElement).checked;
-  const gapEnabled = (document.getElementById('gaps-enabled') as HTMLInputElement).checked;
-  const pubEnabled = (document.getElementById('publish-enabled') as HTMLInputElement).checked;
-  if (ppEnabled) { const r = await fetch('/api/yolo/run/pain-points', { method: 'POST', headers: {'content-type':'application/json'}, body: '{}' }); const d = await r.json(); results.push(`Stage 1: created ${d.created ?? 0} gaps`); }
-  if (gapEnabled) { const r = await fetch('/api/yolo/run/gaps', { method: 'POST', headers: {'content-type':'application/json'}, body: '{}' }); const d = await r.json(); results.push(`Stage 2: enqueued ${d.enqueued ?? 0} jobs`); }
-  if (pubEnabled) { const r = await fetch('/api/yolo/run/publish', { method: 'POST', headers: {'content-type':'application/json'}, body: '{}' }); const d = await r.json(); results.push(`Stage 3: published ${d.published ?? 0}`); }
+  const results = [];
+  const ppEnabled = document.getElementById('yt-enabled').checked;
+  const gapEnabled = document.getElementById('gaps-enabled').checked;
+  const pubEnabled = document.getElementById('publish-enabled').checked;
+  if (ppEnabled) { const r = await fetch('/api/yolo/run/pain-points', { method: 'POST', headers: {'content-type':'application/json'}, body: '{}' }); const d = await r.json(); results.push('Stage 1: created ' + (d.created || 0) + ' gaps'); }
+  if (gapEnabled) { const r = await fetch('/api/yolo/run/gaps', { method: 'POST', headers: {'content-type':'application/json'}, body: '{}' }); const d = await r.json(); results.push('Stage 2: enqueued ' + (d.enqueued || 0) + ' jobs'); }
+  if (pubEnabled) { const r = await fetch('/api/yolo/run/publish', { method: 'POST', headers: {'content-type':'application/json'}, body: '{}' }); const d = await r.json(); results.push('Stage 3: published ' + (d.published || 0)); }
   if (!results.length) { logEl.textContent = 'No stages enabled.'; logEl.className = 'stage-log log-err'; }
-  else { logEl.textContent = `✓ Pipeline done\n${results.join('\n')}`; logEl.className = 'stage-log log-ok'; }
+  else { logEl.textContent = '✓ Pipeline done\n' + results.join('\n'); logEl.className = 'stage-log log-ok'; }
 });
 </script>
 
