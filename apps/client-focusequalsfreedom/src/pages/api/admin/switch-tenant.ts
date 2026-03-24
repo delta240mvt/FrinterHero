@@ -1,3 +1,4 @@
+export const prerender = false;
 import type { APIRoute } from 'astro';
 import { getInternalApiBaseUrl, isAuthenticated, jsonUnauthorized, JSON_HEADERS } from '@/lib/internal-api';
 
