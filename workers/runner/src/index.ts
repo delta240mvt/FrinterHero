@@ -5,7 +5,7 @@ import http from 'node:http';
 import dotenv from 'dotenv';
 import { and, asc, desc, eq, inArray, lte } from 'drizzle-orm';
 import { db } from '../../../src/db/client';
-import { appJobs, shQueue } from '../../../src/db/schema';
+import { appJobs, shQueue, sites } from '../../../src/db/schema';
 
 const rootDir = path.resolve(process.cwd(), '..', '..');
 dotenv.config({ path: path.join(rootDir, '.env.local') });
@@ -217,10 +217,15 @@ async function processJob(job: typeof appJobs.$inferSelect) {
       };
     }
 
+    const [siteRow] = job.siteId
+      ? await db.select({ primaryDomain: sites.primaryDomain }).from(sites).where(eq(sites.id, job.siteId)).limit(1)
+      : [];
+
     return runScript(job.id, 'scripts/draft-bridge.ts', {
       GAP_ID: String(gapId),
       MODEL: String(payload.model ?? 'anthropic/claude-sonnet-4-6'),
       AUTHOR_NOTES: String(payload.authorNotes ?? ''),
+      SITE_DOMAIN: siteRow?.primaryDomain ?? '',
     });
   }
 

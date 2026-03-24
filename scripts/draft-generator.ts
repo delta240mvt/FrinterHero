@@ -15,8 +15,6 @@ import { eq, desc, or, ilike, sql } from 'drizzle-orm';
 import { parseMarkdown, calculateReadingTime } from '../src/utils/markdown';
 import { validateDraft } from './draft-validator';
 import type { DraftAIResponse, ValidationResult } from './draft-validator';
-import * as fs from 'fs';
-import * as path from 'path';
 
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 
@@ -43,17 +41,20 @@ export interface GenerateDraftResult {
   megaPrompt?: string;
 }
 
-// Load author identity from llms-full.txt
-function loadAuthorIdentity(): string {
-  try {
-    const llmsPath = path.join(process.cwd(), 'public', 'llms-full.txt');
-    if (fs.existsSync(llmsPath)) {
-      const content = fs.readFileSync(llmsPath, 'utf-8');
-      return content;
-    }
-  } catch { }
+// Load author identity from the site's /llms-full.txt (served live)
+async function loadAuthorIdentity(): Promise<string> {
+  const siteDomain = process.env.SITE_DOMAIN;
+  if (siteDomain) {
+    try {
+      const res = await fetch(`https://${siteDomain}/llms-full.txt`);
+      if (res.ok) {
+        const text = await res.text();
+        if (text.trim()) return text;
+      }
+    } catch { }
+  }
 
-  // Fallback identity if file not found
+  // Fallback identity if fetch fails or SITE_DOMAIN not set
   return `Przemysław Filipiak — AI developer, solo founder, deep work practitioner.
 Creator of frinter.app (Focus OS for founders), FrinterFlow (local voice dictation CLI), and FrinterHero (AI Brand Authority Engine — open-source semantic engine ensuring High Performer authority in AI-indexed search results).
 Philosophy: The 3 Spheres — Flourishing (Teal, flourishing), Relationships (Violet, relationships), Deep Work (Gold, deep work).
@@ -351,7 +352,7 @@ export async function generateDraft(request: GenerateDraftRequest): Promise<Gene
   if (vocQuotes.length > 0) console.log(`[DraftGen] VoC: ${vocQuotes.length} quotes loaded from gap`);
 
   // Load author identity
-  const authorIdentity = loadAuthorIdentity();
+  const authorIdentity = await loadAuthorIdentity();
 
   // Build mega-prompt
   const megaPrompt = buildMegaPrompt(gap, author_notes, kbEntries, authorIdentity, vocQuotes);
