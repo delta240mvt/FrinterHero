@@ -49,7 +49,7 @@ function loadAuthorIdentity(): string {
     const llmsPath = path.join(process.cwd(), 'public', 'llms-full.txt');
     if (fs.existsSync(llmsPath)) {
       const content = fs.readFileSync(llmsPath, 'utf-8');
-      return content.slice(0, 3000); // Use first 3000 chars for prompt efficiency
+      return content;
     }
   } catch { }
 
