@@ -288,7 +288,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
     return true;
   }
 
-  if (method === 'GET' && segments[0] === 'v1' && segments[1] === 'jobs' && segments[2]) {
+  if (method === 'GET' && segments[0] === 'v1' && segments[1] === 'jobs' && segments[2] && segments[2] !== 'active' && segments[2] !== 'latest') {
     const session = await requireAuth(req, res);
     if (!session) return true;
     const jobId = Number(segments[2]);
