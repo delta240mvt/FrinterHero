@@ -8,7 +8,7 @@ const appDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(appDir, '..', '..');
 
 export default defineConfig({
-  output: 'server',
+  output: 'hybrid',
   server: {
     host: true,
     port: process.env.PORT ? parseInt(process.env.PORT, 10) : 4321,
