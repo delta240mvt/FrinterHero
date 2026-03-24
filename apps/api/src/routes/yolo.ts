@@ -462,37 +462,34 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
     const ids: number[] = Array.isArray(body.ids) ? body.ids.map(Number).filter(Boolean) : [];
     if (ids.length === 0) { json(res, 400, { error: 'Provide ids array' }); return true; }
 
-    const drafts = await db.select().from(articles)
-      .where(and(articleScope(site.id), eq(articles.status, 'draft'), inArray(articles.id, ids)));
-
-    const publishedIds: number[] = [];
     const now = new Date();
+    const publishedIds: number[] = [];
+    const errors: string[] = [];
 
-    for (const article of drafts) {
-      const [updated] = await db.update(articles)
-        .set({ status: 'published', publishedAt: now, updatedAt: now })
-        .where(and(eq(articles.id, article.id), articleScope(site.id)))
-        .returning();
+    for (const id of ids) {
+      try {
+        const result = await db.update(articles)
+          .set({ status: 'published', publishedAt: now, updatedAt: now })
+          .where(and(eq(articles.id, id), eq(articles.status, 'draft')))
+          .returning({ id: articles.id, sourceGapId: articles.sourceGapId });
 
-      if (article.sourceGapId) {
-        await db.update(contentGaps)
-          .set({ status: 'acknowledged', acknowledgedAt: now })
-          .where(and(eq(contentGaps.id, article.sourceGapId), gapScope(site.id)));
+        if (result.length > 0) {
+          publishedIds.push(id);
+          const sourceGapId = result[0].sourceGapId;
+          if (sourceGapId) {
+            await db.update(contentGaps)
+              .set({ status: 'acknowledged', acknowledgedAt: now })
+              .where(eq(contentGaps.id, sourceGapId));
+          }
+        } else {
+          errors.push(`Article ${id} not found or not a draft`);
+        }
+      } catch (e: any) {
+        errors.push(`Article ${id}: ${e.message}`);
       }
-
-      const [generation] = await db.select({ id: articleGenerations.id, originalContent: articleGenerations.originalContent })
-        .from(articleGenerations).where(eq(articleGenerations.articleId, article.id)).limit(1);
-
-      if (generation) {
-        await db.update(articleGenerations)
-          .set({ publicationTimestamp: now, finalContent: updated.content, contentChanged: generation.originalContent !== updated.content })
-          .where(eq(articleGenerations.id, generation.id));
-      }
-
-      publishedIds.push(article.id);
     }
 
-    json(res, 200, { published: publishedIds.length, publishedIds });
+    json(res, 200, { published: publishedIds.length, publishedIds, errors });
     return true;
   }
 

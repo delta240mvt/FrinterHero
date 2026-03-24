@@ -521,10 +521,12 @@ async function pubPublish() {
     });
     const data = await res.json();
     if (res.ok) {
-      logEl.className = 'action-log log-ok';
-      logEl.textContent = '✓ Published ' + data.published + ' article(s).';
+      const errMsg = data.errors && data.errors.length ? '\n⚠ ' + data.errors.join('\n⚠ ') : '';
+      logEl.className = data.published > 0 ? 'action-log log-ok' : 'action-log log-err';
+      logEl.textContent = '✓ Published ' + data.published + ' article(s).' + errMsg;
       checked.forEach(c => { const card = c.closest('[data-id]'); if (card) card.style.opacity = '0.35'; });
-      btn.textContent = '✓ Published';
+      btn.textContent = data.published > 0 ? '✓ Published' : '▶ Publish selected';
+      if (data.published === 0) btn.disabled = false;
     } else {
       logEl.className = 'action-log log-err';
       logEl.textContent = '✗ ' + (data.error || res.status);
