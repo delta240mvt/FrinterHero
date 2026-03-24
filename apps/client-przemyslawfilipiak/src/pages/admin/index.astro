@@ -198,6 +198,17 @@ function pageUrl(p: number) {
         </div>
         <span class="hub-arrow">→</span>
       </a>
+      <a href="/admin/yolo" class="hub-card hub-card--yolo">
+        <div class="hub-icon">⚡</div>
+        <div class="hub-body">
+          <div class="hub-title">Yolo Mode</div>
+          <div class="hub-meta">
+            <span class="hub-badge hub-badge--yolo">Pipeline</span>
+          </div>
+          <div class="hub-desc">Mass-approve pain points and gaps, auto-publish drafts. Three-stage automated content pipeline.</div>
+        </div>
+        <span class="hub-arrow">→</span>
+      </a>
     </section>
 
     <!-- ===== GEO MONITOR ===== -->
@@ -741,6 +752,8 @@ function pageUrl(p: number) {
 .hub-badge--bc { background: rgba(138,78,100,0.12); color: var(--violet); border: 1px solid rgba(138,78,100,0.25); }
 .hub-card--sh:hover { border-color: rgba(99,102,241,0.4); box-shadow: 0 0 0 1px rgba(99,102,241,0.1); }
 .hub-badge--sh { background: rgba(99,102,241,0.12); color: #818cf8; border: 1px solid rgba(99,102,241,0.25); }
+.hub-card--yolo:hover { border-color: rgba(214,183,121,0.5); box-shadow: 0 0 0 1px rgba(214,183,121,0.1); }
+.hub-badge--yolo { background: color-mix(in srgb, var(--gold) 15%, transparent); color: var(--gold); border: 1px solid rgba(214,183,121,0.3); }
 .hub-icon  { font-size: 1.75rem; line-height: 1; flex-shrink: 0; }
 .hub-body  { flex: 1; display: flex; flex-direction: column; gap: 0.3rem; }
 .hub-title { font-family: var(--font-mono); font-size: var(--text-sm); font-weight: 700; color: var(--text-primary); }
