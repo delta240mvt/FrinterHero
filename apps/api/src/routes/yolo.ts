@@ -412,6 +412,25 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
     return true;
   }
 
+  // GET /v1/admin/yolo/draft-status — poll specific job IDs (for live console)
+  if (method === 'GET' && pathname === '/v1/admin/yolo/draft-status') {
+    const url = new URL(req.url ?? '/', 'http://localhost');
+    const idsParam = url.searchParams.get('ids') ?? '';
+    const ids = idsParam.split(',').map(Number).filter(Boolean);
+    if (!ids.length) { json(res, 400, { error: 'ids required' }); return true; }
+
+    const jobs = await db.select({
+      id: appJobs.id,
+      status: appJobs.status,
+      result: appJobs.result,
+      error: appJobs.error,
+    }).from(appJobs)
+      .where(and(eq(appJobs.siteId, site.id), inArray(appJobs.id, ids)));
+
+    json(res, 200, { jobs });
+    return true;
+  }
+
   // GET /v1/admin/yolo/drafts — list draft articles sourced from content gaps
   if (method === 'GET' && pathname === '/v1/admin/yolo/drafts') {
     const url = new URL(req.url ?? '/', 'http://localhost');

@@ -287,6 +287,16 @@ const TABS = [
             </div>
             <div class="action-log" id="gaps-log" style="display:none"></div>
 
+            <!-- Draft generation live console -->
+            <div class="draft-console" id="draft-console" style="display:none">
+              <div class="draft-console-header">
+                <span class="draft-console-status" id="draft-console-status">Running…</span>
+                <span class="draft-console-progress" id="draft-console-progress"></span>
+                <button class="draft-console-close" id="draft-console-close" style="display:none" onclick="document.getElementById('draft-console').style.display='none'">✕ Close</button>
+              </div>
+              <div class="draft-console-log" id="draft-console-log"></div>
+            </div>
+
             {gaps.length === 0 ? (
               <div class="empty-state">No new content gaps. Approve pain points first or run a GEO analysis.</div>
             ) : (
@@ -338,17 +348,17 @@ const TABS = [
             ) : (
               <div class="item-list">
                 {drafts.map((draft: any) => (
-                  <div class="item-card draft-card" data-id={draft.id}>
-                    <label class="item-check-row">
-                      <input type="checkbox" class="pub-checkbox item-cb" value={draft.id} onchange="pubOnCheck(this)" />
+                  <div class="item-card item-card--clickable draft-card" data-id={draft.id} onclick="pubCardClick(event, this)">
+                    <div class="item-check-row">
+                      <input type="checkbox" class="pub-checkbox item-cb" value={draft.id} onchange="pubOnCheck(this)" onclick="event.stopPropagation()" />
                       <div class="item-meta">
                         <span class="model-badge">{(draft.generatedByModel ?? '').split('/').pop()}</span>
                         <span class="freq-badge">{draft.readingTime ?? 5} min read</span>
                         {draft.createdAt && <span class="date-badge">{new Date(draft.createdAt).toLocaleDateString('en-GB', {day:'numeric',month:'short'})}</span>}
                       </div>
-                    </label>
+                    </div>
                     <h4 class="item-title">
-                      <a href={`/admin/article/${draft.id}`} target="_blank" class="draft-link">{draft.title}</a>
+                      <a href={`/admin/article/${draft.id}`} target="_blank" class="draft-link" onclick="event.stopPropagation()">{draft.title}</a>
                     </h4>
                     {draft.gapTitle && <p class="item-angle">Gap: {draft.gapTitle}</p>}
                     {draft.description && <p class="item-desc">{draft.description.slice(0,180)}{draft.description.length > 180 ? '…' : ''}</p>}
@@ -380,6 +390,13 @@ function gapsCardClick(event, card) {
   if (!cb) return;
   cb.checked = !cb.checked;
   gapsOnCheck(cb);
+}
+function pubCardClick(event, card) {
+  if (event.target.tagName === 'A' || event.target.classList.contains('item-cb')) return;
+  const cb = card.querySelector('.pub-checkbox');
+  if (!cb) return;
+  cb.checked = !cb.checked;
+  pubUpdateCount();
 }
 
 // ── Pain Points tab ──────────────────────────────────────────────
@@ -495,6 +512,9 @@ async function gapsQueue() {
       logEl.textContent = '✓ Enqueued ' + data.enqueued + ' draft job(s) (skipped ' + data.skipped + ' already queued).';
       checked.forEach(c => { const card = c.closest('[data-id]'); if (card) card.style.opacity = '0.35'; });
       btn.textContent = '✓ Queued';
+      if (data.jobIds && data.jobIds.length > 0) {
+        startDraftConsole(data.jobIds);
+      }
     } else {
       logEl.className = 'action-log log-err';
       logEl.textContent = '✗ ' + (data.error || res.status);
@@ -505,6 +525,97 @@ async function gapsQueue() {
     logEl.textContent = '✗ ' + e.message;
     btn.disabled = false; btn.textContent = '▶ Queue drafts';
   }
+}
+
+// ── Draft generation live console ────────────────────────────────
+function classifyDraftLine(line) {
+  if (/error|failed|exception/i.test(line)) return 'error';
+  if (/✓|success|done|published|created/i.test(line)) return 'success';
+  if (/warning|warn/i.test(line)) return 'warn';
+  return 'info';
+}
+
+function startDraftConsole(jobIds) {
+  const consoleEl = document.getElementById('draft-console');
+  const logEl = document.getElementById('draft-console-log');
+  const statusEl = document.getElementById('draft-console-status');
+  const progressEl = document.getElementById('draft-console-progress');
+  const closeBtn = document.getElementById('draft-console-close');
+
+  if (!consoleEl || !logEl) return;
+
+  logEl.innerHTML = '';
+  statusEl.textContent = 'Running…';
+  statusEl.className = 'draft-console-status status-running';
+  progressEl.textContent = '0 / ' + jobIds.length + ' done';
+  closeBtn.style.display = 'none';
+  consoleEl.style.display = 'block';
+  consoleEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+  let doneCount = 0;
+
+  function appendLine(text, type) {
+    const el = document.createElement('div');
+    el.className = 'dcl dcl--' + (type || 'info');
+    el.textContent = text;
+    logEl.appendChild(el);
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+
+  const reader = { current: null };
+
+  async function connect() {
+    try {
+      const res = await fetch('/api/yolo/draft-stream?ids=' + jobIds.join(','));
+      if (!res.ok || !res.body) { appendLine('Stream error: HTTP ' + res.status, 'error'); return; }
+
+      const streamReader = res.body.getReader();
+      reader.current = streamReader;
+      const decoder = new TextDecoder();
+      let buf = '';
+
+      while (true) {
+        const { done, value } = await streamReader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const parts = buf.split('\n\n');
+        buf = parts.pop() || '';
+
+        for (const part of parts) {
+          const dataLine = part.split('\n').find(l => l.startsWith('data: '));
+          if (!dataLine) continue;
+          let payload;
+          try { payload = JSON.parse(dataLine.slice(6)); } catch { continue; }
+
+          if (payload.line) {
+            const prefix = jobIds.length > 1 ? '[Job ' + payload.jobId + '] ' : '';
+            appendLine(prefix + payload.line, classifyDraftLine(payload.line));
+          }
+          if (payload.jobDone) {
+            doneCount++;
+            progressEl.textContent = doneCount + ' / ' + jobIds.length + ' done';
+            const icon = payload.status === 'done' ? '✓' : '✗';
+            appendLine(icon + ' Job ' + payload.jobId + ' ' + payload.status + (payload.error ? ': ' + payload.error : ''), payload.status === 'done' ? 'success' : 'error');
+          }
+          if (payload.done) {
+            const allOk = payload.errors === 0;
+            statusEl.textContent = allOk
+              ? '✓ All ' + payload.total + ' draft(s) generated'
+              : '⚠ Done — ' + payload.errors + ' error(s)';
+            statusEl.className = 'draft-console-status ' + (allOk ? 'status-done' : 'status-error');
+            closeBtn.style.display = 'inline-block';
+          }
+        }
+      }
+    } catch (e) {
+      appendLine('Connection error: ' + e.message, 'error');
+      statusEl.textContent = 'Error';
+      statusEl.className = 'draft-console-status status-error';
+      closeBtn.style.display = 'inline-block';
+    }
+  }
+
+  connect();
 }
 
 // ── Publish tab ──────────────────────────────────────────────────
@@ -745,5 +856,22 @@ if (runAllBtn) runAllBtn.addEventListener('click', async function() {
 
   /* Draft card */
   .draft-card { border-left: 3px solid var(--teal); }
+
+  /* ── Draft generation console ── */
+  .draft-console { margin-bottom: 0.875rem; background: var(--bg-base); border: 1px solid var(--border); border-radius: 0.5rem; overflow: hidden; }
+  .draft-console-header { display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem 0.875rem; background: var(--bg-elevated); border-bottom: 1px solid var(--border); }
+  .draft-console-status { font-family: var(--font-mono); font-size: var(--text-xs); flex: 1; }
+  .status-running { color: var(--gold); }
+  .status-done { color: var(--teal); }
+  .status-error { color: #e87878; }
+  .draft-console-progress { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); }
+  .draft-console-close { background: transparent; border: 1px solid var(--border); color: var(--text-muted); font-family: var(--font-mono); font-size: var(--text-xs); padding: 0.2rem 0.5rem; border-radius: 0.25rem; cursor: pointer; }
+  .draft-console-close:hover { border-color: var(--text-secondary); color: var(--text-primary); }
+  .draft-console-log { padding: 0.5rem 0.875rem; font-family: var(--font-mono); font-size: 0.7rem; line-height: 1.6; max-height: 280px; overflow-y: auto; }
+  .dcl { white-space: pre-wrap; word-break: break-all; }
+  .dcl--info { color: var(--text-secondary); }
+  .dcl--success { color: var(--teal); }
+  .dcl--error { color: #e87878; }
+  .dcl--warn { color: var(--gold); }
   .draft-link { color: var(--text-primary); text-decoration: none; } .draft-link:hover { color: var(--teal); }
 </style>
