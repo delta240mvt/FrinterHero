@@ -302,10 +302,26 @@ function lastRunLabel(d: any) {
     }
   }
 
-  function approveGap(gapId) {
+  async function approveGap(gapId) {
     const container = document.getElementById(`expanded-container-${gapId}`);
     if (container) container.style.display = 'block';
     document.getElementById(`notes-${gapId}`)?.focus();
+    // Restore console state if there's already a running or done job for this gap
+    try {
+      const res = await fetch('/api/generate-draft');
+      if (!res.ok) return;
+      const data = await res.json();
+      if (Number(data.gapId) !== Number(gapId)) return;
+      const consoleEl = document.getElementById(`gen-console-${gapId}`);
+      if (consoleEl) consoleEl.style.display = 'flex';
+      if (data.status === 'running' || data.status === 'pending') {
+        const btn = document.getElementById(`gen-btn-${gapId}`);
+        if (btn) { btn.disabled = true; btn.textContent = 'In Progress...'; }
+        startPolling(gapId);
+      } else if (data.status === 'done' && data.result) {
+        showDoneState(gapId, data);
+      }
+    } catch {}
   }
 
   function closeExpanded(gapId) {
@@ -349,6 +365,23 @@ function lastRunLabel(d: any) {
 
   const pollIntervals = {};
 
+  function showDoneState(gapId, data) {
+    const footerEl = document.getElementById(`console-footer-${gapId}`);
+    const linkEl   = document.getElementById(`console-link-${gapId}`);
+    const statusEl = document.getElementById(`console-status-${gapId}`);
+    const bodyEl   = document.getElementById(`console-body-${gapId}`);
+    if (statusEl) { statusEl.textContent = 'DONE'; statusEl.style.color = 'var(--teal)'; }
+    if (bodyEl && data.lines?.length) {
+      bodyEl.innerHTML = data.lines.map(l => {
+        const time = new Date(l.ts).toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        return `<div class="console-line"><span class="console-line--ts">[${time}]</span>${l.line}</div>`;
+      }).join('');
+      bodyEl.scrollTop = bodyEl.scrollHeight;
+    }
+    if (footerEl) footerEl.style.display = 'block';
+    if (linkEl && data.result?.article_id) linkEl.href = `/admin/article/${data.result.article_id}`;
+  }
+
   async function abortDraft(gapId) {
     if (!confirm('Abort generation?')) return;
     try {
@@ -373,7 +406,7 @@ function lastRunLabel(d: any) {
         const abortBtn  = document.getElementById(`btn-abort-${gapId}`);
         const btn       = document.getElementById(`gen-btn-${gapId}`);
 
-        if (data.gapId !== gapId && data.status !== 'idle') {
+        if (Number(data.gapId) !== Number(gapId) && data.status !== 'idle') {
            // Another job is running, but not for this gap
            return;
         }
@@ -401,9 +434,7 @@ function lastRunLabel(d: any) {
           }
           
           if (data.status === 'done' && data.result) {
-            if (footerEl) footerEl.style.display = 'block';
-            if (linkEl) linkEl.href = `/admin/article/${data.result.article_id}`;
-            if (statusEl) statusEl.style.color = 'var(--teal)';
+            showDoneState(gapId, data);
           } else if (data.status === 'error') {
             if (statusEl) { statusEl.textContent = 'FAILED'; statusEl.style.color = '#ef4444'; }
           }
@@ -412,19 +443,24 @@ function lastRunLabel(d: any) {
     }, 2000);
   }
 
-  // Check for running jobs on mount
+  // Check for running/done jobs on mount
   async function checkActiveJob() {
     try {
       const res = await fetch('/api/generate-draft');
-      if (res.ok) {
-        const data = await res.json();
-        if (data.status === 'running' && data.gapId) {
-          const consoleEl = document.getElementById(`gen-console-${data.gapId}`);
-          if (consoleEl) {
-            consoleEl.style.display = 'flex';
-            startPolling(data.gapId);
-          }
+      if (!res.ok) return;
+      const data = await res.json();
+      if (!data.gapId) return;
+      const consoleEl = document.getElementById(`gen-console-${data.gapId}`);
+      if (data.status === 'running') {
+        if (consoleEl) {
+          consoleEl.style.display = 'flex';
+          const btn = document.getElementById(`gen-btn-${data.gapId}`);
+          if (btn) { btn.disabled = true; btn.textContent = 'In Progress...'; }
+          startPolling(data.gapId);
         }
+      } else if (data.status === 'done' && data.result) {
+        if (consoleEl) consoleEl.style.display = 'flex';
+        showDoneState(data.gapId, data);
       }
     } catch {}
   }

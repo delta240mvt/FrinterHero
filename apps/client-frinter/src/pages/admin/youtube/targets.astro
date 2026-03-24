@@ -14,7 +14,7 @@ if (!targetsResponse.ok) {
   throw new Error(`Failed to load YouTube targets: HTTP ${targetsResponse.status}`);
 }
 
-const targets = await targetsResponse.json();
+const { targets } = await targetsResponse.json();
 ---
 
 <Base title="YouTube Targets — Admin" description="Manage YouTube scraping targets">

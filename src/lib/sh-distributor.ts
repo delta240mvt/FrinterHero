@@ -27,6 +27,8 @@ import { eq, and, inArray, isNull, or } from 'drizzle-orm';
 export interface PublishOptions {
   /** URL to media file (image or video) */
   mediaUrl: string;
+  /** 'video' → /api/upload, 'image' → /api/upload_photos */
+  mediaType: 'video' | 'image';
   /** Full assembled caption: hookLine + bodyText + hashtags + cta */
   caption: string;
   /** instagram | tiktok | threads | twitter | linkedin */
@@ -134,18 +136,30 @@ export async function publishToUploadPost(opts: PublishOptions): Promise<Publish
     throw new Error('[sh-distributor] accountAuthPayload missing userId field');
   }
 
+  // Upload-Post uses 'x' not 'twitter'
+  const platformKey = opts.platform.toLowerCase() === 'twitter' ? 'x' : opts.platform.toLowerCase();
+
+  const isPhoto = opts.mediaType === 'image';
+  const endpoint = isPhoto
+    ? 'https://api.upload-post.com/api/upload_photos'
+    : 'https://api.upload-post.com/api/upload';
+
   const formData = new FormData();
-  formData.append('video', opts.mediaUrl);           // URL to media file
-  formData.append('title', opts.caption.slice(0, 255)); // title field
+  if (isPhoto) {
+    formData.append('photos[]', opts.mediaUrl);
+  } else {
+    formData.append('video', opts.mediaUrl);
+  }
+  formData.append('title', opts.caption.slice(0, 255));
   formData.append('user', userId);
-  formData.append('platform[]', opts.platform);
+  formData.append('platform[]', platformKey);
 
   if (opts.scheduledFor) {
     // Upload-Post accepts ISO 8601 scheduled time
-    formData.append('schedule', opts.scheduledFor.toISOString());
+    formData.append('scheduled_date', opts.scheduledFor.toISOString());
   }
 
-  const res = await fetch('https://api.upload-post.com/api/upload', {
+  const res = await fetch(endpoint, {
     method: 'POST',
     headers: {
       Authorization: `Apikey ${apiKey}`,
@@ -160,11 +174,28 @@ export async function publishToUploadPost(opts: PublishOptions): Promise<Publish
 
   const data = await res.json() as Record<string, any>;
 
-  // Upload-Post returns { id, url, ... } — field names may vary by version
-  const postId: string =
-    String(data.id ?? data.postId ?? data.post_id ?? data.upload_id ?? '');
-  const postUrl: string | undefined =
-    data.url ?? data.postUrl ?? data.post_url ?? undefined;
+  // Scheduled post (202): { success, job_id, scheduled_date }
+  if (data.job_id) {
+    return { postId: String(data.job_id) };
+  }
+
+  // Async/background (200): { success, request_id, total_platforms }
+  if (data.request_id) {
+    return { postId: String(data.request_id) };
+  }
+
+  // Sync (200): { success, results: { [platform]: { success, url, post_id, ... } }, usage }
+  const platformResult = data.results?.[platformKey] as Record<string, any> | undefined;
+  if (!platformResult?.success) {
+    throw new Error(
+      `[sh-distributor] Upload-Post platform error for ${platformKey}: ${platformResult?.error ?? JSON.stringify(data)}`,
+    );
+  }
+
+  const postId: string = String(
+    platformResult.post_id ?? platformResult.publish_id ?? platformResult.postId ?? platformResult.post_ids?.[0] ?? '',
+  );
+  const postUrl: string | undefined = platformResult.url ?? undefined;
 
   if (!postId) {
     throw new Error('[sh-distributor] Upload-Post returned no post ID: ' + JSON.stringify(data));
@@ -285,6 +316,7 @@ export async function publishBrief(
     try {
       const result = await publishToUploadPost({
         mediaUrl: media.mediaUrl,
+        mediaType: media.type === 'video' ? 'video' : 'image',
         caption,
         platform: account.platform,
         accountAuthPayload: account.authPayload,

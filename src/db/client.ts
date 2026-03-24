@@ -17,6 +17,10 @@ export function getDb() {
     connectionString,
     ...(isInternal ? {} : { ssl: { rejectUnauthorized: false } }),
   });
+  pool.on('error', (err) => {
+    // Prevent unhandled 'error' event on idle connections from crashing the process
+    console.warn('[db-pool] idle client error (suppressed):', err.message);
+  });
   _db = drizzle(pool, { schema });
   return _db;
 }

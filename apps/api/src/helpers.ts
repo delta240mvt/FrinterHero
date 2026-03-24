@@ -188,7 +188,7 @@ export function serializeRecentRun(run: typeof geoRuns.$inferSelect | null) {
 export async function fetchUploadPostMetrics(externalPostId: string) {
   const apiKey = process.env.UPLOADPOST_API_KEY;
   if (!apiKey) throw new Error('[sh-metrics] UPLOADPOST_API_KEY environment variable is not set');
-  const response = await fetch(`https://api.upload-post.com/api/status/${externalPostId}`, {
+  const response = await fetch(`https://api.upload-post.com/api/uploadposts/status?request_id=${externalPostId}`, {
     method: 'GET',
     headers: { Authorization: `Apikey ${apiKey}` },
   });
