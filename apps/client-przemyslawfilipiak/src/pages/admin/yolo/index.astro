@@ -144,9 +144,9 @@ const TABS = [
             <label class="cfg-row">
               <span>Model</span>
               <select id="gaps-model">
-                <option value="anthropic/claude-sonnet-4-6" selected={!settings.gapsModel || settings.gapsModel === 'anthropic/claude-sonnet-4-6'}>sonnet-4-6</option>
-                <option value="anthropic/claude-opus-4-6" selected={settings.gapsModel === 'anthropic/claude-opus-4-6'}>opus-4-6</option>
-                <option value="anthropic/claude-haiku-4-5-20251001" selected={settings.gapsModel === 'anthropic/claude-haiku-4-5-20251001'}>haiku-4-5</option>
+                <option value="claude-sonnet-4-6" selected={!settings.gapsModel || settings.gapsModel === 'claude-sonnet-4-6'}>sonnet-4-6</option>
+                <option value="claude-opus-4-6" selected={settings.gapsModel === 'claude-opus-4-6'}>opus-4-6</option>
+                <option value="claude-haiku-4-5-20251001" selected={settings.gapsModel === 'claude-haiku-4-5-20251001'}>haiku-4-5</option>
               </select>
             </label>
           </div>
@@ -279,9 +279,9 @@ const TABS = [
               <button class="btn-sel" onclick="gapsSelectHigh()">High conf 70+</button>
               <div class="spacer"></div>
               <select id="gaps-queue-model" class="filter-select">
-                <option value="anthropic/claude-sonnet-4-6">sonnet-4-6</option>
-                <option value="anthropic/claude-opus-4-6">opus-4-6</option>
-                <option value="anthropic/claude-haiku-4-5-20251001">haiku-4-5</option>
+                <option value="claude-sonnet-4-6">sonnet-4-6</option>
+                <option value="claude-opus-4-6">opus-4-6</option>
+                <option value="claude-haiku-4-5-20251001">haiku-4-5</option>
               </select>
               <button class="btn-queue" id="btn-gaps-queue" disabled onclick="gapsQueue()">▶ Queue drafts</button>
             </div>
@@ -489,7 +489,7 @@ async function gapsQueue() {
   const logEl = document.getElementById('gaps-log');
   const btn = document.getElementById('btn-gaps-queue');
   const modelEl = document.getElementById('gaps-queue-model');
-  const model = (modelEl && modelEl.value) || 'anthropic/claude-sonnet-4-6';
+  const model = (modelEl && modelEl.value) || 'claude-sonnet-4-6';
 
   const items = checked.map(c => {
     const card = c.closest('[data-id]');
@@ -552,6 +552,15 @@ function startDraftConsole(jobIds) {
   consoleEl.style.display = 'block';
   consoleEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
+  // Show immediate feedback before worker picks up jobs
+  jobIds.forEach(function(id) {
+    var el = document.createElement('div');
+    el.className = 'dcl dcl--info';
+    el.id = 'dcl-queued-' + id;
+    el.textContent = (jobIds.length > 1 ? '[Job ' + id + '] ' : '') + '⏳ Queued, waiting for worker…';
+    logEl.appendChild(el);
+  });
+
   let doneCount = 0;
 
   function appendLine(text, type) {
@@ -587,6 +596,13 @@ function startDraftConsole(jobIds) {
           let payload;
           try { payload = JSON.parse(dataLine.slice(6)); } catch { continue; }
 
+          if (payload.jobRunning) {
+            // Replace "Queued" placeholder with "Running"
+            const placeholder = document.getElementById('dcl-queued-' + payload.jobId);
+            if (placeholder) placeholder.remove();
+            const prefix = jobIds.length > 1 ? '[Job ' + payload.jobId + '] ' : '';
+            appendLine(prefix + '▶ Worker picked up job, generating…', 'info');
+          }
           if (payload.line) {
             const prefix = jobIds.length > 1 ? '[Job ' + payload.jobId + '] ' : '';
             appendLine(prefix + payload.line, classifyDraftLine(payload.line));

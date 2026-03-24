@@ -24,7 +24,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
     const [existingJob] = await db.select({ id: appJobs.id, status: appJobs.status }).from(appJobs).where(and(eq(appJobs.siteId, site.id), eq(appJobs.topic, 'draft'), inArray(appJobs.status, ['pending', 'running']), sql`${appJobs.payload}->>'gapId' = ${String(gapId)}`)).limit(1);
     if (existingJob) return json(res, 409, { error: 'Draft job already active for this gap', jobId: existingJob.id }), true;
     const authorNotes = typeof body.authorNotes === 'string' ? body.authorNotes : '';
-    const job = await enqueueDraftJob(site.id, gapId, typeof body.model === 'string' ? body.model : 'anthropic/claude-sonnet-4-6', authorNotes);
+    const job = await enqueueDraftJob(site.id, gapId, typeof body.model === 'string' ? body.model : 'claude-sonnet-4-6', authorNotes);
     await db.update(contentGaps).set({ status: 'in_progress', authorNotes: authorNotes || gap.authorNotes, acknowledgedAt: new Date() }).where(eq(contentGaps.id, gapId));
     json(res, 202, { jobId: job.id, status: job.status });
     return true;

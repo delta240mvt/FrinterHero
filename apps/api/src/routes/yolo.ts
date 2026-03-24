@@ -423,6 +423,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
       id: appJobs.id,
       status: appJobs.status,
       result: appJobs.result,
+      progress: appJobs.progress,
       error: appJobs.error,
     }).from(appJobs)
       .where(and(eq(appJobs.siteId, site.id), inArray(appJobs.id, ids)));

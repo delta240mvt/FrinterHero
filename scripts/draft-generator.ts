@@ -16,7 +16,7 @@ import { parseMarkdown, calculateReadingTime } from '../src/utils/markdown';
 import { validateDraft } from './draft-validator';
 import type { DraftAIResponse, ValidationResult } from './draft-validator';
 
-const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
+import Anthropic from '@anthropic-ai/sdk';
 
 export interface GenerateDraftRequest {
   gap_id: number;
@@ -225,42 +225,24 @@ Target readers: AI developers, solo founders, high-performers
 Required: Ground all claims in knowledge base or gap description — no hallucination`;
 }
 
-// Call OpenRouter API
-async function callOpenRouter(model: string, prompt: string): Promise<string> {
-  if (!OPENROUTER_API_KEY) throw new Error('OPENROUTER_API_KEY not configured');
+// Call Anthropic API directly
+async function callAnthropic(model: string, prompt: string): Promise<string> {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) throw new Error('ANTHROPIC_API_KEY not configured');
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 180000); // 180s timeout (bulletproof)
+  // Normalize model name — strip "anthropic/" prefix if passed
+  const normalizedModel = model.startsWith('anthropic/') ? model.slice('anthropic/'.length) : model;
 
-  try {
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://frinter.app',
-        'X-Title': 'FrinterHero Draft Generator',
-      },
-      body: JSON.stringify({
-        model,
-        messages: [{ role: 'user', content: prompt }],
-        max_tokens: 4000,
-        temperature: 0.7,
-      }),
-      signal: controller.signal,
-    });
+  const client = new Anthropic({ apiKey });
 
-    if (!response.ok) {
-      const errorBody = await response.text();
-      if (response.status === 429) throw new Error(`RATE_LIMIT: ${errorBody}`);
-      throw new Error(`API_ERROR ${response.status}: ${errorBody}`);
-    }
+  const response = await client.messages.create({
+    model: normalizedModel,
+    max_tokens: 4000,
+    messages: [{ role: 'user', content: prompt }],
+  });
 
-    const data = await response.json();
-    return data.choices?.[0]?.message?.content || '';
-  } finally {
-    clearTimeout(timeout);
-  }
+  const textBlock = response.content.find((b) => b.type === 'text');
+  return textBlock?.type === 'text' ? textBlock.text : '';
 }
 
 // Parse JSON from AI response (handle markdown wrapping and unescaped newlines)
@@ -361,10 +343,10 @@ export async function generateDraft(request: GenerateDraftRequest): Promise<Gene
   let rawResponse: string;
   try {
     console.log(`[DraftGen] Calling ${model}...`);
-    rawResponse = await callOpenRouter(model, megaPrompt);
+    rawResponse = await callAnthropic(model, megaPrompt);
   } catch (err: any) {
     const isTimeout = err.name === 'AbortError' || err.message?.includes('timeout');
-    const isRateLimit = err.message?.includes('RATE_LIMIT');
+    const isRateLimit = err.message?.includes('RATE_LIMIT') || err.status === 429;
     console.error('[DraftGen] API call failed:', { gapId: gap_id, model, error: err.message });
     return {
       success: false,

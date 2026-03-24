@@ -2,10 +2,11 @@ export const prerender = false;
 import type { APIRoute } from 'astro';
 import { fetchInternalApiJson, isAuthenticated } from '@/lib/internal-api';
 
-function toLines(stdout: unknown): string[] {
-  return typeof stdout === 'string'
-    ? stdout.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
-    : [];
+function toLogLines(progress: unknown): string[] {
+  if (!progress || typeof progress !== 'object') return [];
+  const logs = (progress as any).logs;
+  if (!Array.isArray(logs)) return [];
+  return logs.map((entry: any) => (typeof entry === 'object' ? entry.line : entry)).filter(Boolean);
 }
 
 export const GET: APIRoute = async ({ request, cookies }) => {
@@ -18,6 +19,7 @@ export const GET: APIRoute = async ({ request, cookies }) => {
   let timer: ReturnType<typeof setInterval> | null = null;
   const sentLines: Record<number, number> = {};
   const reportedDone = new Set<number>();
+  const reportedRunning = new Set<number>();
 
   const stream = new ReadableStream<Uint8Array>({
     start(controller) {
@@ -30,16 +32,25 @@ export const GET: APIRoute = async ({ request, cookies }) => {
           pathname: '/v1/admin/yolo/draft-status',
           query: { ids: idsParam },
         });
-        const jobs: Array<{ id: number; status: string; result: any; error: string | null }> =
+        const jobs: Array<{ id: number; status: string; result: any; progress: any; error: string | null }> =
           data?.jobs ?? [];
 
         for (const job of jobs) {
           if (!sentLines[job.id]) sentLines[job.id] = 0;
-          const lines = toLines(job.result?.stdout);
+
+          // Emit status transition: pending → running
+          if (job.status === 'running' && !reportedRunning.has(job.id)) {
+            reportedRunning.add(job.id);
+            send({ jobRunning: true, jobId: job.id });
+          }
+
+          // Stream live logs from progress.logs
+          const lines = toLogLines(job.progress);
           while (sentLines[job.id] < lines.length) {
             send({ line: lines[sentLines[job.id]], jobId: job.id });
             sentLines[job.id]++;
           }
+
           if (['done', 'error', 'cancelled'].includes(job.status) && !reportedDone.has(job.id)) {
             reportedDone.add(job.id);
             send({ jobDone: true, jobId: job.id, status: job.status, error: job.error ?? null });
