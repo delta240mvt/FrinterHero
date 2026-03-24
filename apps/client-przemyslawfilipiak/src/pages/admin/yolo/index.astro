@@ -233,9 +233,9 @@ const TABS = [
             ) : (
               <div class="item-list">
                 {painPoints.map((item: any) => (
-                  <div class={`item-card border-${intensityClass(item.emotionalIntensity)}`} data-id={item.id} data-source={item.source} data-intensity={item.emotionalIntensity}>
-                    <label class="item-check-row">
-                      <input type="checkbox" class="pp-checkbox item-cb" value={item.id} data-source={item.source} onchange="ppOnCheck(this)" />
+                  <div class={`item-card item-card--clickable border-${intensityClass(item.emotionalIntensity)}`} data-id={item.id} data-source={item.source} data-intensity={item.emotionalIntensity} onclick="ppCardClick(event, this)">
+                    <div class="item-check-row">
+                      <input type="checkbox" class="pp-checkbox item-cb" value={item.id} data-source={item.source} onchange="ppOnCheck(this)" onclick="event.stopPropagation()" />
                       <div class="item-meta">
                         <span class={`intensity-badge int-${intensityClass(item.emotionalIntensity)}`}>{item.emotionalIntensity}/10</span>
                         <span class="source-badge">{item.source === 'youtube' ? '▶ YT' : '● Reddit'}</span>
@@ -243,7 +243,7 @@ const TABS = [
                         {item.frequency > 1 && <span class="freq-badge">{item.frequency}×</span>}
                         {item.sourceVideoTitle && <span class="video-title">{item.sourceVideoTitle.slice(0,55)}{item.sourceVideoTitle.length > 55 ? '…' : ''}</span>}
                       </div>
-                    </label>
+                    </div>
                     <h4 class="item-title">{item.painPointTitle}</h4>
                     <p class="item-desc">{item.painPointDescription.slice(0,200)}{item.painPointDescription.length > 200 ? '…' : ''}</p>
                     {item.vocabularyQuotes?.length > 0 && (
@@ -260,6 +260,7 @@ const TABS = [
                       placeholder="Author notes (optional) — will be saved with the content gap and passed to draft generation"
                       rows={2}
                       style="display:none"
+                      onclick="event.stopPropagation()"
                     ></textarea>
                   </div>
                 ))}
@@ -291,16 +292,16 @@ const TABS = [
             ) : (
               <div class="item-list">
                 {gaps.map((gap: any) => (
-                  <div class={`item-card border-${confidenceClass(gap.confidenceScore ?? 0)}`} data-id={gap.id} data-confidence={gap.confidenceScore ?? 0}>
-                    <label class="item-check-row">
-                      <input type="checkbox" class="gap-checkbox item-cb" value={gap.id} onchange="gapsOnCheck(this)" />
+                  <div class={`item-card item-card--clickable border-${confidenceClass(gap.confidenceScore ?? 0)}`} data-id={gap.id} data-confidence={gap.confidenceScore ?? 0} onclick="gapsCardClick(event, this)">
+                    <div class="item-check-row">
+                      <input type="checkbox" class="gap-checkbox item-cb" value={gap.id} onchange="gapsOnCheck(this)" onclick="event.stopPropagation()" />
                       <div class="item-meta">
                         <span class={`conf-badge conf-${confidenceClass(gap.confidenceScore ?? 0)}`}>{gap.confidenceScore ?? 0}%</span>
                         {(gap.sourceModels ?? []).map((m: string) => <span class="model-badge">{m}</span>)}
                         {gap.createdAt && <span class="date-badge">{new Date(gap.createdAt).toLocaleDateString('en-GB', {day:'numeric',month:'short'})}</span>}
                         {gap.authorNotes && <span class="notes-indicator" title={gap.authorNotes}>📝 notes</span>}
                       </div>
-                    </label>
+                    </div>
                     <h4 class="item-title">{gap.gapTitle}</h4>
                     <p class="item-desc">{(gap.gapDescription ?? '').slice(0,200)}{(gap.gapDescription ?? '').length > 200 ? '…' : ''}</p>
                     {gap.suggestedAngle && <p class="item-angle">→ {gap.suggestedAngle.slice(0,140)}{gap.suggestedAngle.length > 140 ? '…' : ''}</p>}
@@ -311,6 +312,7 @@ const TABS = [
                       placeholder="Override author notes (leave blank to use saved notes)"
                       rows={2}
                       style="display:none"
+                      onclick="event.stopPropagation()"
                     ></textarea>
                   </div>
                 ))}
@@ -364,6 +366,22 @@ const TABS = [
 </Base>
 
 <script is:inline>
+// ── Card click-to-select ─────────────────────────────────────────
+function ppCardClick(event, card) {
+  if (event.target.tagName === 'TEXTAREA' || event.target.classList.contains('item-cb')) return;
+  const cb = card.querySelector('.pp-checkbox');
+  if (!cb) return;
+  cb.checked = !cb.checked;
+  ppOnCheck(cb);
+}
+function gapsCardClick(event, card) {
+  if (event.target.tagName === 'TEXTAREA' || event.target.classList.contains('item-cb')) return;
+  const cb = card.querySelector('.gap-checkbox');
+  if (!cb) return;
+  cb.checked = !cb.checked;
+  gapsOnCheck(cb);
+}
+
 // ── Pain Points tab ──────────────────────────────────────────────
 function ppCheckboxes() { return [...document.querySelectorAll('.pp-checkbox')]; }
 function ppUpdateCount() {
@@ -683,7 +701,9 @@ if (runAllBtn) runAllBtn.addEventListener('click', async function() {
   /* ── Item cards ── */
   .empty-state { padding: 3rem; text-align: center; font-family: var(--font-mono); font-size: var(--text-sm); color: var(--text-muted); }
   .item-list { display: flex; flex-direction: column; gap: 0.5rem; }
-  .item-card { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 0.5rem; padding: 0.75rem 1rem; transition: border-color 0.15s; }
+  .item-card { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 0.5rem; padding: 0.75rem 1rem; transition: border-color 0.15s, background 0.15s; }
+  .item-card--clickable { cursor: pointer; }
+  .item-card--clickable:hover { border-color: color-mix(in srgb, var(--teal) 40%, var(--border)); }
   .item-card.border-hot { border-left: 3px solid #e87878; }
   .item-card.border-warm { border-left: 3px solid var(--gold); }
   .item-card.border-cool { border-left: 3px solid var(--border); }
