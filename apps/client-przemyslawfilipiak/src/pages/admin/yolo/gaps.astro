@@ -1,0 +1,241 @@
+---
+export const prerender = false;
+import Base from '@/components/layouts/Base.astro';
+
+const session = Astro.cookies.get('session')?.value;
+if (!session) return Astro.redirect('/admin/login');
+
+const headers = { cookie: Astro.request.headers.get('cookie') ?? '' };
+
+let gaps: any[] = [];
+let total = 0;
+
+try {
+  const params = new URLSearchParams({ status: 'new', limit: '200', sortBy: 'confidence' });
+  const res = await fetch(new URL(`/api/content-gaps?${params}`, Astro.url), { headers });
+  if (res.ok) {
+    const data = await res.json();
+    gaps = data.items ?? data.gaps ?? [];
+    total = data.pagination?.total ?? gaps.length;
+  }
+} catch (e) {
+  console.error('[yolo/gaps] fetch error:', e);
+}
+
+function confidenceClass(score: number) {
+  if (score >= 70) return 'high';
+  if (score >= 40) return 'mid';
+  return 'low';
+}
+---
+
+<Base title="Content Gaps — Mass Acknowledge" description="Select and acknowledge content gaps in bulk">
+<div class="gaps-layout">
+  <header class="gaps-header">
+    <div class="gaps-header-inner">
+      <div class="gaps-breadcrumb">
+        <a href="/admin/yolo" class="bc-link">← Yolo Mode</a>
+      </div>
+      <h1 class="gaps-title">Content Gaps <span class="gaps-badge">Mass Acknowledge</span></h1>
+      <p class="gaps-subtitle">Select gaps to enqueue AI draft generation jobs. Each acknowledged gap will produce one draft article.</p>
+    </div>
+  </header>
+
+  <main class="gaps-main">
+
+    <!-- TOOLBAR -->
+    <div class="toolbar">
+      <div class="toolbar-counts">
+        <span id="selected-count">0</span> selected / <strong>{total}</strong> new gaps
+      </div>
+      <button class="btn-secondary" id="btn-select-all">Select all</button>
+      <button class="btn-secondary" id="btn-deselect-all">Deselect all</button>
+      <button class="btn-secondary" id="btn-select-high">Select high confidence (70+)</button>
+      <div class="spacer"></div>
+      <div class="model-picker">
+        <label for="gap-model">Model</label>
+        <select id="gap-model">
+          <option value="anthropic/claude-sonnet-4-6">claude-sonnet-4-6</option>
+          <option value="anthropic/claude-opus-4-6">claude-opus-4-6</option>
+          <option value="anthropic/claude-haiku-4-5-20251001">claude-haiku-4-5</option>
+        </select>
+      </div>
+      <button class="btn-ack" id="btn-ack-selected" disabled>
+        ▶ Generate drafts for selected
+      </button>
+    </div>
+
+    <!-- LOG -->
+    <div class="action-log" id="action-log" style="display:none"></div>
+
+    <!-- GAPS LIST -->
+    {gaps.length === 0 ? (
+      <p class="empty-state">No new content gaps found. Approve some pain points first, or run a GEO analysis.</p>
+    ) : (
+      <div class="gaps-list" id="gaps-list">
+        {gaps.map((gap) => (
+          <label class={`gap-card conf-${confidenceClass(gap.confidenceScore ?? 0)}`} data-id={gap.id} data-confidence={gap.confidenceScore ?? 0}>
+            <input type="checkbox" class="gap-checkbox" value={gap.id} />
+            <div class="gap-card-body">
+              <div class="gap-card-top">
+                <span class={`conf-badge conf-${confidenceClass(gap.confidenceScore ?? 0)}`}>{gap.confidenceScore ?? 0}%</span>
+                {(gap.sourceModels ?? []).map((m: string) => (
+                  <span class="source-model">{m}</span>
+                ))}
+                {gap.createdAt && (
+                  <span class="gap-date">{new Date(gap.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</span>
+                )}
+              </div>
+              <h3 class="gap-title-text">{gap.gapTitle}</h3>
+              <p class="gap-desc">{(gap.gapDescription ?? '').slice(0, 200)}{(gap.gapDescription ?? '').length > 200 ? '…' : ''}</p>
+              {gap.suggestedAngle && (
+                <p class="gap-angle">→ {gap.suggestedAngle.slice(0, 140)}{gap.suggestedAngle.length > 140 ? '…' : ''}</p>
+              )}
+              {(gap.relatedQueries ?? []).length > 0 && (
+                <div class="gap-queries">
+                  {(gap.relatedQueries ?? []).slice(0, 4).map((q: string) => (
+                    <span class="gap-query">{q}</span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </label>
+        ))}
+      </div>
+    )}
+
+  </main>
+</div>
+</Base>
+
+<script>
+const checkboxes = () => document.querySelectorAll<HTMLInputElement>('.gap-checkbox');
+const countEl = document.getElementById('selected-count')!;
+const ackBtn = document.getElementById('btn-ack-selected') as HTMLButtonElement;
+const logEl = document.getElementById('action-log')!;
+
+function updateCount() {
+  const n = [...checkboxes()].filter(c => c.checked).length;
+  countEl.textContent = String(n);
+  ackBtn.disabled = n === 0;
+}
+
+document.getElementById('btn-select-all')?.addEventListener('click', () => {
+  checkboxes().forEach(c => c.checked = true);
+  updateCount();
+});
+document.getElementById('btn-deselect-all')?.addEventListener('click', () => {
+  checkboxes().forEach(c => c.checked = false);
+  updateCount();
+});
+document.getElementById('btn-select-high')?.addEventListener('click', () => {
+  checkboxes().forEach(c => {
+    const card = c.closest('[data-confidence]') as HTMLElement;
+    c.checked = parseInt(card?.dataset.confidence ?? '0') >= 70;
+  });
+  updateCount();
+});
+
+checkboxes().forEach(c => c.addEventListener('change', updateCount));
+
+ackBtn.addEventListener('click', async () => {
+  const checked = [...checkboxes()].filter(c => c.checked);
+  if (checked.length === 0) return;
+
+  const ids = checked.map(c => Number(c.value));
+  const model = (document.getElementById('gap-model') as HTMLSelectElement).value;
+
+  ackBtn.disabled = true;
+  ackBtn.textContent = '⏳ Queuing…';
+  logEl.style.display = 'block';
+  logEl.className = 'action-log log-running';
+  logEl.textContent = `Enqueuing draft jobs for ${ids.length} gaps…`;
+
+  try {
+    const res = await fetch('/api/yolo/acknowledge/gaps', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ ids, model }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      logEl.className = 'action-log log-ok';
+      logEl.textContent = `✓ Enqueued ${data.enqueued} draft job(s) (skipped ${data.skipped} already queued). Job IDs: ${data.jobIds.join(', ')}`;
+      checked.forEach(c => {
+        const card = c.closest('label');
+        if (card) card.style.opacity = '0.35';
+      });
+      ackBtn.textContent = '✓ Queued';
+    } else {
+      logEl.className = 'action-log log-err';
+      logEl.textContent = `✗ Error: ${data.error ?? res.status}`;
+      ackBtn.disabled = false;
+      ackBtn.textContent = '▶ Generate drafts for selected';
+    }
+  } catch (e: any) {
+    logEl.className = 'action-log log-err';
+    logEl.textContent = `✗ ${e.message}`;
+    ackBtn.disabled = false;
+    ackBtn.textContent = '▶ Generate drafts for selected';
+  }
+});
+</script>
+
+<style>
+  .gaps-layout { min-height: 100vh; background: var(--bg-base); padding-top: 3.5rem; }
+  .gaps-header { background: var(--bg-surface); border-bottom: 1px solid var(--border); padding: 1.25rem 1.5rem; }
+  .gaps-header-inner { max-width: 1100px; margin: 0 auto; }
+  .gaps-breadcrumb { margin-bottom: 0.5rem; }
+  .bc-link { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); text-decoration: none; }
+  .bc-link:hover { color: var(--teal); }
+  .gaps-title { font-family: var(--font-mono); font-size: var(--text-xl); color: var(--text-primary); display: flex; align-items: center; gap: 0.75rem; }
+  .gaps-badge { background: var(--gold); color: var(--bg-base); font-size: var(--text-xs); padding: 0.2rem 0.5rem; border-radius: 0.25rem; }
+  .gaps-subtitle { color: var(--text-muted); font-size: var(--text-sm); margin-top: 0.25rem; }
+
+  .gaps-main { max-width: 1100px; margin: 0 auto; padding: 1.5rem; }
+
+  .toolbar { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; padding: 0.75rem 1rem; background: var(--bg-surface); border: 1px solid var(--border); border-radius: 0.5rem; }
+  .toolbar-counts { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--text-muted); }
+  .spacer { flex: 1; }
+  .model-picker { display: flex; align-items: center; gap: 0.5rem; font-size: var(--text-sm); color: var(--text-secondary); }
+  .model-picker select { background: var(--bg-base); border: 1px solid var(--border); border-radius: 0.25rem; padding: 0.25rem 0.5rem; color: var(--text-primary); font-family: var(--font-mono); font-size: var(--text-sm); }
+
+  .btn-secondary { background: transparent; border: 1px solid var(--border); color: var(--text-secondary); font-family: var(--font-mono); font-size: var(--text-xs); padding: 0.35rem 0.75rem; border-radius: 0.375rem; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+  .btn-secondary:hover { border-color: var(--text-secondary); color: var(--text-primary); }
+  .btn-ack { background: var(--gold); border: none; color: var(--bg-base); font-family: var(--font-mono); font-size: var(--text-sm); font-weight: 600; padding: 0.4rem 1rem; border-radius: 0.375rem; cursor: pointer; transition: opacity 0.15s; white-space: nowrap; }
+  .btn-ack:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-ack:not(:disabled):hover { opacity: 0.85; }
+
+  .action-log { padding: 0.75rem 1rem; border-radius: 0.375rem; font-family: var(--font-mono); font-size: var(--text-sm); margin-bottom: 1rem; white-space: pre-wrap; }
+  .log-ok { background: color-mix(in srgb, var(--teal) 10%, transparent); color: var(--teal); }
+  .log-err { background: color-mix(in srgb, #e87878 10%, transparent); color: #e87878; }
+  .log-running { background: color-mix(in srgb, var(--gold) 10%, transparent); color: var(--gold); }
+
+  .empty-state { color: var(--text-muted); font-family: var(--font-mono); font-size: var(--text-sm); padding: 3rem 0; text-align: center; }
+
+  .gaps-list { display: flex; flex-direction: column; gap: 0.5rem; }
+
+  .gap-card { display: flex; align-items: flex-start; gap: 0.75rem; padding: 0.875rem 1rem; background: var(--bg-surface); border: 1px solid var(--border); border-radius: 0.5rem; cursor: pointer; transition: border-color 0.15s; }
+  .gap-card:has(.gap-checkbox:checked) { border-color: var(--gold); background: color-mix(in srgb, var(--gold) 5%, var(--bg-surface)); }
+  .gap-card.conf-high { border-left: 3px solid var(--teal); }
+  .gap-card.conf-mid { border-left: 3px solid var(--gold); }
+  .gap-card.conf-low { border-left: 3px solid var(--border); }
+
+  .gap-checkbox { flex-shrink: 0; width: 1rem; height: 1rem; margin-top: 0.2rem; accent-color: var(--gold); cursor: pointer; }
+  .gap-card-body { flex: 1; min-width: 0; }
+  .gap-card-top { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.4rem; }
+
+  .conf-badge { font-family: var(--font-mono); font-size: var(--text-xs); font-weight: 700; padding: 0.1rem 0.4rem; border-radius: 0.25rem; }
+  .conf-high { background: color-mix(in srgb, var(--teal) 20%, transparent); color: var(--teal); }
+  .conf-mid { background: color-mix(in srgb, var(--gold) 20%, transparent); color: var(--gold); }
+  .conf-low { background: color-mix(in srgb, var(--border) 40%, transparent); color: var(--text-muted); }
+
+  .source-model { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); padding: 0.1rem 0.35rem; background: var(--bg-base); border-radius: 0.25rem; }
+  .gap-date { font-size: var(--text-xs); color: var(--text-muted); }
+
+  .gap-title-text { font-size: var(--text-sm); font-weight: 600; color: var(--text-primary); margin: 0 0 0.25rem; }
+  .gap-desc { font-size: var(--text-xs); color: var(--text-secondary); margin: 0 0 0.35rem; line-height: 1.5; }
+  .gap-angle { font-size: var(--text-xs); color: var(--teal); margin: 0 0 0.35rem; font-style: italic; }
+  .gap-queries { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+  .gap-query { font-size: var(--text-xs); color: var(--text-muted); background: var(--bg-base); padding: 0.1rem 0.4rem; border-radius: 0.25rem; border: 1px solid var(--border); }
+</style>

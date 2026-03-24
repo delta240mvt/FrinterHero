@@ -3,8 +3,8 @@ import {
   json, readJsonBody, toPositiveInt,
   requireActiveSite, enqueueDraftJob, ytGapScope, gapScope, articleScope,
   ytSourceComments,
-  db, and, desc, eq, gte, inArray, isNotNull, sql,
-  ytExtractedGaps, contentGaps, appJobs, articles, articleGenerations, yoloSettings,
+  db, and, desc, eq, gte, inArray, isNotNull, or, isNull, sql,
+  ytExtractedGaps, contentGaps, appJobs, articles, articleGenerations, yoloSettings, redditExtractedGaps,
 } from '../helpers.js';
 
 type YoloSettingsRow = typeof yoloSettings.$inferSelect;
@@ -238,6 +238,177 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
     }
 
     json(res, 200, { published: publishedIds.length, publishedIds, slugs: drafts.filter((d) => publishedIds.includes(d.id)).map((d) => d.slug) });
+    return true;
+  }
+
+  // GET /v1/admin/yolo/pain-points — list pending pain points (YT + Reddit)
+  if (method === 'GET' && pathname === '/v1/admin/yolo/pain-points') {
+    const url = new URL(req.url ?? '/', `http://localhost`);
+    const source = url.searchParams.get('source') ?? 'all'; // 'youtube' | 'reddit' | 'all'
+    const limit = Math.min(200, Math.max(1, parseInt(url.searchParams.get('limit') ?? '100')));
+    const offset = Math.max(0, parseInt(url.searchParams.get('offset') ?? '0'));
+    const minIntensity = Math.max(1, Math.min(10, parseInt(url.searchParams.get('minIntensity') ?? '1')));
+
+    const ytScope = or(eq(ytExtractedGaps.siteId, site.id), isNull(ytExtractedGaps.siteId));
+    const rdScope = or(eq(redditExtractedGaps.siteId, site.id), isNull(redditExtractedGaps.siteId));
+
+    const [ytItems, rdItems] = await Promise.all([
+      source !== 'reddit'
+        ? db.select().from(ytExtractedGaps)
+            .where(and(ytScope, eq(ytExtractedGaps.status, 'pending'), gte(ytExtractedGaps.emotionalIntensity, minIntensity)))
+            .orderBy(desc(ytExtractedGaps.emotionalIntensity), desc(ytExtractedGaps.createdAt))
+            .limit(source === 'youtube' ? limit : 500)
+        : Promise.resolve([]),
+      source !== 'youtube'
+        ? db.select().from(redditExtractedGaps)
+            .where(and(rdScope, eq(redditExtractedGaps.status, 'pending'), gte(redditExtractedGaps.emotionalIntensity, minIntensity)))
+            .orderBy(desc(redditExtractedGaps.emotionalIntensity), desc(redditExtractedGaps.createdAt))
+            .limit(source === 'reddit' ? limit : 500)
+        : Promise.resolve([]),
+    ]);
+
+    const combined = [
+      ...ytItems.map((p) => ({ ...p, source: 'youtube' as const })),
+      ...rdItems.map((p) => ({ ...p, source: 'reddit' as const })),
+    ]
+      .sort((a, b) => b.emotionalIntensity - a.emotionalIntensity || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(offset, offset + limit);
+
+    const total = ytItems.length + rdItems.length;
+
+    json(res, 200, { items: combined, total, limit, offset });
+    return true;
+  }
+
+  // POST /v1/admin/yolo/approve/pain-points — approve specific pain point IDs
+  if (method === 'POST' && pathname === '/v1/admin/yolo/approve/pain-points') {
+    const body = await readJsonBody(req);
+    const ytIds: number[] = Array.isArray(body.ytIds) ? body.ytIds.map(Number).filter(Boolean) : [];
+    const rdIds: number[] = Array.isArray(body.rdIds) ? body.rdIds.map(Number).filter(Boolean) : [];
+
+    if (ytIds.length === 0 && rdIds.length === 0) {
+      json(res, 400, { error: 'Provide ytIds or rdIds arrays' });
+      return true;
+    }
+
+    const ytScope = or(eq(ytExtractedGaps.siteId, site.id), isNull(ytExtractedGaps.siteId));
+    const rdScope = or(eq(redditExtractedGaps.siteId, site.id), isNull(redditExtractedGaps.siteId));
+
+    let created = 0;
+    const createdGapIds: number[] = [];
+
+    // Process YT pain points
+    if (ytIds.length > 0) {
+      const pending = await db.select().from(ytExtractedGaps)
+        .where(and(ytScope, eq(ytExtractedGaps.status, 'pending'), inArray(ytExtractedGaps.id, ytIds)));
+
+      for (const gap of pending) {
+        const sourceComments = await ytSourceComments((gap.sourceCommentIds || []).slice(0, 5));
+        const gapDescription = [
+          `Problem Context\n${gap.painPointDescription}`,
+          gap.sourceVideoTitle ? `\n\nSource Context\n- Video: "${gap.sourceVideoTitle}"\n- Frequency: ${gap.frequency} total mentions analyzed` : '',
+          sourceComments.length > 0 ? `\n\nRepresentative Voices\n${sourceComments.map((c) => `- "${String(c.commentText ?? '').slice(0, 150)}" (${c.voteCount} votes)`).join('\n')}` : '',
+          gap.vocabularyQuotes.length > 0 ? `\n\nVoice of Customer\n${gap.vocabularyQuotes.join(', ')}` : '',
+        ].filter(Boolean).join('');
+
+        const [contentGap] = await db.insert(contentGaps).values({
+          siteId: site.id,
+          gapTitle: gap.painPointTitle,
+          gapDescription,
+          confidenceScore: Math.min(100, gap.emotionalIntensity * 10),
+          suggestedAngle: gap.suggestedArticleAngle,
+          relatedQueries: gap.vocabularyQuotes,
+          sourceModels: ['youtube-apify', 'claude-sonnet'],
+          status: 'new',
+        }).returning();
+
+        await db.update(ytExtractedGaps)
+          .set({ status: 'approved', approvedAt: new Date(), contentGapId: contentGap.id })
+          .where(and(eq(ytExtractedGaps.id, gap.id), ytScope));
+
+        created++;
+        createdGapIds.push(contentGap.id);
+      }
+    }
+
+    // Process Reddit pain points
+    if (rdIds.length > 0) {
+      const pending = await db.select().from(redditExtractedGaps)
+        .where(and(rdScope, eq(redditExtractedGaps.status, 'pending'), inArray(redditExtractedGaps.id, rdIds)));
+
+      for (const gap of pending) {
+        const gapDescription = [
+          `Problem Context\n${gap.painPointDescription}`,
+          `\n\nFrequency: ${gap.frequency} mentions analyzed`,
+          gap.vocabularyQuotes.length > 0 ? `\n\nVoice of Customer\n${gap.vocabularyQuotes.join(', ')}` : '',
+        ].filter(Boolean).join('');
+
+        const [contentGap] = await db.insert(contentGaps).values({
+          siteId: site.id,
+          gapTitle: gap.painPointTitle,
+          gapDescription,
+          confidenceScore: Math.min(100, gap.emotionalIntensity * 10),
+          suggestedAngle: gap.suggestedArticleAngle,
+          relatedQueries: gap.vocabularyQuotes,
+          sourceModels: ['reddit-apify', 'claude-sonnet'],
+          status: 'new',
+        }).returning();
+
+        await db.update(redditExtractedGaps)
+          .set({ status: 'approved', approvedAt: new Date(), contentGapId: contentGap.id })
+          .where(and(eq(redditExtractedGaps.id, gap.id), rdScope));
+
+        created++;
+        createdGapIds.push(contentGap.id);
+      }
+    }
+
+    json(res, 200, { processed: ytIds.length + rdIds.length, created, createdGapIds });
+    return true;
+  }
+
+  // POST /v1/admin/yolo/acknowledge/gaps — acknowledge specific gap IDs → enqueue draft jobs
+  if (method === 'POST' && pathname === '/v1/admin/yolo/acknowledge/gaps') {
+    const body = await readJsonBody(req);
+    const ids: number[] = Array.isArray(body.ids) ? body.ids.map(Number).filter(Boolean) : [];
+    const settings = await getOrCreateSettings(site.id);
+    const model = typeof body.model === 'string' && body.model.trim() ? body.model.trim() : settings.gapsModel;
+
+    if (ids.length === 0) {
+      json(res, 400, { error: 'Provide ids array' });
+      return true;
+    }
+
+    const targetGaps = await db.select().from(contentGaps)
+      .where(and(gapScope(site.id), inArray(contentGaps.id, ids), eq(contentGaps.status, 'new')));
+
+    let enqueued = 0;
+    let skipped = 0;
+    const jobIds: number[] = [];
+
+    for (const gap of targetGaps) {
+      const [existing] = await db.select({ id: appJobs.id })
+        .from(appJobs)
+        .where(and(
+          eq(appJobs.siteId, site.id),
+          eq(appJobs.topic, 'draft'),
+          inArray(appJobs.status, ['pending', 'running']),
+          sql`${appJobs.payload}->>'gapId' = ${String(gap.id)}`,
+        ))
+        .limit(1);
+
+      if (existing) { skipped++; continue; }
+
+      const job = await enqueueDraftJob(site.id, gap.id, model, '');
+      await db.update(contentGaps)
+        .set({ status: 'in_progress', acknowledgedAt: new Date() })
+        .where(and(eq(contentGaps.id, gap.id), gapScope(site.id)));
+
+      enqueued++;
+      jobIds.push(job.id);
+    }
+
+    json(res, 200, { processed: ids.length, enqueued, skipped, jobIds });
     return true;
   }
 

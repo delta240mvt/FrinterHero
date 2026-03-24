@@ -35,15 +35,17 @@ try {
 
     <!-- PREVIEW COUNTS -->
     <div class="pipeline-preview">
-      <div class="preview-card">
+      <a href="/admin/yolo/pain-points" class="preview-card preview-card-link">
         <div class="preview-num" id="cnt-pp">{preview.ytPainPointsPending}</div>
-        <div class="preview-label">YT pain points pending</div>
-      </div>
+        <div class="preview-label">Pain points pending</div>
+        <div class="preview-action">→ Select &amp; approve</div>
+      </a>
       <div class="preview-arrow">→</div>
-      <div class="preview-card">
+      <a href="/admin/yolo/gaps" class="preview-card preview-card-link">
         <div class="preview-num" id="cnt-gaps">{preview.gapsNew}</div>
         <div class="preview-label">New content gaps</div>
-      </div>
+        <div class="preview-action">→ Select &amp; queue</div>
+      </a>
       <div class="preview-arrow">→</div>
       <div class="preview-card">
         <div class="preview-num" id="cnt-drafts">{preview.draftsReady}</div>
@@ -296,8 +298,11 @@ document.getElementById('btn-run-all')?.addEventListener('click', async () => {
 
   .pipeline-preview { display: flex; align-items: center; justify-content: center; gap: 1rem; padding: 1.5rem; background: var(--bg-surface); border: 1px solid var(--border); border-radius: 0.5rem; }
   .preview-card { text-align: center; flex: 1; }
+  .preview-card-link { text-decoration: none; border-radius: 0.375rem; padding: 0.5rem; transition: background 0.15s; display: block; }
+  .preview-card-link:hover { background: color-mix(in srgb, var(--teal) 8%, transparent); }
   .preview-num { font-family: var(--font-mono); font-size: 2.5rem; font-weight: 700; color: var(--teal); }
   .preview-label { font-size: var(--text-xs); color: var(--text-muted); margin-top: 0.25rem; }
+  .preview-action { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--teal); margin-top: 0.25rem; opacity: 0.7; }
   .preview-arrow { font-size: 1.5rem; color: var(--text-muted); }
 
   .stage-card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: 0.5rem; padding: 1.5rem; }

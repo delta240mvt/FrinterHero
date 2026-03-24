@@ -226,6 +226,7 @@ async function processJob(job: typeof appJobs.$inferSelect) {
       MODEL: String(payload.model ?? 'anthropic/claude-sonnet-4-6'),
       AUTHOR_NOTES: String(payload.authorNotes ?? ''),
       SITE_DOMAIN: siteRow?.primaryDomain ?? '',
+      SITE_ID: String(job.siteId ?? ''),
     });
   }
 

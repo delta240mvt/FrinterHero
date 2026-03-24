@@ -7,6 +7,7 @@ async function run() {
   const gapId = parseInt(process.env.GAP_ID || '0');
   const model = process.env.MODEL || 'anthropic/claude-sonnet-4-6';
   const notes = process.env.AUTHOR_NOTES || '';
+  const envSiteId = process.env.SITE_ID ? parseInt(process.env.SITE_ID) : null;
 
   if (!gapId) {
     console.error("[DRAFT] ERROR: Missing GAP_ID");
@@ -14,17 +15,26 @@ async function run() {
   }
 
   console.log(`[DRAFT] Starting job for Gap #${gapId} using ${model}...`);
-  
+
+  // Resolve siteId: prefer explicit SITE_ID env, fall back to gap's own siteId
+  let siteId: number | null = envSiteId;
+  if (!siteId) {
+    const [gap] = await db.select({ siteId: contentGaps.siteId }).from(contentGaps).where(eq(contentGaps.id, gapId)).limit(1);
+    siteId = gap?.siteId ?? null;
+  }
+  console.log(`[DRAFT] Resolved siteId: ${siteId ?? 'null'}`);
+
   try {
     const result = await generateDraft({ gap_id: gapId, author_notes: notes, model });
-    
+
     if (!result.success || !result.draft) {
       console.error("[DRAFT] FAILED: " + (result.error?.message || "Unknown validation error"));
       process.exit(1);
     }
-    
+
     console.log("[DRAFT] Validation passed. Saving to DB...");
     const [article] = await db.insert(articles).values({
+      ...(siteId ? { siteId } : {}),
       slug: result.slug + "-" + Date.now(),
       title: result.draft.title,
       description: result.draft.description,
