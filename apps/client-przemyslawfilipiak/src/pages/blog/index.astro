@@ -91,7 +91,7 @@ const totalPages = Math.ceil(totalCount / LIMIT);
           )}
           <span class="page-info">Page {page} of {totalPages}</span>
           {page < totalPages && (
-            <a href={`/blog?page=${page + 1}${tag ? `&tag=${tag}` : ''}`} class="page-btn">Next →</a>
+            <a href={`/blog/${page + 1}`} class="page-btn">Next →</a>
           )}
         </nav>
       )}

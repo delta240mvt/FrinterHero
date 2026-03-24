@@ -1,6 +1,4 @@
 ---
-export const prerender = true;
-
 import Base from '@/components/layouts/Base.astro';
 import Nav from '@/components/Nav.astro';
 import Footer from '@/components/Footer.astro';
@@ -8,9 +6,31 @@ import BlogCard from '@/components/BlogCard.astro';
 import { getCurrentSiteSlug, getSitePresentation } from '@/lib/site-config';
 import { getInternalApiBaseUrl } from '@/lib/internal-api';
 
-const page = parseInt(Astro.url.searchParams.get('page') || '1');
-const tag = Astro.url.searchParams.get('tag') || '';
 const LIMIT = 10;
+
+export async function getStaticPaths() {
+  const { getCurrentSiteSlug } = await import('@/lib/site-config');
+  const { getInternalApiBaseUrl } = await import('@/lib/internal-api');
+  const siteSlug = getCurrentSiteSlug();
+  const apiBase = getInternalApiBaseUrl();
+  try {
+    const params = new URLSearchParams({ siteSlug, status: 'published', limit: '1', offset: '0' });
+    const response = await fetch(`${apiBase}/v1/articles?${params}`);
+    if (response.ok) {
+      const data = await response.json();
+      const totalCount = data.pagination?.total ?? 0;
+      const totalPages = Math.ceil(totalCount / 10);
+      const paths = [];
+      for (let p = 2; p <= totalPages; p++) {
+        paths.push({ params: { page: String(p) } });
+      }
+      return paths;
+    }
+  } catch {}
+  return [];
+}
+
+const page = parseInt(Astro.params.page);
 const offset = (page - 1) * LIMIT;
 const site = getSitePresentation();
 const siteSlug = getCurrentSiteSlug();
@@ -43,10 +63,12 @@ try {
 }
 
 const totalPages = Math.ceil(totalCount / LIMIT);
+const prevHref = page === 2 ? '/blog' : `/blog/${page - 1}`;
+const nextHref = `/blog/${page + 1}`;
 ---
 
 <Base
-  title={site.blogTitle}
+  title={`${site.blogTitle} — Page ${page}`}
   description={site.blogDescription}
 >
   <Nav />
@@ -54,12 +76,6 @@ const totalPages = Math.ceil(totalCount / LIMIT);
     <div class="blog-list-container">
       <header class="blog-list-header">
         <h1 class="blog-list-title">/blog</h1>
-        {tag && (
-          <div class="tag-filter">
-            <span>Filtered by: <strong class="tag-name">{tag}</strong></span>
-            <a href="/blog" class="clear-filter">✕ Clear filter</a>
-          </div>
-        )}
       </header>
 
       {posts.length > 0 ? (
@@ -82,12 +98,10 @@ const totalPages = Math.ceil(totalCount / LIMIT);
 
       {totalPages > 1 && (
         <nav class="pagination" aria-label="Blog pagination">
-          {page > 1 && (
-            <a href={`/blog?page=${page - 1}${tag ? `&tag=${tag}` : ''}`} class="page-btn">← Previous</a>
-          )}
+          <a href={prevHref} class="page-btn">← Previous</a>
           <span class="page-info">Page {page} of {totalPages}</span>
           {page < totalPages && (
-            <a href={`/blog/${page + 1}`} class="page-btn">Next →</a>
+            <a href={nextHref} class="page-btn">Next →</a>
           )}
         </nav>
       )}
@@ -101,9 +115,9 @@ const totalPages = Math.ceil(totalCount / LIMIT);
   "@graph": [
     {
       "@type": "CollectionPage",
-      "@id": `${site.canonicalBaseUrl}/blog/#webpage`,
-      "url": `${site.canonicalBaseUrl}/blog`,
-      "name": site.blogTitle,
+      "@id": `${site.canonicalBaseUrl}/blog/${page}/#webpage`,
+      "url": `${site.canonicalBaseUrl}/blog/${page}`,
+      "name": `${site.blogTitle} — Page ${page}`,
       "description": site.blogDescription,
       "isPartOf": { "@id": `${site.canonicalBaseUrl}/#website` },
       "author": { "@id": `${site.canonicalBaseUrl}/#entity` },
@@ -112,7 +126,8 @@ const totalPages = Math.ceil(totalCount / LIMIT);
         "@type": "BreadcrumbList",
         "itemListElement": [
           { "@type": "ListItem", "position": 1, "name": "Home", "item": site.canonicalBaseUrl },
-          { "@type": "ListItem", "position": 2, "name": "Blog", "item": `${site.canonicalBaseUrl}/blog` }
+          { "@type": "ListItem", "position": 2, "name": "Blog", "item": `${site.canonicalBaseUrl}/blog` },
+          { "@type": "ListItem", "position": 3, "name": `Page ${page}`, "item": `${site.canonicalBaseUrl}/blog/${page}` }
         ]
       }
     }
@@ -139,21 +154,6 @@ const totalPages = Math.ceil(totalCount / LIMIT);
     color: var(--teal);
     margin-bottom: 0.75rem;
   }
-  .tag-filter {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    font-family: var(--font-mono);
-    font-size: var(--text-sm);
-    color: var(--text-secondary);
-  }
-  .tag-name { color: var(--violet); }
-  .clear-filter {
-    color: var(--text-muted);
-    text-decoration: none;
-    transition: color 0.15s;
-  }
-  .clear-filter:hover { color: var(--text-primary); }
   .blog-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
