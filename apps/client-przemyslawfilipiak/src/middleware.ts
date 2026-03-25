@@ -4,13 +4,7 @@ import { getInternalApiBaseUrl } from '@/lib/internal-api';
 export const onRequest = defineMiddleware(async (context: any, next: any) => {
   const pathname = context.url.pathname;
 
-  // Redirect LinkedIn-style slugs: /blog/title-1773402417548 → /blog/title
-  const linkedinBlogMatch = pathname.match(/^(\/blog\/.+)-\d{10,}$/);
-  if (linkedinBlogMatch) {
-    return context.redirect(linkedinBlogMatch[1], 301);
-  }
-
-  if (pathname.startsWith('/admin') && pathname !== '/admin/login') {
+if (pathname.startsWith('/admin') && pathname !== '/admin/login') {
     const token = context.cookies.get('session')?.value;
 
     if (!token) {
