@@ -27,7 +27,7 @@ export async function handle(ctx: RouteContext): Promise<boolean> {
     const site = await getSiteBySlug(normalizeSiteSlug(url.searchParams.get('siteSlug')));
     if (!site) return json(res, 404, { error: 'Site not found' }), true;
     const status = url.searchParams.get('status') ?? 'published';
-    const limit = toPositiveInt(url.searchParams.get('limit'), 20, { max: 100 });
+    const limit = toPositiveInt(url.searchParams.get('limit'), 20, { max: 5000 });
     const offset = toNonNegativeInt(url.searchParams.get('offset'), 0, 1000);
     const whereClause = and(eq(articles.siteId, site.id), eq(articles.status, status));
     const [rows, totals] = await Promise.all([
