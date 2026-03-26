@@ -6,10 +6,12 @@
 
 ## Tech Stack
 
-- **Runtime:** Node.js + TypeScript
-- **Library:** discord.js v14
+- **Runtime:** Node.js + TypeScript, executed via `tsx` (already in devDependencies)
+- **Library:** discord.js v14 — must be installed: `npm install discord.js`
 - **Entry point:** `scripts/discord-setup.ts`
 - **Bot:** Already exists and is added to the server. Token and Guild ID in `.env`.
+- **Execution:** `tsx scripts/discord-setup.ts` (one-time), `tsx scripts/discord-bot.ts` (long-running)
+- **Hosting:** `discord-bot.ts` runs locally during development. Production hosting TBD (Railway service or similar).
 
 ## Roles
 
@@ -49,11 +51,11 @@
 
 ## Permissions Model
 
-- **@everyone (Guest):** Can only see `#rules`. All other channels hidden.
-- **Builder:** Can see all channels except ADMIN. Cannot see `#rules` (removed after onboarding). Read + write in community channels. Read-only in `#welcome`.
-- **Founding Builder:** Same as Builder (visual distinction only).
-- **Moderator:** Builder permissions + manage messages, mute, kick, access to ADMIN channels.
-- **Admin:** Full permissions.
+- **@everyone (Guest):** `ViewChannel = ALLOW` on `#rules` only. All other channels: `ViewChannel = DENY`.
+- **Builder:** `ViewChannel = DENY` override on `#rules` (hides it despite @everyone ALLOW). `ViewChannel = ALLOW` on all community channels (ONBOARDING/#welcome, POLSKA, GLOBAL). `SendMessages = DENY` on `#welcome` (read-only). No access to ADMIN channels.
+- **Founding Builder:** Same permissions as Builder. Role hierarchy: above Builder, below Moderator (visual distinction + future-proof).
+- **Moderator:** Builder permissions + `ManageMessages`, `MuteMembers`, `KickMembers`. `ViewChannel = ALLOW` on ADMIN channels.
+- **Admin:** Full permissions (Administrator flag).
 
 ## Onboarding Flow
 
@@ -91,11 +93,13 @@ Triggered after user clicks the rules button. Sent by bot to `#welcome`:
 
 > **Welcome {user}!** You're now part of Frinter Core — a community of builders creating with AI. Show what you're building in #pl-showcase / #en-showcase or ask for help in #pl-help / #en-help. Let's build!
 
+`{user}` resolves to a Discord mention (`<@userId>`) so the user gets a notification ping.
+
 ## Bot Behavior
 
 The bot serves two purposes:
 
-1. **Setup script** (`scripts/discord-setup.ts`): Run once to create all roles, categories, channels, permissions, and post the rules embed with button. Idempotent — can be re-run safely.
+1. **Setup script** (`scripts/discord-setup.ts`): Run once to create all roles, categories, channels, permissions, and post the rules embed with button. **Idempotent via name-based check:** before creating any role/channel, check if one with the same name already exists and skip creation. This allows safe re-runs without duplicates.
 2. **Runtime listener**: Stays online to handle:
    - Button interaction in `#rules` → assign `Builder` role
    - Send welcome message to `#welcome`
@@ -118,3 +122,16 @@ scripts/
   discord-bot.ts          — Runtime bot (onboarding button handler, welcome messages, logs)
   discord-config.ts       — Shared constants (role names, colors, channel names, messages)
 ```
+
+## npm scripts
+
+Add to `package.json`:
+```json
+"discord:setup": "tsx scripts/discord-setup.ts",
+"discord:bot": "tsx scripts/discord-bot.ts"
+```
+
+## Error Handling
+
+- If the bot fails to assign the `Builder` role (missing permissions, role deleted), it replies ephemerally to the user with an error message and logs the failure to `#admin-logs`.
+- Join/leave logs in `#admin-logs` use plain text: `[JOIN] username#1234 (id) at timestamp` / `[LEAVE] username#1234 (id) at timestamp`.
