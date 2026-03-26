@@ -51,7 +51,9 @@
     "backfill:sh-site-scope": "tsx scripts/backfill-sh-site-scope.ts",
     "scrape:reddit": "tsx scripts/scrape-reddit.ts",
     "scrape:reddit:run": "npx tsx scripts/reddit-scraper.ts",
-    "reddit:seed": "npx tsx scripts/seed-reddit-targets.ts"
+    "reddit:seed": "npx tsx scripts/seed-reddit-targets.ts",
+    "discord:setup": "npm --workspace workers/discord-bot run setup",
+    "discord:bot": "npm --workspace workers/discord-bot run start"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.78.0",

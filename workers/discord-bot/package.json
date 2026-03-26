@@ -1,0 +1,14 @@
+{
+  "name": "@frinter/discord-bot",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node ../../scripts/monorepo/noop-build.mjs discord-bot",
+    "start": "tsx src/index.ts",
+    "setup": "tsx src/setup.ts"
+  },
+  "dependencies": {
+    "discord.js": "^14.25.1",
+    "dotenv": "^16.6.1"
+  }
+}
