@@ -30,6 +30,7 @@ import PixelIcon from './PixelIcon.astro';
     <div class="hero-cta">
       <a href="/blog" class="btn-primary">Read the Blog</a>
       <a href="https://github.com/delta240mvt" target="_blank" rel="noopener noreferrer" class="btn-ghost">GitHub ↗</a>
+      <a href="https://discord.gg/sUq42Mcah6" target="_blank" rel="noopener noreferrer" class="btn-ghost btn-discord">Discord ↗</a>
     </div>
 
     <div class="hero-icons" aria-label="Project icons">
@@ -111,6 +112,16 @@ import PixelIcon from './PixelIcon.astro';
     gap: 1.5rem;
     align-items: center;
     animation: fadeInUp 0.4s ease-out 1s both;
+  }
+
+  .btn-discord {
+    border-color: var(--violet);
+    color: var(--violet);
+  }
+  .btn-discord:hover {
+    background-color: var(--violet);
+    color: var(--text-primary);
+    box-shadow: 0 0 20px var(--violet-glow);
   }
 
   @media (max-width: 768px) {
