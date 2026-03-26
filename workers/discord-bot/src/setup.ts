@@ -35,7 +35,7 @@ async function findOrCreateRole(guild: Guild, name: string, color: number, permi
   }
   const role = await guild.roles.create({
     name,
-    color,
+    colors: { primaryColor: color },
     permissions,
     reason: "Frinter Core setup",
   });
