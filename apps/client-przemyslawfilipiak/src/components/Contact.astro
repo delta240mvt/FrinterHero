@@ -60,4 +60,22 @@
     border-color: var(--teal);
     color: var(--teal);
   }
+
+  @media (max-width: 480px) {
+    .contact {
+      padding: 4rem 1rem;
+    }
+    .contact-links {
+      flex-direction: column;
+      gap: 0.75rem;
+      width: min(100%, 22rem);
+    }
+    .contact-btn {
+      width: 100%;
+      min-height: 3.25rem;
+      justify-content: center;
+      padding: 0.75rem 1.25rem;
+      text-align: center;
+    }
+  }
 </style>
