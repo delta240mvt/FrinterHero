@@ -95,8 +95,8 @@ client.on(Events.GuildMemberAdd, async (member: GuildMember) => {
 
 // ── Member leave log ─────────────────────────────────────────────
 client.on(Events.GuildMemberRemove, async (member) => {
-  await logToAdmin(`[LEAVE] ${member.user.displayName} (${member.id}) at ${timestamp()}`);
-  console.log(`[LEAVE] ${member.user.displayName}`);
+  await logToAdmin(`[LEAVE] ${member.user.tag} (${member.id}) at ${timestamp()}`);
+  console.log(`[LEAVE] ${member.user.tag}`);
 });
 
 // ── Bot ready ────────────────────────────────────────────────────
