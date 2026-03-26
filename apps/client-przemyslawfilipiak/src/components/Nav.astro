@@ -15,6 +15,7 @@ const site = getSitePresentation();
       <li><a href="/blog" class={`nav-link${pathname.startsWith('/blog') ? ' nav-link--active' : ''}`}>Blog</a></li>
       <li><a href="/#projects" class="nav-link">Projects</a></li>
       <li><a href="https://github.com/delta240mvt" target="_blank" rel="noopener noreferrer" class="nav-link nav-link--external">GitHub ↗</a></li>
+      <li><a href="https://discord.gg/sUq42Mcah6" target="_blank" rel="noopener noreferrer" class="nav-link nav-link--discord">Discord ↗</a></li>
     </ul>
     <button class="nav-toggle" id="nav-toggle" aria-label="Toggle navigation" aria-expanded="false">
       <span></span><span></span><span></span>
@@ -25,6 +26,7 @@ const site = getSitePresentation();
     <li><a href="/blog" class="nav-mobile-link">Blog</a></li>
     <li><a href="/#projects" class="nav-mobile-link">Projects</a></li>
     <li><a href="https://github.com/delta240mvt" target="_blank" rel="noopener noreferrer" class="nav-mobile-link">GitHub ↗</a></li>
+    <li><a href="https://discord.gg/sUq42Mcah6" target="_blank" rel="noopener noreferrer" class="nav-mobile-link nav-mobile-link--discord">Discord ↗</a></li>
   </ul>
 </nav>
 
@@ -71,6 +73,8 @@ const site = getSitePresentation();
   }
   .nav-link:hover, .nav-link--active { color: var(--text-primary); }
   .nav-link--external { color: var(--teal); }
+  .nav-link--discord { color: var(--violet); }
+  .nav-link--discord:hover { color: var(--text-primary); }
   .nav-toggle {
     display: none;
     flex-direction: column;
@@ -104,6 +108,8 @@ const site = getSitePresentation();
     transition: color 0.15s;
   }
   .nav-mobile-link:hover { color: var(--teal); }
+  .nav-mobile-link--discord { color: var(--violet); }
+  .nav-mobile-link--discord:hover { color: var(--violet); }
   @media (max-width: 640px) {
     .nav-links { display: none; }
     .nav-toggle { display: flex; }
