@@ -11,7 +11,7 @@
 - **Entry point:** `scripts/discord-setup.ts`
 - **Bot:** Already exists and is added to the server. Token and Guild ID in `.env`.
 - **Execution:** `tsx scripts/discord-setup.ts` (one-time), `tsx scripts/discord-bot.ts` (long-running)
-- **Hosting:** `discord-bot.ts` runs locally during development. Production hosting TBD (Railway service or similar).
+- **Hosting:** `discord-bot.ts` runs locally during development. Production: Railway service (alongside existing infra).
 
 ## Roles
 
@@ -116,19 +116,23 @@ Already declared in `.env.example` (lines 31-33).
 
 ## File Structure
 
+Standalone workspace following existing worker pattern (`@frinter/` namespace):
+
 ```
-scripts/
-  discord-setup.ts        — One-time server setup (roles, channels, permissions, rules embed)
-  discord-bot.ts          — Runtime bot (onboarding button handler, welcome messages, logs)
-  discord-config.ts       — Shared constants (role names, colors, channel names, messages)
+workers/discord-bot/
+  package.json            — @frinter/discord-bot, discord.js + dotenv + tsx deps
+  src/
+    config.ts             — Shared constants (role names, colors, channel names, messages)
+    setup.ts              — One-time server setup (roles, channels, permissions, rules embed)
+    index.ts              — Runtime bot (onboarding button handler, welcome messages, logs)
 ```
 
 ## npm scripts
 
-Add to `package.json`:
+Root `package.json` convenience scripts:
 ```json
-"discord:setup": "tsx scripts/discord-setup.ts",
-"discord:bot": "tsx scripts/discord-bot.ts"
+"discord:setup": "npm --workspace workers/discord-bot run setup",
+"discord:bot": "npm --workspace workers/discord-bot run start"
 ```
 
 ## Error Handling

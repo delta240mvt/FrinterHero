@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Automated Discord server setup + runtime bot for the "Frinter Core" community — roles, channels, permissions, onboarding button, welcome messages.
+**Goal:** Automated Discord server setup + runtime bot for the "Frinter Core" community — roles, channels, permissions, onboarding button, welcome messages. Bot runs as a standalone worker service on Railway.
 
-**Architecture:** Three files — shared config (constants), one-time setup script (creates Discord resources idempotently), runtime bot (handles interactions). Setup uses discord.js REST to create roles/channels/permissions and post the rules embed. Bot uses discord.js Gateway to listen for button clicks, joins, and leaves.
+**Architecture:** Standalone workspace `workers/discord-bot/` with three source files — shared config (constants), one-time setup script, runtime bot. Follows existing worker pattern (`@frinter/` namespace, `tsx src/index.ts`). Setup uses discord.js REST to create roles/channels/permissions and post the rules embed. Bot uses discord.js Gateway to listen for button clicks, joins, and leaves.
 
 **Tech Stack:** TypeScript, discord.js v14, tsx runner, dotenv for env vars.
 
@@ -15,66 +15,85 @@
 ## File Structure
 
 ```
-scripts/
-  discord-config.ts   — Shared constants: role definitions, channel definitions, messages, colors
-  discord-setup.ts    — One-time setup: creates roles, categories, channels, permissions, posts rules embed
-  discord-bot.ts      — Runtime bot: onboarding button handler, welcome messages, join/leave logs
+workers/discord-bot/
+  package.json          — @frinter/discord-bot workspace, discord.js + dotenv deps
+  src/
+    config.ts           — Shared constants: role definitions, channel definitions, messages, colors
+    setup.ts            — One-time setup: creates roles, categories, channels, permissions, posts rules embed
+    index.ts            — Runtime bot: onboarding button handler, welcome messages, join/leave logs
+infra/railway/env/
+  discord-bot.env.example — Railway env template
 ```
 
 **Modifications:**
-- `package.json` — add `discord.js` dependency, add `discord:setup` and `discord:bot` npm scripts
+- Root `package.json` — add `discord:setup` and `discord:bot` npm scripts pointing to the workspace
 
 ---
 
-### Task 1: Install discord.js and add npm scripts
+### Task 1: Scaffold workers/discord-bot workspace
 
 **Files:**
-- Modify: `package.json`
+- Create: `workers/discord-bot/package.json`
 
-- [ ] **Step 1: Install discord.js**
+- [ ] **Step 1: Create the package.json**
 
-Run:
-```bash
-npm install discord.js
-```
-
-Expected: `discord.js` added to `dependencies` in `package.json`.
-
-- [ ] **Step 2: Add npm scripts to package.json**
-
-Add these two entries to the `"scripts"` section in `package.json`:
+Create `workers/discord-bot/package.json`:
 
 ```json
-"discord:setup": "tsx scripts/discord-setup.ts",
-"discord:bot": "tsx scripts/discord-bot.ts"
+{
+  "name": "@frinter/discord-bot",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node ../../scripts/monorepo/noop-build.mjs discord-bot",
+    "start": "tsx src/index.ts",
+    "setup": "tsx src/setup.ts"
+  }
+}
 ```
 
-Add them after the `"reddit:seed"` line.
-
-- [ ] **Step 3: Verify installation**
+- [ ] **Step 2: Install dependencies in the workspace**
 
 Run:
 ```bash
-node -e "require('discord.js'); console.log('discord.js OK')"
+npm install --workspace workers/discord-bot discord.js dotenv
 ```
 
-Expected: `discord.js OK`
+Expected: `discord.js`, `dotenv` added to `workers/discord-bot/package.json` dependencies. `tsx` is already in root `devDependencies` and will be resolved via workspace hoisting.
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 3: Add convenience scripts to root package.json**
+
+Add these two entries to the `"scripts"` section in root `package.json`, after the `"reddit:seed"` line:
+
+```json
+"discord:setup": "npm --workspace workers/discord-bot run setup",
+"discord:bot": "npm --workspace workers/discord-bot run start"
+```
+
+- [ ] **Step 4: Verify workspace is recognized**
+
+Run:
+```bash
+npm ls @frinter/discord-bot
+```
+
+Expected: shows `@frinter/discord-bot` in the workspace tree.
+
+- [ ] **Step 5: Commit**
 
 ```bash
-git add package.json package-lock.json
-git commit -m "chore: add discord.js dependency and npm scripts"
+git add workers/discord-bot/package.json package.json package-lock.json
+git commit -m "chore: scaffold workers/discord-bot workspace with discord.js"
 ```
 
 ---
 
-### Task 2: Create discord-config.ts (shared constants)
+### Task 2: Create config.ts (shared constants)
 
 **Files:**
-- Create: `scripts/discord-config.ts`
+- Create: `workers/discord-bot/src/config.ts`
 
-- [ ] **Step 1: Write discord-config.ts**
+- [ ] **Step 1: Write config.ts**
 
 ```typescript
 import { PermissionFlagsBits, ButtonStyle } from "discord.js";
@@ -179,31 +198,35 @@ export const ACCEPT_BUTTON = {
 
 - [ ] **Step 2: Verify it compiles**
 
-Run:
+Run from repo root:
 ```bash
-npx tsx -e "import './scripts/discord-config.ts'; console.log('config OK')"
+npx tsx workers/discord-bot/src/config.ts && echo "config OK"
 ```
 
-Expected: `config OK`
+Expected: `config OK` (file has no side effects, just exports)
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add scripts/discord-config.ts
+git add workers/discord-bot/src/config.ts
 git commit -m "feat(discord): add shared config with roles, channels, and messages"
 ```
 
 ---
 
-### Task 3: Create discord-setup.ts (one-time server setup)
+### Task 3: Create setup.ts (one-time server setup)
 
 **Files:**
-- Create: `scripts/discord-setup.ts`
+- Create: `workers/discord-bot/src/setup.ts`
 
-- [ ] **Step 1: Write discord-setup.ts**
+- [ ] **Step 1: Write setup.ts**
 
 ```typescript
-import "dotenv/config";
+import path from "node:path";
+import dotenv from "dotenv";
+const rootDir = path.resolve(process.cwd(), "..", "..");
+dotenv.config({ path: path.join(rootDir, ".env.local") });
+
 import {
   Client,
   GatewayIntentBits,
@@ -216,13 +239,13 @@ import {
   type Role,
   type CategoryChannel,
 } from "discord.js";
-import { ROLES, CATEGORIES, RULES_EMBED, ACCEPT_BUTTON, type CategoryDef } from "./discord-config.js";
+import { ROLES, CATEGORIES, RULES_EMBED, ACCEPT_BUTTON, type CategoryDef } from "./config.js";
 
 const TOKEN = process.env.DISCORD_TOKEN;
 const GUILD_ID = process.env.DISCORD_GUILD_ID;
 
 if (!TOKEN || !GUILD_ID) {
-  console.error("Missing DISCORD_TOKEN or DISCORD_GUILD_ID in .env");
+  console.error("Missing DISCORD_TOKEN or DISCORD_GUILD_ID in .env.local");
   process.exit(1);
 }
 
@@ -277,7 +300,6 @@ async function setupCategory(
   const modRole = roleMap.get("Moderator")!;
   const adminRole = roleMap.get("Admin")!;
 
-  // Find or create category
   let category = guild.channels.cache.find(
     (ch) => ch.name === def.name && ch.type === ChannelType.GuildCategory
   ) as CategoryChannel | undefined;
@@ -286,7 +308,6 @@ async function setupCategory(
     const permOverwrites = [];
 
     if (def.visibleTo === "builders") {
-      // Hide from @everyone, show to Builder+
       permOverwrites.push(
         { id: guild.id, deny: [PermissionFlagsBits.ViewChannel] },
         { id: builderRole.id, allow: [PermissionFlagsBits.ViewChannel] },
@@ -295,14 +316,12 @@ async function setupCategory(
         { id: adminRole.id, allow: [PermissionFlagsBits.ViewChannel] },
       );
     } else if (def.visibleTo === "admin") {
-      // Hide from @everyone, show to Mod + Admin
       permOverwrites.push(
         { id: guild.id, deny: [PermissionFlagsBits.ViewChannel] },
         { id: modRole.id, allow: [PermissionFlagsBits.ViewChannel] },
         { id: adminRole.id, allow: [PermissionFlagsBits.ViewChannel] },
       );
     } else {
-      // "everyone" — visible to all (used for ONBOARDING)
       permOverwrites.push(
         { id: guild.id, allow: [PermissionFlagsBits.ViewChannel] },
       );
@@ -319,7 +338,6 @@ async function setupCategory(
     console.log(`  [SKIP] Category "${def.name}" already exists`);
   }
 
-  // Create channels inside category
   for (const chDef of def.channels) {
     const existing = guild.channels.cache.find(
       (ch) => ch.name === chDef.name && ch.parentId === category!.id
@@ -331,7 +349,6 @@ async function setupCategory(
 
     const channelOverwrites = [];
 
-    // Special: #rules — visible to @everyone, hidden from Builder (they already accepted)
     if (chDef.name === "rules") {
       channelOverwrites.push(
         { id: guild.id, allow: [PermissionFlagsBits.ViewChannel], deny: [PermissionFlagsBits.SendMessages] },
@@ -340,12 +357,13 @@ async function setupCategory(
       );
     }
 
-    // Special: #welcome — read-only for members
     if (chDef.name === "welcome") {
       channelOverwrites.push(
         { id: guild.id, deny: [PermissionFlagsBits.ViewChannel] },
         { id: builderRole.id, allow: [PermissionFlagsBits.ViewChannel], deny: [PermissionFlagsBits.SendMessages] },
         { id: foundingRole.id, allow: [PermissionFlagsBits.ViewChannel], deny: [PermissionFlagsBits.SendMessages] },
+        { id: modRole.id, allow: [PermissionFlagsBits.ViewChannel] },
+        { id: adminRole.id, allow: [PermissionFlagsBits.ViewChannel] },
       );
     }
 
@@ -372,7 +390,6 @@ async function postRulesEmbed(guild: Guild): Promise<void> {
     return;
   }
 
-  // Check if embed already posted (bot's last message has the button)
   const messages = await rulesChannel.messages.fetch({ limit: 10 });
   const botMessage = messages.find(
     (m) => m.author.id === client.user!.id && m.components.length > 0
@@ -429,31 +446,35 @@ main().catch((err) => {
 
 - [ ] **Step 2: Verify it compiles**
 
-Run:
+Run from repo root:
 ```bash
-npx tsx --eval "import './scripts/discord-setup.ts'" 2>&1 | head -5
+npx tsx workers/discord-bot/src/setup.ts 2>&1 | head -3
 ```
 
-Note: This will fail at runtime (no real token), but should NOT have TypeScript compilation errors. If you see TS errors, fix them. If you see "Missing DISCORD_TOKEN", that's expected.
+Expected: "Missing DISCORD_TOKEN" error (no real token) — NOT TypeScript errors.
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add scripts/discord-setup.ts
+git add workers/discord-bot/src/setup.ts
 git commit -m "feat(discord): add one-time server setup script"
 ```
 
 ---
 
-### Task 4: Create discord-bot.ts (runtime listener)
+### Task 4: Create index.ts (runtime bot)
 
 **Files:**
-- Create: `scripts/discord-bot.ts`
+- Create: `workers/discord-bot/src/index.ts`
 
-- [ ] **Step 1: Write discord-bot.ts**
+- [ ] **Step 1: Write index.ts**
 
 ```typescript
-import "dotenv/config";
+import path from "node:path";
+import dotenv from "dotenv";
+const rootDir = path.resolve(process.cwd(), "..", "..");
+dotenv.config({ path: path.join(rootDir, ".env.local") });
+
 import {
   Client,
   GatewayIntentBits,
@@ -463,13 +484,13 @@ import {
   type GuildMember,
   type Interaction,
 } from "discord.js";
-import { ACCEPT_BUTTON, WELCOME_MESSAGE_TEMPLATE } from "./discord-config.js";
+import { ACCEPT_BUTTON, WELCOME_MESSAGE_TEMPLATE } from "./config.js";
 
 const TOKEN = process.env.DISCORD_TOKEN;
 const GUILD_ID = process.env.DISCORD_GUILD_ID;
 
 if (!TOKEN || !GUILD_ID) {
-  console.error("Missing DISCORD_TOKEN or DISCORD_GUILD_ID in .env");
+  console.error("Missing DISCORD_TOKEN or DISCORD_GUILD_ID in .env.local");
   process.exit(1);
 }
 
@@ -515,7 +536,6 @@ client.on(Events.InteractionCreate, async (interaction: Interaction) => {
     return;
   }
 
-  // Check if already has Builder role
   if (member.roles.cache.has(builderRole.id)) {
     await interaction.reply({ content: "You're already a member!", ephemeral: true });
     return;
@@ -525,7 +545,6 @@ client.on(Events.InteractionCreate, async (interaction: Interaction) => {
     await member.roles.add(builderRole, "Accepted rules via onboarding button");
     await interaction.reply({ content: "Welcome aboard! You now have access to all channels.", ephemeral: true });
 
-    // Send welcome message
     const welcomeChannel = getChannel("welcome");
     if (welcomeChannel) {
       await welcomeChannel.send(WELCOME_MESSAGE_TEMPLATE(member.id));
@@ -564,27 +583,54 @@ client.login(TOKEN);
 
 - [ ] **Step 2: Verify it compiles**
 
-Run:
+Run from repo root:
 ```bash
-npx tsx --eval "import './scripts/discord-bot.ts'" 2>&1 | head -5
+npx tsx workers/discord-bot/src/index.ts 2>&1 | head -3
 ```
 
-Same as before — expect runtime error for missing token, NOT TypeScript errors.
+Expected: "Missing DISCORD_TOKEN" error — NOT TypeScript errors.
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add scripts/discord-bot.ts
+git add workers/discord-bot/src/index.ts
 git commit -m "feat(discord): add runtime bot with onboarding, welcome, and logging"
 ```
 
 ---
 
-### Task 5: Test the full flow locally
+### Task 5: Add Railway env template
+
+**Files:**
+- Create: `infra/railway/env/discord-bot.env.example`
+
+- [ ] **Step 1: Create Railway env template**
+
+Create `infra/railway/env/discord-bot.env.example`:
+
+```env
+# Discord Bot — Frinter Core community server
+DISCORD_TOKEN=
+DISCORD_GUILD_ID=
+# DISCORD_WEBHOOK_URL is used by scripts/notifier.ts (GEO Monitor), not by this bot
+```
+
+- [ ] **Step 2: Commit**
+
+```bash
+git add infra/railway/env/discord-bot.env.example
+git commit -m "chore: add Railway env template for discord bot"
+```
+
+---
+
+### Task 6: Test the full flow locally
 
 **Files:** None (manual testing)
 
-**Prerequisites:** User must have `DISCORD_TOKEN` and `DISCORD_GUILD_ID` set in `.env`.
+**Prerequisites:**
+- `DISCORD_TOKEN` and `DISCORD_GUILD_ID` set in `.env.local`
+- **Privileged Gateway Intent:** In the [Discord Developer Portal](https://discord.com/developers/applications), go to your bot's settings → Bot → Privileged Gateway Intents → enable **Server Members Intent**. Without this, `GuildMemberAdd` and `GuildMemberRemove` events will silently fail (no join/leave logs).
 
 - [ ] **Step 1: Run the setup script**
 
@@ -656,71 +702,8 @@ In Discord (with an alt account or by removing your Builder role):
 
 - [ ] **Step 5: Commit any fixes**
 
-If any adjustments were needed during testing, commit them:
+If any adjustments were needed during testing:
 ```bash
-git add scripts/discord-*.ts
+git add workers/discord-bot/
 git commit -m "fix(discord): adjustments from local testing"
-```
-
----
-
-### Task 6: Add Railway env template for discord bot
-
-**Files:**
-- Create: `infra/railway/env/discord-bot.env.example`
-
-- [ ] **Step 1: Create Railway env template**
-
-Create `infra/railway/env/discord-bot.env.example`:
-
-```env
-# Discord Bot — Frinter Core community server
-DISCORD_TOKEN=
-DISCORD_GUILD_ID=
-```
-
-- [ ] **Step 2: Commit**
-
-```bash
-git add infra/railway/env/discord-bot.env.example
-git commit -m "chore: add Railway env template for discord bot"
-```
-
----
-
-### Task 7: Final verification and cleanup
-
-- [ ] **Step 1: Run setup idempotency test one more time**
-
-```bash
-npm run discord:setup
-```
-
-All `[SKIP]` — no duplicates.
-
-- [ ] **Step 2: Verify bot starts and connects**
-
-```bash
-npm run discord:bot
-```
-
-Bot logs `online` message. Ctrl+C to stop.
-
-- [ ] **Step 3: Verify no TypeScript errors across all scripts**
-
-```bash
-npx tsx --eval "import './scripts/discord-config.js'" && echo "config OK"
-npx tsx --eval "import './scripts/discord-setup.js'" 2>&1 | head -1
-npx tsx --eval "import './scripts/discord-bot.js'" 2>&1 | head -1
-```
-
-No TS compilation errors.
-
-- [ ] **Step 4: Final commit if any loose changes**
-
-```bash
-git status
-# If any uncommitted changes:
-git add scripts/discord-*.ts infra/railway/env/discord-bot.env.example
-git commit -m "chore(discord): final cleanup"
 ```
