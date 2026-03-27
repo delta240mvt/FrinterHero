@@ -912,7 +912,7 @@ git add docs/deployment/cloudflare-native-migration-runbook.md
 git commit -m "docs: add cutover readiness checklist for cloudflare migration"
 ```
 
-**Completed:** 2026-03-27 — commit SHA: <!-- to be filled after commit -->
+**Completed:** 2026-03-27 — commit SHA: fd67f49
 
 ## Execution Notes
 
