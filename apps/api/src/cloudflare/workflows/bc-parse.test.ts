@@ -145,3 +145,47 @@ test('executeBcParseWorkflow reserves, executes, and finalizes the job', async (
   assert.deepEqual(db.jobs[0].progress, { stage: 'finalized' });
   assert.equal((db.jobs[0].result as Record<string, unknown>).status, 'completed');
 });
+
+test('executeBcParseWorkflow handles execution failure', async () => {
+  const db = new FakeCloudflareDb([
+    {
+      attemptCount: 0,
+      createdAt: new Date('2026-03-27T10:00:00.000Z'),
+      id: 43,
+      payload: { projectId: 1 },
+      progress: {},
+      result: null,
+      siteId: 7,
+      status: 'pending',
+      topic: 'bc-parse',
+      type: 'bc-parse',
+      updatedAt: new Date('2026-03-27T10:00:00.000Z'),
+    },
+  ]);
+  const step = new FakeWorkflowStep();
+  const executionError = new Error('LLM call failed');
+
+  await assert.rejects(
+    () =>
+      executeBcParseWorkflow(
+        {
+          jobId: '43',
+          payload: { projectId: 1 },
+          siteId: 7,
+          siteSlug: 'frinter',
+          topic: 'bc-parse',
+        },
+        {
+          db: db as any,
+          runBcParseJob: async () => {
+            throw executionError;
+          },
+          step,
+        },
+      ),
+    executionError,
+  );
+
+  assert.ok(step.calls.includes('finalize'));
+  assert.equal((db.jobs[0].status as string), 'failed');
+});

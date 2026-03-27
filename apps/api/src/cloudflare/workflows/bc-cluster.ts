@@ -6,19 +6,35 @@ import { appJobs } from '../../../../../src/db/schema.ts';
 import { buildWorkflowFailureResult, buildWorkflowSuccessResult } from '../../../../../src/lib/cloudflare/workflow-results.ts';
 import type { JobQueueMessage } from '../../../../../src/lib/cloudflare/job-payloads.ts';
 import { runBcClusterJob, type BcClusterResult } from '../../../../../src/lib/jobs/bc-cluster.ts';
+import { callBcLlm, type BcLlmCallOptions } from '../../../../../src/lib/bc-llm-client.ts';
 
 type BcClusterQueueMessage = JobQueueMessage<{ projectId: number; iterationId: number | null }>;
 export type BcClusterWorkflowMessage = BcClusterQueueMessage;
 
 type WorkflowStepLike = Pick<CloudflareWorkflowStep, 'do'>;
 
-interface BcClusterWorkflowEnv {}
+interface BcClusterWorkflowEnv {
+  OPENROUTER_API_KEY?: string;
+  ANTHROPIC_API_KEY?: string;
+}
 
 interface BcClusterWorkflowDeps {
   db?: any;
   env?: BcClusterWorkflowEnv;
-  runBcClusterJob?: (options: Parameters<typeof runBcClusterJob>[0], overrides: Record<string, unknown>) => Promise<BcClusterResult>;
+  runBcClusterJob?: (options: Parameters<typeof runBcClusterJob>[0], overrides: Parameters<typeof runBcClusterJob>[1]) => Promise<BcClusterResult>;
   step: WorkflowStepLike;
+}
+
+function createBcCallLlm(env: BcClusterWorkflowEnv): typeof callBcLlm {
+  return async (options: BcLlmCallOptions) => {
+    if (env.OPENROUTER_API_KEY) {
+      process.env.OPENROUTER_API_KEY = env.OPENROUTER_API_KEY;
+    }
+    if (env.ANTHROPIC_API_KEY) {
+      process.env.ANTHROPIC_API_KEY = env.ANTHROPIC_API_KEY;
+    }
+    return callBcLlm(options);
+  };
 }
 
 type WorkflowEntrypointConstructor<TEnv> = abstract new (_ctx: unknown, env: TEnv) => {
@@ -91,6 +107,7 @@ export async function executeBcClusterWorkflow(message: BcClusterQueueMessage, d
         },
         {
           db,
+          callLlm: createBcCallLlm(deps.env ?? {}),
         },
       );
     });

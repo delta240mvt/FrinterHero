@@ -143,3 +143,47 @@ test('executeBcSelectorWorkflow reserves, executes, and finalizes the job', asyn
   assert.deepEqual(db.jobs[0].progress, { stage: 'finalized' });
   assert.equal((db.jobs[0].result as Record<string, unknown>).status, 'completed');
 });
+
+test('executeBcSelectorWorkflow handles execution failure', async () => {
+  const db = new FakeCloudflareDb([
+    {
+      attemptCount: 0,
+      createdAt: new Date('2026-03-27T10:00:00.000Z'),
+      id: 44,
+      payload: { projectId: 1, iterationId: 3 },
+      progress: {},
+      result: null,
+      siteId: 7,
+      status: 'pending',
+      topic: 'bc-selector',
+      type: 'bc-selector',
+      updatedAt: new Date('2026-03-27T10:00:00.000Z'),
+    },
+  ]);
+  const step = new FakeWorkflowStep();
+  const executionError = new Error('LLM call failed');
+
+  await assert.rejects(
+    () =>
+      executeBcSelectorWorkflow(
+        {
+          jobId: '44',
+          payload: { projectId: 1, iterationId: 3 },
+          siteId: 7,
+          siteSlug: 'frinter',
+          topic: 'bc-selector',
+        },
+        {
+          db: db as any,
+          runBcSelectorJob: async () => {
+            throw executionError;
+          },
+          step,
+        },
+      ),
+    executionError,
+  );
+
+  assert.ok(step.calls.includes('finalize'));
+  assert.equal((db.jobs[0].status as string), 'failed');
+});

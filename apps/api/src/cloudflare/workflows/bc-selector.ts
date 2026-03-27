@@ -6,19 +6,35 @@ import { appJobs } from '../../../../../src/db/schema.ts';
 import { buildWorkflowFailureResult, buildWorkflowSuccessResult } from '../../../../../src/lib/cloudflare/workflow-results.ts';
 import type { JobQueueMessage } from '../../../../../src/lib/cloudflare/job-payloads.ts';
 import { runBcSelectorJob, type BcSelectorResult } from '../../../../../src/lib/jobs/bc-selector.ts';
+import { callBcLlm, type BcLlmCallOptions } from '../../../../../src/lib/bc-llm-client.ts';
 
 type BcSelectorQueueMessage = JobQueueMessage<{ projectId: number; iterationId: number }>;
 export type BcSelectorWorkflowMessage = BcSelectorQueueMessage;
 
 type WorkflowStepLike = Pick<CloudflareWorkflowStep, 'do'>;
 
-interface BcSelectorWorkflowEnv {}
+interface BcSelectorWorkflowEnv {
+  OPENROUTER_API_KEY?: string;
+  ANTHROPIC_API_KEY?: string;
+}
 
 interface BcSelectorWorkflowDeps {
   db?: any;
   env?: BcSelectorWorkflowEnv;
-  runBcSelectorJob?: (options: Parameters<typeof runBcSelectorJob>[0], overrides: Record<string, unknown>) => Promise<BcSelectorResult>;
+  runBcSelectorJob?: (options: Parameters<typeof runBcSelectorJob>[0], overrides: Parameters<typeof runBcSelectorJob>[1]) => Promise<BcSelectorResult>;
   step: WorkflowStepLike;
+}
+
+function createBcCallLlm(env: BcSelectorWorkflowEnv): typeof callBcLlm {
+  return async (options: BcLlmCallOptions) => {
+    if (env.OPENROUTER_API_KEY) {
+      process.env.OPENROUTER_API_KEY = env.OPENROUTER_API_KEY;
+    }
+    if (env.ANTHROPIC_API_KEY) {
+      process.env.ANTHROPIC_API_KEY = env.ANTHROPIC_API_KEY;
+    }
+    return callBcLlm(options);
+  };
 }
 
 type WorkflowEntrypointConstructor<TEnv> = abstract new (_ctx: unknown, env: TEnv) => {
@@ -91,6 +107,7 @@ export async function executeBcSelectorWorkflow(message: BcSelectorQueueMessage,
         },
         {
           db,
+          callLlm: createBcCallLlm(deps.env ?? {}),
         },
       );
     });

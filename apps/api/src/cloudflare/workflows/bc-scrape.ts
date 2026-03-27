@@ -6,6 +6,7 @@ import { appJobs } from '../../../../../src/db/schema.ts';
 import { buildWorkflowFailureResult, buildWorkflowSuccessResult } from '../../../../../src/lib/cloudflare/workflow-results.ts';
 import type { JobQueueMessage } from '../../../../../src/lib/cloudflare/job-payloads.ts';
 import { runBcScrapeJob, type BcScrapeResult } from '../../../../../src/lib/jobs/bc-scrape.ts';
+import { callBcLlm, type BcLlmCallOptions } from '../../../../../src/lib/bc-llm-client.ts';
 
 type BcScrapeQueueMessage = JobQueueMessage<{ projectId: number; videoId: number }>;
 export type BcScrapeWorkflowMessage = BcScrapeQueueMessage;
@@ -14,13 +15,27 @@ type WorkflowStepLike = Pick<CloudflareWorkflowStep, 'do'>;
 
 interface BcScrapeWorkflowEnv {
   YOUTUBE_API_KEY?: string;
+  OPENROUTER_API_KEY?: string;
+  ANTHROPIC_API_KEY?: string;
 }
 
 interface BcScrapeWorkflowDeps {
   db?: any;
   env?: BcScrapeWorkflowEnv;
-  runBcScrapeJob?: (options: Parameters<typeof runBcScrapeJob>[0], overrides: Record<string, unknown>) => Promise<BcScrapeResult>;
+  runBcScrapeJob?: (options: Parameters<typeof runBcScrapeJob>[0], overrides: Parameters<typeof runBcScrapeJob>[1]) => Promise<BcScrapeResult>;
   step: WorkflowStepLike;
+}
+
+function createBcCallLlm(env: BcScrapeWorkflowEnv): typeof callBcLlm {
+  return async (options: BcLlmCallOptions) => {
+    if (env.OPENROUTER_API_KEY) {
+      process.env.OPENROUTER_API_KEY = env.OPENROUTER_API_KEY;
+    }
+    if (env.ANTHROPIC_API_KEY) {
+      process.env.ANTHROPIC_API_KEY = env.ANTHROPIC_API_KEY;
+    }
+    return callBcLlm(options);
+  };
 }
 
 type WorkflowEntrypointConstructor<TEnv> = abstract new (_ctx: unknown, env: TEnv) => {
@@ -97,6 +112,7 @@ export async function executeBcScrapeWorkflow(message: BcScrapeQueueMessage, dep
         {
           db,
           fetchImpl: fetch,
+          callLlm: createBcCallLlm(deps.env ?? {}),
           logger: console,
         },
       );

@@ -144,3 +144,47 @@ test('executeBcScrapeWorkflow reserves, executes, and finalizes the job', async 
   assert.deepEqual(db.jobs[0].progress, { stage: 'finalized' });
   assert.equal((db.jobs[0].result as Record<string, unknown>).status, 'completed');
 });
+
+test('executeBcScrapeWorkflow handles execution failure', async () => {
+  const db = new FakeCloudflareDb([
+    {
+      attemptCount: 0,
+      createdAt: new Date('2026-03-27T10:00:00.000Z'),
+      id: 42,
+      payload: { projectId: 1, videoId: 2 },
+      progress: {},
+      result: null,
+      siteId: 7,
+      status: 'pending',
+      topic: 'bc-scrape',
+      type: 'bc-scrape',
+      updatedAt: new Date('2026-03-27T10:00:00.000Z'),
+    },
+  ]);
+  const step = new FakeWorkflowStep();
+  const executionError = new Error('YouTube API failed');
+
+  await assert.rejects(
+    () =>
+      executeBcScrapeWorkflow(
+        {
+          jobId: '42',
+          payload: { projectId: 1, videoId: 2 },
+          siteId: 7,
+          siteSlug: 'frinter',
+          topic: 'bc-scrape',
+        },
+        {
+          db: db as any,
+          runBcScrapeJob: async () => {
+            throw executionError;
+          },
+          step,
+        },
+      ),
+    executionError,
+  );
+
+  assert.ok(step.calls.includes('finalize'));
+  assert.equal((db.jobs[0].status as string), 'failed');
+});
