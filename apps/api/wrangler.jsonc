@@ -72,6 +72,21 @@
       "name": "frinter-api-bc-generate",
       "binding": "BC_GENERATE_WORKFLOW",
       "class_name": "BcGenerateWorkflow"
+    },
+    {
+      "name": "frinter-api-sh-copy",
+      "binding": "SH_COPY_WORKFLOW",
+      "class_name": "ShCopyWorkflow"
+    },
+    {
+      "name": "frinter-api-sh-video",
+      "binding": "SH_VIDEO_WORKFLOW",
+      "class_name": "ShVideoWorkflow"
+    },
+    {
+      "name": "frinter-api-sh-publish",
+      "binding": "SH_PUBLISH_WORKFLOW",
+      "class_name": "ShPublishWorkflow"
     }
   ]
 }

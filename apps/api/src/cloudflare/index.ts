@@ -9,8 +9,11 @@ import { BcParseWorkflow, startBcParseWorkflow, type BcParseWorkflowBinding } fr
 import { BcSelectorWorkflow, startBcSelectorWorkflow, type BcSelectorWorkflowBinding } from './workflows/bc-selector.ts';
 import { BcClusterWorkflow, startBcClusterWorkflow, type BcClusterWorkflowBinding } from './workflows/bc-cluster.ts';
 import { BcGenerateWorkflow, startBcGenerateWorkflow, type BcGenerateWorkflowBinding } from './workflows/bc-generate.ts';
+import { ShCopyWorkflow, startShCopyWorkflow, type ShCopyWorkflowBinding } from './workflows/sh-copy.ts';
+import { ShVideoWorkflow, startShVideoWorkflow, type ShVideoWorkflowBinding } from './workflows/sh-video.ts';
+import { ShPublishWorkflow, startShPublishWorkflow, type ShPublishWorkflowBinding } from './workflows/sh-publish.ts';
 
-const WORKER_QUEUE_TOPICS = ['geo', 'reddit', 'youtube', 'bc-scrape', 'bc-parse', 'bc-selector', 'bc-cluster', 'bc-generate'] as const;
+const WORKER_QUEUE_TOPICS = ['geo', 'reddit', 'youtube', 'bc-scrape', 'bc-parse', 'bc-selector', 'bc-cluster', 'bc-generate', 'sh-copy', 'sh-video', 'sh-publish'] as const;
 
 interface WorkerEnv extends Partial<ApiEnv> {
   GEO_RUN_WORKFLOW?: GeoRunWorkflowBinding;
@@ -21,6 +24,9 @@ interface WorkerEnv extends Partial<ApiEnv> {
   BC_SELECTOR_WORKFLOW?: BcSelectorWorkflowBinding;
   BC_CLUSTER_WORKFLOW?: BcClusterWorkflowBinding;
   BC_GENERATE_WORKFLOW?: BcGenerateWorkflowBinding;
+  SH_COPY_WORKFLOW?: ShCopyWorkflowBinding;
+  SH_VIDEO_WORKFLOW?: ShVideoWorkflowBinding;
+  SH_PUBLISH_WORKFLOW?: ShPublishWorkflowBinding;
 }
 
 function json(status: number, body: unknown): Response {
@@ -59,7 +65,10 @@ const worker = {
       !env.BC_PARSE_WORKFLOW ||
       !env.BC_SELECTOR_WORKFLOW ||
       !env.BC_CLUSTER_WORKFLOW ||
-      !env.BC_GENERATE_WORKFLOW
+      !env.BC_GENERATE_WORKFLOW ||
+      !env.SH_COPY_WORKFLOW ||
+      !env.SH_VIDEO_WORKFLOW ||
+      !env.SH_PUBLISH_WORKFLOW
     ) {
       throw new Error('Missing Cloudflare workflow bindings');
     }
@@ -72,6 +81,9 @@ const worker = {
     const bcSelectorWorkflow = env.BC_SELECTOR_WORKFLOW;
     const bcClusterWorkflow = env.BC_CLUSTER_WORKFLOW;
     const bcGenerateWorkflow = env.BC_GENERATE_WORKFLOW;
+    const shCopyWorkflow = env.SH_COPY_WORKFLOW;
+    const shVideoWorkflow = env.SH_VIDEO_WORKFLOW;
+    const shPublishWorkflow = env.SH_PUBLISH_WORKFLOW;
 
     await handleJobQueueBatch(
       batch as Parameters<typeof handleJobQueueBatch>[0],
@@ -100,14 +112,14 @@ const worker = {
         startBcGenerateWorkflow(message) {
           return startBcGenerateWorkflow(bcGenerateWorkflow, message as Parameters<typeof startBcGenerateWorkflow>[1]);
         },
-        async startShCopyWorkflow() {
-          throw new Error('Workflow starter not implemented for topic: sh-copy');
+        startShCopyWorkflow(message) {
+          return startShCopyWorkflow(shCopyWorkflow, message as Parameters<typeof startShCopyWorkflow>[1]);
         },
-        async startShVideoWorkflow() {
-          throw new Error('Workflow starter not implemented for topic: sh-video');
+        startShVideoWorkflow(message) {
+          return startShVideoWorkflow(shVideoWorkflow, message as Parameters<typeof startShVideoWorkflow>[1]);
         },
-        async startShPublishWorkflow() {
-          throw new Error('Workflow starter not implemented for topic: sh-publish');
+        startShPublishWorkflow(message) {
+          return startShPublishWorkflow(shPublishWorkflow, message as Parameters<typeof startShPublishWorkflow>[1]);
         },
       },
       {
@@ -121,4 +133,4 @@ const worker = {
 };
 
 export default worker;
-export { GeoRunWorkflow, RedditRunWorkflow, YoutubeRunWorkflow, BcScrapeWorkflow, BcParseWorkflow, BcSelectorWorkflow, BcClusterWorkflow, BcGenerateWorkflow };
+export { GeoRunWorkflow, RedditRunWorkflow, YoutubeRunWorkflow, BcScrapeWorkflow, BcParseWorkflow, BcSelectorWorkflow, BcClusterWorkflow, BcGenerateWorkflow, ShCopyWorkflow, ShVideoWorkflow, ShPublishWorkflow };
