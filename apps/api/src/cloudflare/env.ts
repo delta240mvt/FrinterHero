@@ -13,6 +13,7 @@ export interface QueueBinding<Message = unknown> {
 export interface ApiEnv {
   APP_ENV: string;
   API_BASE_URL: string;
+  NODE_API_URL: string;
   FRINTER_HOST: string;
   FOCUS_HOST: string;
   PRZEM_HOST: string;
@@ -44,6 +45,7 @@ export function readApiEnv(env: Partial<ApiEnv>): ApiEnv {
   return {
     APP_ENV: env.APP_ENV ?? 'development',
     API_BASE_URL: env.API_BASE_URL!,
+    NODE_API_URL: env.NODE_API_URL ?? '',
     FRINTER_HOST: env.FRINTER_HOST ?? 'frinter.pl',
     FOCUS_HOST: env.FOCUS_HOST ?? 'focusequalsfreedom.com',
     PRZEM_HOST: env.PRZEM_HOST ?? 'przemyslawfilipiak.com',

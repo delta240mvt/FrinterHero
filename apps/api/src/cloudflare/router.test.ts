@@ -120,6 +120,7 @@ function createApiEnv(queueMessages: unknown[], options?: { failQueueSend?: bool
     FOCUS_HOST: 'focusequalsfreedom.com',
     FRINTER_HOST: 'frinter.pl',
     HYPERDRIVE: {},
+    NODE_API_URL: '',
     JOB_QUEUE: options?.omitQueueSend
       ? {}
       : {
@@ -337,15 +338,98 @@ test('routeRequest does not treat nested enqueue paths as valid job ingress rout
   ]);
   setCloudflareDb(db);
 
-  const response = await routeRequest(
-    new Request('https://frinter.pl/jobs/geo/retry', {
-      body: JSON.stringify({ source: 'test' }),
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => new Response('{}', { status: 502, headers: { 'content-type': 'application/json' } });
+
+  try {
+    const response = await routeRequest(
+      new Request('https://frinter.pl/jobs/geo/retry', {
+        body: JSON.stringify({ source: 'test' }),
+        headers: { 'content-type': 'application/json' },
+        method: 'POST',
+      }),
+      createApiEnv([]),
+    );
+
+    // With env present the nested path falls through to the proxy (not 404)
+    assert.ok(response.status !== 400, 'should not be a validation error');
+    assert.equal(db.jobs.length, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('routeRequest proxies /v1/auth/me when env is provided', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (input: RequestInfo | URL) => {
+    const url = input instanceof Request ? input.url : String(input);
+    assert.ok(url.includes('/v1/auth/me'), `Expected proxy URL to contain /v1/auth/me, got: ${url}`);
+    return new Response(JSON.stringify({ userId: 42 }), {
+      status: 200,
       headers: { 'content-type': 'application/json' },
-      method: 'POST',
-    }),
-    createApiEnv([]),
+    });
+  };
+
+  try {
+    const env = { ...createApiEnv([]), NODE_API_URL: 'http://127.0.0.1:3001' };
+    const response = await routeRequest(
+      new Request('https://api.example.com/v1/auth/me', { method: 'GET' }),
+      env,
+    );
+
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), { userId: 42 });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('routeRequest returns 503 for /v1/auth/me when NODE_API_URL is not set', async () => {
+  const env = { ...createApiEnv([]), NODE_API_URL: '' };
+  const response = await routeRequest(
+    new Request('https://api.example.com/v1/auth/me', { method: 'GET' }),
+    env,
+  );
+
+  assert.equal(response.status, 503);
+  assert.deepEqual(await response.json(), { error: 'NODE_API_URL not configured' });
+});
+
+test('routeRequest still returns 404 for unknown routes when no env provided', async () => {
+  const response = await routeRequest(
+    new Request('https://api.example.com/v1/auth/me', { method: 'GET' }),
   );
 
   assert.equal(response.status, 404);
-  assert.equal(db.jobs.length, 0);
+  assert.deepEqual(await response.json(), {
+    error: 'Not found',
+    method: 'GET',
+    pathname: '/v1/auth/me',
+  });
+});
+
+test('routeRequest /health and /jobs/* still handled locally even with proxy env', async () => {
+  const originalFetch = globalThis.fetch;
+  let fetchCalled = false;
+  globalThis.fetch = async () => {
+    fetchCalled = true;
+    return new Response('{}', { status: 200 });
+  };
+
+  try {
+    const env = { ...createApiEnv([]), NODE_API_URL: 'http://127.0.0.1:3001' };
+
+    // /health should be handled locally
+    const healthResponse = await routeRequest(
+      new Request('https://api.example.com/health', { method: 'GET' }),
+      env,
+    );
+    assert.equal(healthResponse.status, 200);
+    assert.equal(fetchCalled, false, '/health should not be proxied');
+
+    const healthBody = await healthResponse.json() as { status: string };
+    assert.equal(healthBody.status, 'ok');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });

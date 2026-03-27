@@ -1,6 +1,7 @@
 import type { ApiEnv } from './env.ts';
 import { handleJobEnqueue } from './jobs/enqueue.ts';
 import { handleJobStatus } from './jobs/status.ts';
+import { proxyToNodeApi } from './routes/proxy.ts';
 
 function json(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -32,6 +33,10 @@ export async function routeRequest(request: Request, _env?: ApiEnv): Promise<Res
     if (statusResponse) {
       return statusResponse;
     }
+  }
+
+  if (_env) {
+    return proxyToNodeApi(request, _env);
   }
 
   return json(404, {
