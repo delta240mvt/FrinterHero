@@ -3,6 +3,7 @@ import {
   type JobTopic,
   validateJobExecutionContext,
 } from '../../../../../src/lib/cloudflare/job-payloads.ts';
+import type { CloudflareSiteSlug } from '../../../../../src/lib/cloudflare/bindings.ts';
 
 const SUPPORTED_TOPICS = new Set<JobTopic>([
   'geo',
@@ -16,6 +17,11 @@ const SUPPORTED_TOPICS = new Set<JobTopic>([
   'sh-copy',
   'sh-video',
   'sh-publish',
+]);
+const SUPPORTED_SITE_SLUGS = new Set<CloudflareSiteSlug>([
+  'frinter',
+  'focusequalsfreedom',
+  'przemyslawfilipiak',
 ]);
 
 export interface JobQueueMessageLike<TBody = unknown> {
@@ -49,6 +55,18 @@ function parseJobTopic(value: unknown): JobTopic {
   return value as JobTopic;
 }
 
+function parseSiteSlug(value: unknown): CloudflareSiteSlug {
+  if (typeof value !== 'string' || !value.trim()) {
+    throw new Error('siteSlug is required');
+  }
+
+  if (!SUPPORTED_SITE_SLUGS.has(value as CloudflareSiteSlug)) {
+    throw new Error(`Unsupported siteSlug: ${value}`);
+  }
+
+  return value as CloudflareSiteSlug;
+}
+
 export function parseJobQueueMessage(value: unknown): JobQueueMessage {
   if (!value || typeof value !== 'object') {
     throw new Error('Queue message body must be an object');
@@ -56,11 +74,12 @@ export function parseJobQueueMessage(value: unknown): JobQueueMessage {
 
   const message = value as Partial<JobQueueMessage>;
   const topic = parseJobTopic(message.topic);
+  const siteSlug = parseSiteSlug(message.siteSlug);
   const parsed = validateJobExecutionContext({
     jobId: String(message.jobId ?? ''),
     payload: message.payload,
     siteId: Number(message.siteId),
-    siteSlug: message.siteSlug as JobQueueMessage['siteSlug'],
+    siteSlug,
     topic,
   });
 

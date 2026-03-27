@@ -74,7 +74,18 @@ function createDeps(recorded: Array<{ starter: string; message: JobQueueMessage 
 test('parseJobQueueMessage validates the shared queue message contract', () => {
   const parsed = parseJobQueueMessage(createMessage('geo'));
   assert.deepEqual(parsed, createMessage('geo'));
-  assert.throws(() => parseJobQueueMessage({ topic: 'geo' }), /jobId is required/);
+  assert.throws(
+    () => parseJobQueueMessage({ ...createMessage('geo'), jobId: '' }),
+    /jobId is required/,
+  );
+  assert.throws(
+    () => parseJobQueueMessage({ ...createMessage('geo'), siteSlug: '' }),
+    /siteSlug is required/,
+  );
+  assert.throws(
+    () => parseJobQueueMessage({ ...createMessage('geo'), siteSlug: 'unknown-site' }),
+    /Unsupported siteSlug: unknown-site/,
+  );
   assert.throws(
     () => parseJobQueueMessage({ ...createMessage('geo'), topic: 'not-real' }),
     /Unsupported job topic: not-real/,
