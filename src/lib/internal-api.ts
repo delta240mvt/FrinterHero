@@ -18,11 +18,13 @@ const HOP_BY_HOP_HEADERS = new Set([
 export const JSON_HEADERS = { 'Content-Type': 'application/json' } as const;
 
 export function getInternalApiBaseUrl() {
-  return process.env.API_BASE_URL ?? DEFAULT_INTERNAL_API_BASE_URL;
+  // Use import.meta.env for Cloudflare Workers / Vite SSR compatibility.
+  // process.env is not available at runtime in Cloudflare Workers.
+  return (import.meta.env?.API_BASE_URL as string | undefined) ?? DEFAULT_INTERNAL_API_BASE_URL;
 }
 
 export function getCurrentSiteSlug() {
-  return process.env.SITE_SLUG ?? 'przemyslawfilipiak';
+  return (import.meta.env?.SITE_SLUG as string | undefined) ?? 'przemyslawfilipiak';
 }
 
 export function parseCookieHeader(cookieHeader: string | null | undefined) {

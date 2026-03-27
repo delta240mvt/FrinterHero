@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'astro/config';
-import node from '@astrojs/node';
+import cloudflare from '@astrojs/cloudflare';
 import tailwind from '@astrojs/tailwind';
 
 const appDir = path.dirname(fileURLToPath(import.meta.url));
@@ -9,11 +9,7 @@ const repoRoot = path.resolve(appDir, '..', '..');
 
 export default defineConfig({
   output: 'hybrid',
-  server: {
-    host: true,
-    port: process.env.PORT ? parseInt(process.env.PORT, 10) : 4321,
-  },
-  adapter: node({ mode: 'standalone' }),
+  adapter: cloudflare({}),
   integrations: [tailwind({ configFile: './tailwind.config.mjs' })],
   vite: {
     define: {
@@ -27,6 +23,6 @@ export default defineConfig({
         { find: '@', replacement: path.resolve(appDir, 'src') },
       ],
     },
-    ssr: { noExternal: ['drizzle-orm'] },
+    ssr: { noExternal: ['drizzle-orm'], external: ['node:*'] },
   },
 });
