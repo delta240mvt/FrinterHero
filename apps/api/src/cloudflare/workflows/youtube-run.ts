@@ -1,3 +1,4 @@
+/// <reference path="../workers-runtime.d.ts" />
 import OpenAI from 'openai';
 import { and, eq } from 'drizzle-orm';
 
@@ -8,11 +9,9 @@ import type { JobQueueMessage } from '../../../../../src/lib/cloudflare/job-payl
 import { runYoutubeScraperJob, type YoutubeScraperOptions, type YoutubeScraperResult } from '../../../../../src/lib/jobs/youtube.ts';
 
 type YoutubeQueueMessage = JobQueueMessage<Record<string, unknown>>;
+export type YoutubeRunWorkflowMessage = YoutubeQueueMessage;
 
-interface WorkflowStepLike {
-  do<T>(name: string, callback: () => Promise<T>): Promise<T>;
-  do<T>(name: string, options: unknown, callback: () => Promise<T>): Promise<T>;
-}
+type WorkflowStepLike = Pick<CloudflareWorkflowStep, 'do'>;
 
 interface YoutubeWorkflowEnv {
   OPENROUTER_API_KEY?: string;
@@ -26,13 +25,18 @@ interface YoutubeWorkflowDeps {
   step: WorkflowStepLike;
 }
 
-class WorkflowEntrypointShim<TEnv> {
-  protected readonly env: TEnv;
+type WorkflowEntrypointConstructor<TEnv> = abstract new (_ctx: unknown, env: TEnv) => {
+  readonly env: TEnv;
+};
 
-  constructor(_ctx: unknown, env: TEnv) {
-    this.env = env;
-  }
-}
+const WorkflowEntrypointBase = (((globalThis as Record<string, unknown>).WorkflowEntrypoint as WorkflowEntrypointConstructor<YoutubeWorkflowEnv> | undefined) ??
+  class {
+    readonly env: YoutubeWorkflowEnv;
+
+    constructor(_ctx: unknown, env: YoutubeWorkflowEnv) {
+      this.env = env;
+    }
+  }) as WorkflowEntrypointConstructor<YoutubeWorkflowEnv>;
 
 function getDb(db?: unknown) {
   return (db ?? getCloudflareDb()) as any;
@@ -202,8 +206,17 @@ export async function executeYoutubeRunWorkflow(message: YoutubeQueueMessage, de
   }
 }
 
-export class YoutubeRunWorkflow extends WorkflowEntrypointShim<YoutubeWorkflowEnv> {
-  async run(event: { payload: YoutubeQueueMessage }, step: WorkflowStepLike) {
+export interface YoutubeRunWorkflowBinding extends Pick<CloudflareWorkflow<YoutubeRunWorkflowMessage>, 'create'> {}
+
+export async function startYoutubeRunWorkflow(binding: YoutubeRunWorkflowBinding, message: YoutubeRunWorkflowMessage) {
+  return binding.create({
+    id: `job-${message.jobId}`,
+    params: message,
+  });
+}
+
+export class YoutubeRunWorkflow extends WorkflowEntrypointBase {
+  async run(event: CloudflareWorkflowEvent<YoutubeRunWorkflowMessage>, step: WorkflowStepLike) {
     return executeYoutubeRunWorkflow(event.payload, {
       env: this.env,
       step,

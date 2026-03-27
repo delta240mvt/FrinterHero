@@ -1,3 +1,4 @@
+/// <reference path="../workers-runtime.d.ts" />
 import OpenAI from 'openai';
 import { and, eq } from 'drizzle-orm';
 
@@ -8,11 +9,9 @@ import type { JobQueueMessage } from '../../../../../src/lib/cloudflare/job-payl
 import { runGeoMonitorJob, type GeoMonitorResult } from '../../../../../src/lib/jobs/geo.ts';
 
 type GeoQueueMessage = JobQueueMessage<Record<string, unknown>>;
+export type GeoRunWorkflowMessage = GeoQueueMessage;
 
-interface WorkflowStepLike {
-  do<T>(name: string, callback: () => Promise<T>): Promise<T>;
-  do<T>(name: string, options: unknown, callback: () => Promise<T>): Promise<T>;
-}
+type WorkflowStepLike = Pick<CloudflareWorkflowStep, 'do'>;
 
 interface GeoWorkflowEnv {
   DISCORD_WEBHOOK_URL?: string;
@@ -26,13 +25,18 @@ interface GeoWorkflowDeps {
   step: WorkflowStepLike;
 }
 
-class WorkflowEntrypointShim<TEnv> {
-  protected readonly env: TEnv;
+type WorkflowEntrypointConstructor<TEnv> = abstract new (_ctx: unknown, env: TEnv) => {
+  readonly env: TEnv;
+};
 
-  constructor(_ctx: unknown, env: TEnv) {
-    this.env = env;
-  }
-}
+const WorkflowEntrypointBase = (((globalThis as Record<string, unknown>).WorkflowEntrypoint as WorkflowEntrypointConstructor<GeoWorkflowEnv> | undefined) ??
+  class {
+    readonly env: GeoWorkflowEnv;
+
+    constructor(_ctx: unknown, env: GeoWorkflowEnv) {
+      this.env = env;
+    }
+  }) as WorkflowEntrypointConstructor<GeoWorkflowEnv>;
 
 function getDb(db?: unknown) {
   return (db ?? getCloudflareDb()) as any;
@@ -210,8 +214,17 @@ export async function executeGeoRunWorkflow(message: GeoQueueMessage, deps: GeoW
   }
 }
 
-export class GeoRunWorkflow extends WorkflowEntrypointShim<GeoWorkflowEnv> {
-  async run(event: { payload: GeoQueueMessage }, step: WorkflowStepLike) {
+export interface GeoRunWorkflowBinding extends Pick<CloudflareWorkflow<GeoRunWorkflowMessage>, 'create'> {}
+
+export async function startGeoRunWorkflow(binding: GeoRunWorkflowBinding, message: GeoRunWorkflowMessage) {
+  return binding.create({
+    id: `job-${message.jobId}`,
+    params: message,
+  });
+}
+
+export class GeoRunWorkflow extends WorkflowEntrypointBase {
+  async run(event: CloudflareWorkflowEvent<GeoRunWorkflowMessage>, step: WorkflowStepLike) {
     return executeGeoRunWorkflow(event.payload, {
       env: this.env,
       step,

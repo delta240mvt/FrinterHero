@@ -1,3 +1,4 @@
+/// <reference path="../workers-runtime.d.ts" />
 import { ApifyClient } from 'apify-client';
 import OpenAI from 'openai';
 import { and, eq } from 'drizzle-orm';
@@ -9,11 +10,9 @@ import type { JobQueueMessage } from '../../../../../src/lib/cloudflare/job-payl
 import { runRedditScraperJob, type RedditScraperOptions, type RedditScraperResult } from '../../../../../src/lib/jobs/reddit.ts';
 
 type RedditQueueMessage = JobQueueMessage<Record<string, unknown>>;
+export type RedditRunWorkflowMessage = RedditQueueMessage;
 
-interface WorkflowStepLike {
-  do<T>(name: string, callback: () => Promise<T>): Promise<T>;
-  do<T>(name: string, options: unknown, callback: () => Promise<T>): Promise<T>;
-}
+type WorkflowStepLike = Pick<CloudflareWorkflowStep, 'do'>;
 
 interface RedditWorkflowEnv {
   APIFY_API_TOKEN?: string;
@@ -27,13 +26,18 @@ interface RedditWorkflowDeps {
   step: WorkflowStepLike;
 }
 
-class WorkflowEntrypointShim<TEnv> {
-  protected readonly env: TEnv;
+type WorkflowEntrypointConstructor<TEnv> = abstract new (_ctx: unknown, env: TEnv) => {
+  readonly env: TEnv;
+};
 
-  constructor(_ctx: unknown, env: TEnv) {
-    this.env = env;
-  }
-}
+const WorkflowEntrypointBase = (((globalThis as Record<string, unknown>).WorkflowEntrypoint as WorkflowEntrypointConstructor<RedditWorkflowEnv> | undefined) ??
+  class {
+    readonly env: RedditWorkflowEnv;
+
+    constructor(_ctx: unknown, env: RedditWorkflowEnv) {
+      this.env = env;
+    }
+  }) as WorkflowEntrypointConstructor<RedditWorkflowEnv>;
 
 function getDb(db?: unknown) {
   return (db ?? getCloudflareDb()) as any;
@@ -196,8 +200,17 @@ export async function executeRedditRunWorkflow(message: RedditQueueMessage, deps
   }
 }
 
-export class RedditRunWorkflow extends WorkflowEntrypointShim<RedditWorkflowEnv> {
-  async run(event: { payload: RedditQueueMessage }, step: WorkflowStepLike) {
+export interface RedditRunWorkflowBinding extends Pick<CloudflareWorkflow<RedditRunWorkflowMessage>, 'create'> {}
+
+export async function startRedditRunWorkflow(binding: RedditRunWorkflowBinding, message: RedditRunWorkflowMessage) {
+  return binding.create({
+    id: `job-${message.jobId}`,
+    params: message,
+  });
+}
+
+export class RedditRunWorkflow extends WorkflowEntrypointBase {
+  async run(event: CloudflareWorkflowEvent<RedditRunWorkflowMessage>, step: WorkflowStepLike) {
     return executeRedditRunWorkflow(event.payload, {
       env: this.env,
       step,
