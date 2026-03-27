@@ -2,27 +2,13 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { CLOUDFLARE_SITE_SLUGS } from '../../../../../src/lib/cloudflare/bindings.ts';
-import type { JobQueueMessage, JobTopic } from '../../../../../src/lib/cloudflare/job-payloads.ts';
+import { JOB_TOPICS, type JobQueueMessage, type JobTopic } from '../../../../../src/lib/cloudflare/job-payloads.ts';
 import {
   handleJobQueueBatch,
   parseJobQueueMessage,
   type JobQueueBatchLike,
   type JobQueueConsumerDeps,
 } from './index.ts';
-
-const SUPPORTED_TOPICS: JobTopic[] = [
-  'geo',
-  'reddit',
-  'youtube',
-  'bc-scrape',
-  'bc-parse',
-  'bc-selector',
-  'bc-cluster',
-  'bc-generate',
-  'sh-copy',
-  'sh-video',
-  'sh-publish',
-];
 
 function createMessage(topic: JobTopic, siteSlug: JobQueueMessage['siteSlug'] = 'frinter'): JobQueueMessage<{ source: string }> {
   return {
@@ -99,7 +85,7 @@ test('handleJobQueueBatch dispatches every supported topic to the matching workf
   const recorded: Array<{ starter: string; message: JobQueueMessage }> = [];
   const acked: string[] = [];
   const batch: JobQueueBatchLike = {
-    messages: SUPPORTED_TOPICS.map((topic) => ({
+    messages: JOB_TOPICS.map((topic) => ({
       ack() {
         acked.push(topic);
       },
@@ -111,9 +97,9 @@ test('handleJobQueueBatch dispatches every supported topic to the matching workf
 
   assert.deepEqual(
     recorded.map((entry) => entry.starter),
-    SUPPORTED_TOPICS,
+    JOB_TOPICS,
   );
-  assert.deepEqual(acked, SUPPORTED_TOPICS);
+  assert.deepEqual(acked, JOB_TOPICS);
 });
 
 test('handleJobQueueBatch rejects unsupported topics loudly and does not ack the bad message', async () => {

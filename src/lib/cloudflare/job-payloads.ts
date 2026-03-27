@@ -1,17 +1,19 @@
 import type { CloudflareSiteSlug } from './bindings.ts';
 
-export type JobTopic =
-  | 'geo'
-  | 'reddit'
-  | 'youtube'
-  | 'bc-scrape'
-  | 'bc-parse'
-  | 'bc-selector'
-  | 'bc-cluster'
-  | 'bc-generate'
-  | 'sh-copy'
-  | 'sh-video'
-  | 'sh-publish';
+export const JOB_TOPICS = [
+  'geo',
+  'reddit',
+  'youtube',
+  'bc-scrape',
+  'bc-parse',
+  'bc-selector',
+  'bc-cluster',
+  'bc-generate',
+  'sh-copy',
+  'sh-video',
+  'sh-publish',
+] as const;
+export type JobTopic = (typeof JOB_TOPICS)[number];
 
 export interface JobExecutionContext {
   jobId: string;

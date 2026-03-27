@@ -1,23 +1,12 @@
 import {
+  JOB_TOPICS,
   type JobQueueMessage,
   type JobTopic,
   validateJobExecutionContext,
 } from '../../../../../src/lib/cloudflare/job-payloads.ts';
 import { CLOUDFLARE_SITE_SLUGS, type CloudflareSiteSlug } from '../../../../../src/lib/cloudflare/bindings.ts';
 
-const SUPPORTED_TOPICS = new Set<JobTopic>([
-  'geo',
-  'reddit',
-  'youtube',
-  'bc-scrape',
-  'bc-parse',
-  'bc-selector',
-  'bc-cluster',
-  'bc-generate',
-  'sh-copy',
-  'sh-video',
-  'sh-publish',
-]);
+const SUPPORTED_TOPICS = new Set<JobTopic>(JOB_TOPICS);
 const SUPPORTED_SITE_SLUGS = new Set<CloudflareSiteSlug>(CLOUDFLARE_SITE_SLUGS);
 
 export interface JobQueueMessageLike<TBody = unknown> {
