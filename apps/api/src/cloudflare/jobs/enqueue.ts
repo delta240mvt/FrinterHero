@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 
 import { getCloudflareDb } from '../../../../../src/db/client.ts';
 import { appJobs, sites } from '../../../../../src/db/schema.ts';
@@ -19,15 +19,19 @@ function json(status: number, body: unknown): Response {
   });
 }
 
-async function readJsonBody(request: Request): Promise<Record<string, unknown>> {
+async function readJsonBody(request: Request): Promise<Record<string, unknown> | Response> {
   const text = await request.text();
 
   if (!text.trim()) {
     return {};
   }
 
-  const parsed = JSON.parse(text);
-  return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+  try {
+    const parsed = JSON.parse(text);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return json(400, { error: 'Invalid JSON body' });
+  }
 }
 
 export async function handleJobEnqueue(request: Request, env: ApiEnv): Promise<Response | null> {
@@ -37,7 +41,10 @@ export async function handleJobEnqueue(request: Request, env: ApiEnv): Promise<R
 
   const url = new URL(request.url);
   const segments = url.pathname.split('/').filter(Boolean);
-  const topic = segments[0] === 'jobs' ? (segments[1] as EnqueueTopic | undefined) : undefined;
+  const topic =
+    segments[0] === 'jobs' && segments.length === 2
+      ? (segments[1] as EnqueueTopic | undefined)
+      : undefined;
 
   if (!topic || !ENQUEUE_TOPICS.has(topic)) {
     return null;
@@ -52,6 +59,10 @@ export async function handleJobEnqueue(request: Request, env: ApiEnv): Promise<R
   }
 
   const payload = await readJsonBody(request);
+  if (payload instanceof Response) {
+    return payload;
+  }
+
   const [job] = await db.insert(appJobs).values({
     payload,
     progress: {},
@@ -61,18 +72,24 @@ export async function handleJobEnqueue(request: Request, env: ApiEnv): Promise<R
   }).returning();
 
   if (!env.JOB_QUEUE.send) {
-    throw new Error('JOB_QUEUE.send is not available');
+    await db.delete(appJobs).where(eq(appJobs.id, job.id));
+    return json(502, { error: 'Failed to enqueue job' });
   }
 
-  await env.JOB_QUEUE.send(
-    buildJobQueueMessage({
-      jobId: String(job.id),
-      payload,
-      siteId: site.id,
-      siteSlug: tenant.siteSlug,
-      topic,
-    }),
-  );
+  try {
+    await env.JOB_QUEUE.send(
+      buildJobQueueMessage({
+        jobId: String(job.id),
+        payload,
+        siteId: site.id,
+        siteSlug: tenant.siteSlug,
+        topic,
+      }),
+    );
+  } catch {
+    await db.delete(appJobs).where(and(eq(appJobs.id, job.id), eq(appJobs.siteId, site.id)));
+    return json(502, { error: 'Failed to enqueue job' });
+  }
 
   return json(202, {
     jobId: job.id,

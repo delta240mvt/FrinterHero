@@ -7,6 +7,39 @@ import { setCloudflareDb } from '../../../../src/db/client.ts';
 import { appJobs, sites } from '../../../../src/db/schema.ts';
 import { routeRequest } from './router.ts';
 
+function extractComparisons(condition: any, pairs: Array<{ column: string; value: unknown }> = []) {
+  if (!condition?.queryChunks) {
+    return pairs;
+  }
+
+  let pendingColumn: string | null = null;
+  for (const chunk of condition.queryChunks) {
+    if (chunk?.queryChunks) {
+      extractComparisons(chunk, pairs);
+      continue;
+    }
+
+    if (chunk?.name && chunk?.table) {
+      pendingColumn = chunk.name;
+      continue;
+    }
+
+    if (pendingColumn && chunk?.constructor?.name === 'Param') {
+      pairs.push({ column: pendingColumn, value: chunk.value });
+      pendingColumn = null;
+    }
+  }
+
+  return pairs;
+}
+
+function matchesRow(row: Record<string, unknown>, comparisons: Array<{ column: string; value: unknown }>) {
+  return comparisons.every(({ column, value }) => {
+    const camelColumn = column.replace(/_([a-z])/g, (_match, letter: string) => letter.toUpperCase());
+    return row[column] === value || row[camelColumn] === value;
+  });
+}
+
 class FakeCloudflareDb {
   jobs: Array<Record<string, unknown>> = [];
   nextJobId = 1;
@@ -20,9 +53,14 @@ class FakeCloudflareDb {
       from: (table: unknown) => {
         const rows = table === sites ? this.siteRows : this.jobs;
         return {
-          where: () => ({
-            limit: async (count: number) => rows.slice(0, count),
-          }),
+          where: (condition: unknown) => {
+            const comparisons = extractComparisons(condition);
+            const filtered = rows.filter((row) => matchesRow(row, comparisons));
+
+            return {
+              limit: async (count: number) => filtered.slice(0, count),
+            };
+          },
         };
       },
     };
@@ -57,9 +95,24 @@ class FakeCloudflareDb {
       }),
     };
   }
+
+  delete(table: unknown) {
+    return {
+      where: async (condition: unknown) => {
+        if (table !== appJobs) {
+          return [];
+        }
+
+        const comparisons = extractComparisons(condition);
+        const before = this.jobs.length;
+        this.jobs = this.jobs.filter((row) => !matchesRow(row, comparisons));
+        return { rowCount: before - this.jobs.length };
+      },
+    };
+  }
 }
 
-function createApiEnv(queueMessages: unknown[]) {
+function createApiEnv(queueMessages: unknown[], options?: { failQueueSend?: boolean; omitQueueSend?: boolean }) {
   return {
     API_BASE_URL: 'https://api.example.com',
     APP_ENV: 'test',
@@ -67,17 +120,26 @@ function createApiEnv(queueMessages: unknown[]) {
     FOCUS_HOST: 'focusequalsfreedom.com',
     FRINTER_HOST: 'frinter.pl',
     HYPERDRIVE: {},
-    JOB_QUEUE: {
-      send(message: unknown) {
-        queueMessages.push(message);
-      },
-    },
+    JOB_QUEUE: options?.omitQueueSend
+      ? {}
+      : {
+          send(message: unknown) {
+            if (options?.failQueueSend) {
+              throw new Error('Queue unavailable');
+            }
+
+            queueMessages.push(message);
+          },
+        },
     PRZEM_HOST: 'przemyslawfilipiak.com',
   };
 }
 
 afterEach(() => {
   setCloudflareDb({
+    delete() {
+      throw new Error('Cloudflare DB test double not configured');
+    },
     insert() {
       throw new Error('Cloudflare DB test double not configured');
     },
@@ -181,6 +243,7 @@ test('routeRequest returns job status, progress, and result for GET /jobs/:id', 
   const queueMessages: unknown[] = [];
   const db = new FakeCloudflareDb([
     { id: 7, slug: 'frinter', primaryDomain: 'frinter.pl' },
+    { id: 8, slug: 'focusequalsfreedom', primaryDomain: 'focusequalsfreedom.com' },
   ]);
   setCloudflareDb(db);
 
@@ -222,4 +285,67 @@ test('routeRequest returns job status, progress, and result for GET /jobs/:id', 
     type: 'geo',
     updatedAt: '2026-03-27T08:00:00.000Z',
   });
+});
+
+test('routeRequest rejects malformed JSON bodies for enqueue routes', async () => {
+  const db = new FakeCloudflareDb([
+    { id: 7, slug: 'frinter', primaryDomain: 'frinter.pl' },
+  ]);
+  setCloudflareDb(db);
+
+  const response = await routeRequest(
+    new Request('https://frinter.pl/jobs/geo', {
+      body: '{bad json',
+      headers: { 'content-type': 'application/json' },
+      method: 'POST',
+    }),
+    createApiEnv([]),
+  );
+
+  assert.equal(response.status, 400);
+  assert.deepEqual(await response.json(), {
+    error: 'Invalid JSON body',
+  });
+  assert.equal(db.jobs.length, 0);
+});
+
+test('routeRequest cleans up inserted jobs if queue publish fails', async () => {
+  const db = new FakeCloudflareDb([
+    { id: 7, slug: 'frinter', primaryDomain: 'frinter.pl' },
+  ]);
+  setCloudflareDb(db);
+
+  const response = await routeRequest(
+    new Request('https://frinter.pl/jobs/geo', {
+      body: JSON.stringify({ source: 'test' }),
+      headers: { 'content-type': 'application/json' },
+      method: 'POST',
+    }),
+    createApiEnv([], { failQueueSend: true }),
+  );
+
+  assert.equal(response.status, 502);
+  assert.deepEqual(await response.json(), {
+    error: 'Failed to enqueue job',
+  });
+  assert.equal(db.jobs.length, 0);
+});
+
+test('routeRequest does not treat nested enqueue paths as valid job ingress routes', async () => {
+  const db = new FakeCloudflareDb([
+    { id: 7, slug: 'frinter', primaryDomain: 'frinter.pl' },
+  ]);
+  setCloudflareDb(db);
+
+  const response = await routeRequest(
+    new Request('https://frinter.pl/jobs/geo/retry', {
+      body: JSON.stringify({ source: 'test' }),
+      headers: { 'content-type': 'application/json' },
+      method: 'POST',
+    }),
+    createApiEnv([]),
+  );
+
+  assert.equal(response.status, 404);
+  assert.equal(db.jobs.length, 0);
 });
