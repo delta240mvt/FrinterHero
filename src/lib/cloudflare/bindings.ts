@@ -2,6 +2,7 @@ import type { SiteSlug } from '../../../packages/site-config/src/index';
 
 export type CloudflareSiteSlug = SiteSlug;
 export type TenantHostBindingName = 'FRINTER_HOST' | 'FOCUS_HOST' | 'PRZEM_HOST';
+export const CLOUDFLARE_SITE_SLUGS = ['frinter', 'focusequalsfreedom', 'przemyslawfilipiak'] as const satisfies readonly CloudflareSiteSlug[];
 
 export interface TenantHostBindings {
   FRINTER_HOST: string;

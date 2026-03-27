@@ -3,7 +3,7 @@ import {
   type JobTopic,
   validateJobExecutionContext,
 } from '../../../../../src/lib/cloudflare/job-payloads.ts';
-import type { CloudflareSiteSlug } from '../../../../../src/lib/cloudflare/bindings.ts';
+import { CLOUDFLARE_SITE_SLUGS, type CloudflareSiteSlug } from '../../../../../src/lib/cloudflare/bindings.ts';
 
 const SUPPORTED_TOPICS = new Set<JobTopic>([
   'geo',
@@ -18,11 +18,7 @@ const SUPPORTED_TOPICS = new Set<JobTopic>([
   'sh-video',
   'sh-publish',
 ]);
-const SUPPORTED_SITE_SLUGS = new Set<CloudflareSiteSlug>([
-  'frinter',
-  'focusequalsfreedom',
-  'przemyslawfilipiak',
-]);
+const SUPPORTED_SITE_SLUGS = new Set<CloudflareSiteSlug>(CLOUDFLARE_SITE_SLUGS);
 
 export interface JobQueueMessageLike<TBody = unknown> {
   body: TBody;

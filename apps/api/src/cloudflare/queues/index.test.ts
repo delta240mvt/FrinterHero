@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { CLOUDFLARE_SITE_SLUGS } from '../../../../../src/lib/cloudflare/bindings.ts';
 import type { JobQueueMessage, JobTopic } from '../../../../../src/lib/cloudflare/job-payloads.ts';
 import {
   handleJobQueueBatch,
@@ -23,12 +24,12 @@ const SUPPORTED_TOPICS: JobTopic[] = [
   'sh-publish',
 ];
 
-function createMessage(topic: JobTopic): JobQueueMessage<{ source: string }> {
+function createMessage(topic: JobTopic, siteSlug: JobQueueMessage['siteSlug'] = 'frinter'): JobQueueMessage<{ source: string }> {
   return {
     jobId: `job-${topic}`,
     payload: { source: topic },
     siteId: 7,
-    siteSlug: 'frinter',
+    siteSlug,
     topic,
   };
 }
@@ -72,8 +73,10 @@ function createDeps(recorded: Array<{ starter: string; message: JobQueueMessage 
 }
 
 test('parseJobQueueMessage validates the shared queue message contract', () => {
-  const parsed = parseJobQueueMessage(createMessage('geo'));
-  assert.deepEqual(parsed, createMessage('geo'));
+  for (const siteSlug of CLOUDFLARE_SITE_SLUGS) {
+    const parsed = parseJobQueueMessage(createMessage('geo', siteSlug));
+    assert.deepEqual(parsed, createMessage('geo', siteSlug));
+  }
   assert.throws(
     () => parseJobQueueMessage({ ...createMessage('geo'), jobId: '' }),
     /jobId is required/,
