@@ -13,3 +13,4 @@ apps/*/.astro/
 
 docs_private/
 docs_private/**/*
+.worktrees/
