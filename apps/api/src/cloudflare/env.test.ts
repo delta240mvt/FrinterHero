@@ -28,6 +28,7 @@ test('readApiEnv returns the validated bindings', () => {
     FRINTER_HOST: 'frinter.pl',
     HYPERDRIVE: hyperdrive,
     JOB_QUEUE: jobQueue,
+    NODE_API_URL: '',
     PRZEM_HOST: 'przemyslawfilipiak.com',
   });
 });

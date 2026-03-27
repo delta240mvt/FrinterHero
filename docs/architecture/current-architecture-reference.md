@@ -13,8 +13,18 @@ The repository is now a distributed monorepo with:
 - queue-driven workers in `workers/*`
 - shared domain and data code in repo-root `src/*`
 - Railway-oriented deployment templates in `infra/railway/*`
+- Cloudflare-native deployment templates in `infra/cloudflare/*`
 
-The architecture program is complete.
+The repository now has a **Cloudflare-native runtime path** alongside the existing Railway/Node path.
+
+The Cloudflare Worker (at `apps/api/src/cloudflare/`) serves as the shared backend with:
+
+- **Hyperdrive** for PostgreSQL connection pooling
+- **Queues** for async job dispatch (single queue `frinter-api-jobs`)
+- **Workflows** for per-topic job execution
+- **R2** for generated artifact storage
+
+The Node/Railway path (`apps/api/src/server.ts`) remains active as a proxy fallback during migration until Cloudflare parity is fully verified in staging.
 
 This means:
 
@@ -23,11 +33,14 @@ This means:
 - `client1` no longer owns DB-backed backend routes
 - route-level singleton job managers are no longer part of production-critical execution
 - `Social Hub` is tenant-aware end-to-end through `siteId`
+- all three tenant clients are now configured with `@astrojs/cloudflare` adapter
 
 ## 2. Runtime Topology
 
+### Cloudflare-native path (primary)
+
 ```text
-                             FRINTERHERO RUNTIME
+                             FRINTERHERO RUNTIME (CLOUDFLARE)
 
   ┌──────────────────────┐
   │       Browser        │
@@ -36,43 +49,58 @@ This means:
              │
              v
   ┌──────────────────────────────────────────────────────────────────────┐
-  │                               Clients                               │
+  │                    Clients (Cloudflare Pages)                        │
   │                                                                      │
   │  apps/client-przemyslawfilipiak   apps/client-focusequalsfreedom     │
-  │  apps/client-frinter              thin BFF + SSR layer               │
+  │  apps/client-frinter              @astrojs/cloudflare adapter        │
   └───────────────────────────────┬──────────────────────────────────────┘
                                   │ cookies + siteSlug
                                   v
   ┌──────────────────────────────────────────────────────────────────────┐
-  │                              apps/api                               │
+  │              Cloudflare Worker  (apps/api/src/cloudflare/)           │
   │                                                                      │
   │  auth · tenant resolution · CRUD · orchestration · job enqueue       │
   │  job status/result reads · public DB-backed backend                  │
+  └──────┬──────────────────────────────────────┬───────────────────────┘
+         │                                      │
+         │ Hyperdrive                           │ frinter-api-jobs (Queue)
+         v                                      v
+  ┌─────────────────────┐          ┌────────────────────────────────────┐
+  │     PostgreSQL      │          │   Single Consumer → per-topic      │
+  │  sites + app data   │          │   Workflow dispatch                │
+  │  app_jobs + sh_*    │          │                                    │
+  └─────────────────────┘          │  GeoRunWorkflow                   │
+                                   │  RedditRunWorkflow                 │
+  ┌─────────────────────┐          │  YoutubeRunWorkflow                │
+  │        R2           │          │  BcScrape/Parse/Selector/          │
+  │  artifact storage   │◄─────────│  Cluster/GenerateWorkflow          │
+  │  (ASSETS_BUCKET)    │          │  ShCopy/Video/PublishWorkflow       │
+  └─────────────────────┘          └────────────────────────────────────┘
+```
+
+### Railway/Node fallback path (migration compatibility)
+
+```text
+  ┌──────────────────────────────────────────────────────────────────────┐
+  │                    apps/api  (Node / Railway)                        │
+  │                                                                      │
+  │  Proxy fallback for routes not yet verified in Cloudflare staging    │
   └───────────────────────┬───────────────────────────────┬──────────────┘
                           │                               │
                           │ SQL                           │ app_jobs
                           v                               v
                ┌────────────────────┐         ┌──────────────────────────┐
                │     PostgreSQL     │         │      Queue Topics        │
-               │ sites + app data   │         │ geo · draft · reddit     │
-               │ app_jobs + sh_*    │         │ youtube · bc-* · sh-*    │
-               └─────────┬──────────┘         └────────────┬─────────────┘
-                         │                                 │
-                         │ reads / writes                  │ consumed by
-                         │                                 v
+               │ sites + app data   │         │ geo · reddit · youtube   │
+               │ app_jobs + sh_*    │         │ bc-* · sh-*              │
+               └────────────────────┘         └────────────┬─────────────┘
+                                                            │ consumed by
+                                                            v
    ┌────────────────────────────┬──────────────────────────┬───────────────────────┐
    │       worker-general       │        worker-bc         │  worker-sh-copy/video │
    │ geo · draft · reddit       │ bc-scrape · bc-parse    │ sh-copy · sh-video    │
    │ youtube · sh-publish       │ bc-selector · bc-*      │                       │
-   └──────────────┬─────────────┴──────────────┬───────────┴────────────┬──────────┘
-                  │                            │                         │
-                  └────────────────────────────┴─────────────────────────┘
-                                               │
-                                               v
-                                  ┌────────────────────────┐
-                                  │  shared root src/*     │
-                                  │ db · lib · utils       │
-                                  └────────────────────────┘
+   └────────────────────────────┴──────────────────────────┴───────────────────────┘
 ```
 
 ### Core services
@@ -176,9 +204,29 @@ Current active shared backend directories:
 
 ## 5. Queue Topic Ownership
 
-Topic ownership is intentionally disjoint.
+### Cloudflare model (unified consumer)
 
-### `worker-general`
+In the Cloudflare runtime, **all 11 topics** are consumed by a single Worker (`frinter-api`) which dispatches to individual Workflows.
+
+Queue: `frinter-api-jobs` → single consumer in `apps/api/src/cloudflare/queues/index.ts` → per-topic Workflow:
+
+- `geo` → `GeoRunWorkflow`
+- `reddit` → `RedditRunWorkflow`
+- `youtube` → `YoutubeRunWorkflow`
+- `bc-scrape` → `BcScrapeWorkflow`
+- `bc-parse` → `BcParseWorkflow`
+- `bc-selector` → `BcSelectorWorkflow`
+- `bc-cluster` → `BcClusterWorkflow`
+- `bc-generate` → `BcGenerateWorkflow`
+- `sh-copy` → `ShCopyWorkflow`
+- `sh-video` → `ShVideoWorkflow`
+- `sh-publish` → `ShPublishWorkflow`
+
+### Railway/Node model (split consumers, migration fallback)
+
+Topic ownership is intentionally disjoint in the Railway path.
+
+#### `worker-general`
 
 Owns:
 
@@ -188,7 +236,7 @@ Owns:
 - `youtube`
 - `sh-publish`
 
-### `worker-bc`
+#### `worker-bc`
 
 Owns:
 
@@ -198,13 +246,13 @@ Owns:
 - `bc-cluster`
 - `bc-generate`
 
-### `worker-sh-copy`
+#### `worker-sh-copy`
 
 Owns:
 
 - `sh-copy`
 
-### `worker-sh-video`
+#### `worker-sh-video`
 
 Owns:
 
@@ -327,11 +375,42 @@ This ensures the repo contains both:
 - declarative schema intent
 - an executable operational migration step
 
+### Railway deployment
+
+- Deploy `apps/api` as a Railway service using `infra/railway/`
+- Deploy `workers/*` as Railway workers using Railway CRON / Queue triggers
+- Env vars managed per Railway service
+
+### Cloudflare deployment
+
+1. Set Wrangler secrets for all bindings in `apps/api/wrangler.jsonc`:
+   - `HYPERDRIVE` (database connection via Hyperdrive)
+   - `JOB_QUEUE` (`frinter-api-jobs` queue binding)
+   - `ASSETS_BUCKET` (R2 bucket)
+   - Workflow bindings (one per topic — see `wrangler.jsonc`)
+   - Hostname env vars: `FRINTER_HOST`, `FOCUS_HOST`, `PRZEM_HOST`
+   - API key secrets: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, etc.
+2. Run `npm run deploy:api:cf` to deploy the Worker
+3. Deploy tenant clients to Cloudflare Pages with `@astrojs/cloudflare` adapter
+4. Verify with `npx wrangler deploy --dry-run` before production push
+5. See full runbook: `docs/deployment/cloudflare-native-migration-runbook.md`
+
 ## 10. Repo Shape
 
 ```text
 apps/
   api/
+    src/
+      cloudflare/          ← Cloudflare Worker entrypoint and handlers
+        index.ts
+        env.ts
+        router.ts
+        tenant.ts
+        jobs/              ← enqueue, status, results handlers
+        queues/            ← unified queue consumer dispatch
+        workflows/         ← per-topic Workflow implementations
+      server.ts            ← Node/Railway entrypoint (fallback)
+    wrangler.jsonc
   client-przemyslawfilipiak/
   client-focusequalsfreedom/
   client-frinter/
@@ -347,16 +426,29 @@ packages/
   site-config/
 src/
   db/
+    client.ts
+    client.node.ts         ← Node/pg DB adapter
+    client.cloudflare.ts   ← Hyperdrive-backed DB adapter
+    runtime.ts
   lib/
+    cloudflare/            ← shared Cloudflare contracts (bindings, payloads, storage, results)
+    jobs/                  ← extracted runtime job modules (geo, reddit, youtube, bc-*, sh-*)
   utils/
 infra/
   railway/
+  cloudflare/              ← Cloudflare env templates and README
+    README.md
+    env/
+      api.env.example
+      client.env.example
 docs/
 ```
 
 ## 11. Verification Checklist
 
 When validating future architectural work, prefer this checklist:
+
+### Node/Railway checks
 
 - `npx tsc --noEmit`
 - `npm run build:api`
@@ -365,6 +457,14 @@ When validating future architectural work, prefer this checklist:
 - confirm no unexpected `dist` or `.astro` artifacts remain in `apps/*` and `workers/*`
 - confirm active docs still match runtime truth
 - confirm new routes do not reintroduce direct DB imports into client API or admin page layers
+
+### Cloudflare-specific checks
+
+- `npm run test:api:cf` — run all Cloudflare Worker tests
+- `npx wrangler deploy --dry-run` — confirm Wrangler config parses without schema errors
+- confirm structured logging works (all requests and queue/workflow errors emit structured log entries)
+- confirm `frinter-api-jobs` queue consumer dispatches to all 11 Workflow bindings
+- confirm `HYPERDRIVE`, `JOB_QUEUE`, and `ASSETS_BUCKET` bindings are declared in `wrangler.jsonc`
 
 ## 12. Current Completion Statement
 
@@ -377,11 +477,29 @@ The correct statement for the repository today is:
 - worker topic ownership cleanup: complete
 - Social Hub tenantization: complete
 - architecture documentation alignment: complete
+- Cloudflare Worker runtime scaffold: complete
+- DB adapter split (Node + Hyperdrive): complete
+- Cloudflare tenant, queue, and payload contracts: complete
+- Cloudflare job ingress and status routes: complete
+- job module extraction from `scripts/*` into `src/lib/jobs/*`: complete
+- Cloudflare queue consumer dispatch (all 11 topics): complete
+- Cloudflare Workflows for GEO, Reddit, YouTube: complete
+- Cloudflare Workflows for Brand Clarity (bc-*): complete
+- Cloudflare Workflows for Social Hub (sh-*): complete
+- R2 artifact storage seam: complete
+- all three tenant clients migrated to `@astrojs/cloudflare`: complete
+- full API route parity in Cloudflare Worker: complete
+- Cloudflare env documentation and migration runbook: complete
 
-Any remaining work should now be treated as:
+Remaining work:
+
+- **Task 15** (next): Production-readiness checklist before cutover — binding inventory, rollback path, smoke check checklist
+- After Task 15: Staging verification → traffic cutover from Railway to Cloudflare
+
+Any other work should be treated as:
 
 - product evolution
 - module refinement
 - feature development
 
-not as unresolved monorepo architecture work.
+not as unresolved architecture work.

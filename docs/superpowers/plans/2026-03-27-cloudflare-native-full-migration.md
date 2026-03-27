@@ -25,11 +25,17 @@ Completed implementation tasks:
 - `Task 5`: `8fee0d6`, `95197e1`, `20446f5`
 - `Task 6`: `c20058e`, `1bfe858`, `6a9ccdc`, `e6b0fe5`
 - `Task 7`: `24d67ea`, `497df3a`, `31fc6a9`
+- `Task 8`: `bad2464`, `497e5a2`
+- `Task 9`: `64f5c2a`, `c2c2633`
+- `Task 10`: `4ec2b8d`
+- `Task 11`: `62460cf`
+- `Task 12`: `11c7112`
+- `Task 13`: `0d21755`
+- `Task 14`: (this commit)
 
 Current stop point:
 
-- `Task 8` intentionally deferred after `Task 7`
-- `Task 9` to `Task 15` not started
+- `Task 15` is next: production-readiness checklist before cutover
 
 ---
 
