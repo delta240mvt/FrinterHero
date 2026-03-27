@@ -18,6 +18,11 @@ export interface JobQueueBatchLike<TBody = unknown> {
   messages: Array<JobQueueMessageLike<TBody>>;
 }
 
+export interface JobQueueBatchOptions {
+  onUnsupportedTopic?: (message: JobQueueMessage, entry: JobQueueMessageLike) => Promise<void> | void;
+  supportedTopics?: readonly JobTopic[];
+}
+
 export interface JobQueueConsumerDeps {
   startGeoWorkflow(message: JobQueueMessage): Promise<unknown>;
   startRedditWorkflow(message: JobQueueMessage): Promise<unknown>;
@@ -117,9 +122,21 @@ export async function dispatchJobQueueMessage(message: JobQueueMessage, deps: Jo
   }
 }
 
-export async function handleJobQueueBatch(batch: JobQueueBatchLike, deps: JobQueueConsumerDeps): Promise<void> {
+export async function handleJobQueueBatch(
+  batch: JobQueueBatchLike,
+  deps: JobQueueConsumerDeps,
+  options: JobQueueBatchOptions = {},
+): Promise<void> {
+  const supportedTopics = options.supportedTopics ? new Set<JobTopic>(options.supportedTopics) : null;
+
   for (const entry of batch.messages) {
     const message = parseJobQueueMessage(entry.body);
+
+    if (supportedTopics && !supportedTopics.has(message.topic)) {
+      await options.onUnsupportedTopic?.(message, entry);
+      continue;
+    }
+
     await dispatchJobQueueMessage(message, deps);
     entry.ack();
   }

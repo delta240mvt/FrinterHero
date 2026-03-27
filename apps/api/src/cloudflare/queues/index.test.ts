@@ -123,3 +123,31 @@ test('handleJobQueueBatch rejects unsupported topics loudly and does not ack the
   assert.equal(acked, false);
   assert.equal(recorded.length, 0);
 });
+
+test('handleJobQueueBatch can ack valid but unsupported-for-this-runtime topics without dispatching them', async () => {
+  const recorded: Array<{ starter: string; message: JobQueueMessage }> = [];
+  let acked = false;
+
+  await handleJobQueueBatch(
+    {
+      messages: [
+        {
+          ack() {
+            acked = true;
+          },
+          body: createMessage('bc-scrape'),
+        },
+      ],
+    },
+    createDeps(recorded),
+    {
+      async onUnsupportedTopic(_message, entry) {
+        entry.ack();
+      },
+      supportedTopics: ['geo', 'reddit', 'youtube'],
+    },
+  );
+
+  assert.equal(acked, true);
+  assert.equal(recorded.length, 0);
+});
