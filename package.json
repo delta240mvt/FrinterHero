@@ -19,6 +19,7 @@
     "dev:api:cf": "npm --workspace apps/api run dev:cf",
     "build:api": "npm --workspace apps/api run build",
     "start:api": "npm --workspace apps/api run start",
+    "check:api:cf": "npm --workspace apps/api run check:cf",
     "deploy:api:cf": "npm --workspace apps/api run deploy:cf",
     "test:api:cf": "npm --workspace apps/api run test:cf",
     "dev:client1": "npm --workspace apps/client-przemyslawfilipiak run dev",

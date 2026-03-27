@@ -13,6 +13,12 @@ function json(status: number, body: unknown): Response {
 const worker = {
   async fetch(request: Request, env: Partial<ApiEnv>): Promise<Response> {
     try {
+      const pathname = new URL(request.url).pathname;
+
+      if (request.method === 'GET' && pathname === '/health') {
+        return await routeRequest(request);
+      }
+
       return await routeRequest(request, readApiEnv(env));
     } catch (error) {
       return json(500, {

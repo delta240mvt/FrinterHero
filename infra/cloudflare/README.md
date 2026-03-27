@@ -11,4 +11,9 @@ Current runtime scaffold:
 Local verification commands:
 
 - `npm run test:api:cf`
-- `npm run deploy:api:cf -- --dry-run`
+- `npm run check:api:cf`
+
+Notes:
+
+- `npm run check:api:cf` runs a local `wrangler types` config parse and does not require Cloudflare authentication.
+- Real deploys, including `npm run deploy:api:cf -- --dry-run`, require Cloudflare authentication such as `CLOUDFLARE_API_TOKEN`.
