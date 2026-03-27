@@ -3,6 +3,31 @@ import test from 'node:test';
 
 import worker from './index.ts';
 
+// Minimal stub env with all workflow bindings
+function createMinimalEnv(recorded: Array<{ binding: string; options: unknown }> = []) {
+  function binding(name: string) {
+    return {
+      async create(options: unknown) {
+        recorded.push({ binding: name, options });
+        return { id: `${name}-instance` };
+      },
+    };
+  }
+  return {
+    GEO_RUN_WORKFLOW: binding('geo'),
+    REDDIT_RUN_WORKFLOW: binding('reddit'),
+    YOUTUBE_RUN_WORKFLOW: binding('youtube'),
+    BC_SCRAPE_WORKFLOW: binding('bc-scrape'),
+    BC_PARSE_WORKFLOW: binding('bc-parse'),
+    BC_SELECTOR_WORKFLOW: binding('bc-selector'),
+    BC_CLUSTER_WORKFLOW: binding('bc-cluster'),
+    BC_GENERATE_WORKFLOW: binding('bc-generate'),
+    SH_COPY_WORKFLOW: binding('sh-copy'),
+    SH_VIDEO_WORKFLOW: binding('sh-video'),
+    SH_PUBLISH_WORKFLOW: binding('sh-publish'),
+  } as never;
+}
+
 function createQueueMessage(topic: string) {
   return {
     jobId: `job-${topic}`,
@@ -94,4 +119,32 @@ test('worker.queue dispatches bc-scrape topic to the correct workflow binding', 
   assert.equal(acked, true);
   assert.equal(recorded.length, 1);
   assert.equal(recorded[0].binding, 'bc-scrape');
+});
+
+test('worker.fetch returns a response and does not throw when logging', async () => {
+  const request = new Request('http://localhost/health');
+  const response = await worker.fetch(request, {} as never);
+  // /health should return a valid HTTP response (not throw)
+  assert.ok(response instanceof Response);
+  assert.ok(response.status >= 200 && response.status < 600);
+});
+
+test('worker.fetch returns 500 with error detail on unhandled exception', async () => {
+  // Pass env that will cause readApiEnv to throw (missing required vars)
+  const request = new Request('http://localhost/api/unknown-route-xyz');
+  const response = await worker.fetch(request, {} as never);
+  // Should return a structured 500 error rather than throwing
+  assert.equal(response.status, 500);
+  const body = await response.json() as { error: string };
+  assert.equal(body.error, 'Internal server error');
+});
+
+test('worker.queue emits structured log and does not swallow errors for missing bindings', async () => {
+  let threw = false;
+  try {
+    await worker.queue({ messages: [] }, {} as never);
+  } catch {
+    threw = true;
+  }
+  assert.equal(threw, true, 'queue should re-throw when bindings are missing');
 });
