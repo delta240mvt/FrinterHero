@@ -55,6 +55,11 @@ export function buildInternalApiUrl(pathname: string, search = '') {
   return url;
 }
 
+function appendCurrentSiteSlug(url: URL, includeSiteSlug?: boolean) {
+  if (!includeSiteSlug) return;
+  url.searchParams.set('siteSlug', getCurrentSiteSlug());
+}
+
 function cloneForwardHeaders(source: Headers, cookieHeader: string | null) {
   const headers = new Headers();
   for (const [key, value] of source.entries()) {
@@ -80,16 +85,19 @@ export async function proxyInternalApiRequest({
   pathname,
   method,
   requireAuth = true,
+  includeSiteSlug = false,
 }: {
   request: Request;
   cookies: AstroCookies;
   pathname: string;
   method?: string;
   requireAuth?: boolean;
+  includeSiteSlug?: boolean;
 }) {
   if (requireAuth && !isAuthenticated(cookies)) return jsonUnauthorized();
   const incomingUrl = new URL(request.url);
   const targetUrl = buildInternalApiUrl(pathname, incomingUrl.search);
+  appendCurrentSiteSlug(targetUrl, includeSiteSlug);
   const resolvedMethod = method ?? request.method;
   const headers = cloneForwardHeaders(request.headers, request.headers.get('cookie'));
   let body: string | undefined;
@@ -114,12 +122,14 @@ export async function fetchInternalApiJson({
   method = 'GET',
   body,
   query,
+  includeSiteSlug = false,
 }: {
   request: Request;
   pathname: string;
   method?: string;
   body?: Record<string, unknown> | null;
   query?: Record<string, string | number | boolean | null | undefined>;
+  includeSiteSlug?: boolean;
 }) {
   const incomingUrl = new URL(request.url);
   const targetUrl = buildInternalApiUrl(pathname, incomingUrl.search);
@@ -129,6 +139,7 @@ export async function fetchInternalApiJson({
       targetUrl.searchParams.set(key, String(value));
     }
   }
+  appendCurrentSiteSlug(targetUrl, includeSiteSlug);
   const headers = new Headers();
   headers.set('content-type', 'application/json');
   const cookie = request.headers.get('cookie');
