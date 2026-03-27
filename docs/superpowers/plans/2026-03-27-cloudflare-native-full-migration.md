@@ -10,6 +10,27 @@
 
 **Spec:** `docs/superpowers/specs/2026-03-27-cloudflare-native-migration-design.md`
 
+## Execution Status
+
+Completed before plan execution:
+
+- `Task 0`: `f68b960` - restore TypeScript baseline for `includeSiteSlug`
+
+Completed implementation tasks:
+
+- `Task 1`: `ebbc081`, `8c3f386`
+- `Task 2`: `1003185`
+- `Task 3`: `6a619ec`, `b3ca2b1`
+- `Task 4`: `a1c80b7`, `dd75c39`
+- `Task 5`: `8fee0d6`, `95197e1`, `20446f5`
+- `Task 6`: `c20058e`, `1bfe858`, `6a9ccdc`, `e6b0fe5`
+- `Task 7`: `24d67ea`, `497df3a`, `31fc6a9`
+
+Current stop point:
+
+- `Task 8` intentionally deferred after `Task 7`
+- `Task 9` to `Task 15` not started
+
 ---
 
 ## File Structure
