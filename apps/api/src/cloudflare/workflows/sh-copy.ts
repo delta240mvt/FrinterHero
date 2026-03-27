@@ -26,7 +26,7 @@ interface ShCopyWorkflowDeps {
   step: WorkflowStepLike;
 }
 
-function createBcCallLlm(env: ShCopyWorkflowEnv): typeof callBcLlm {
+function createShCallLlm(env: ShCopyWorkflowEnv): typeof callBcLlm {
   return async (options: BcLlmCallOptions) => {
     if (env.OPENROUTER_API_KEY) {
       process.env.OPENROUTER_API_KEY = env.OPENROUTER_API_KEY;
@@ -109,7 +109,7 @@ export async function executeShCopyWorkflow(message: ShCopyQueueMessage, deps: S
         },
         {
           db,
-          callLlm: createBcCallLlm(deps.env ?? {}),
+          callLlm: createShCallLlm(deps.env ?? {}),
           logger: console,
         },
       );

@@ -92,6 +92,13 @@ export async function executeShVideoWorkflow(message: ShVideoQueueMessage, deps:
 
   try {
     const jobResult = await deps.step.do('execute', async () => {
+      const env = deps.env ?? {};
+      if (env.WAVESPEED_API_KEY) {
+        process.env.WAVESPEED_API_KEY = env.WAVESPEED_API_KEY;
+      }
+      if (env.ELEVENLABS_API_KEY) {
+        process.env.ELEVENLABS_API_KEY = env.ELEVENLABS_API_KEY;
+      }
       const runner = deps.runShVideoJob ?? runShVideoJob;
       const payload = message.payload ?? {};
       return runner(

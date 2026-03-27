@@ -39,6 +39,14 @@ test('worker.queue starts GEO, Reddit, and YouTube workflows via bound workflow 
       GEO_RUN_WORKFLOW: createWorkflowBinding(recorded, 'geo'),
       REDDIT_RUN_WORKFLOW: createWorkflowBinding(recorded, 'reddit'),
       YOUTUBE_RUN_WORKFLOW: createWorkflowBinding(recorded, 'youtube'),
+      BC_SCRAPE_WORKFLOW: createWorkflowBinding(recorded, 'bc-scrape'),
+      BC_PARSE_WORKFLOW: createWorkflowBinding(recorded, 'bc-parse'),
+      BC_SELECTOR_WORKFLOW: createWorkflowBinding(recorded, 'bc-selector'),
+      BC_CLUSTER_WORKFLOW: createWorkflowBinding(recorded, 'bc-cluster'),
+      BC_GENERATE_WORKFLOW: createWorkflowBinding(recorded, 'bc-generate'),
+      SH_COPY_WORKFLOW: createWorkflowBinding(recorded, 'sh-copy'),
+      SH_VIDEO_WORKFLOW: createWorkflowBinding(recorded, 'sh-video'),
+      SH_PUBLISH_WORKFLOW: createWorkflowBinding(recorded, 'sh-publish'),
     } as never,
   );
 
@@ -53,7 +61,7 @@ test('worker.queue starts GEO, Reddit, and YouTube workflows via bound workflow 
   assert.deepEqual(acked, ['geo', 'reddit', 'youtube']);
 });
 
-test('worker.queue acks unsupported topics instead of retrying them forever', async () => {
+test('worker.queue dispatches bc-scrape topic to the correct workflow binding', async () => {
   const recorded: Array<{ binding: string; options: unknown }> = [];
   let acked = false;
 
@@ -72,9 +80,18 @@ test('worker.queue acks unsupported topics instead of retrying them forever', as
       GEO_RUN_WORKFLOW: createWorkflowBinding(recorded, 'geo'),
       REDDIT_RUN_WORKFLOW: createWorkflowBinding(recorded, 'reddit'),
       YOUTUBE_RUN_WORKFLOW: createWorkflowBinding(recorded, 'youtube'),
+      BC_SCRAPE_WORKFLOW: createWorkflowBinding(recorded, 'bc-scrape'),
+      BC_PARSE_WORKFLOW: createWorkflowBinding(recorded, 'bc-parse'),
+      BC_SELECTOR_WORKFLOW: createWorkflowBinding(recorded, 'bc-selector'),
+      BC_CLUSTER_WORKFLOW: createWorkflowBinding(recorded, 'bc-cluster'),
+      BC_GENERATE_WORKFLOW: createWorkflowBinding(recorded, 'bc-generate'),
+      SH_COPY_WORKFLOW: createWorkflowBinding(recorded, 'sh-copy'),
+      SH_VIDEO_WORKFLOW: createWorkflowBinding(recorded, 'sh-video'),
+      SH_PUBLISH_WORKFLOW: createWorkflowBinding(recorded, 'sh-publish'),
     } as never,
   );
 
   assert.equal(acked, true);
-  assert.equal(recorded.length, 0);
+  assert.equal(recorded.length, 1);
+  assert.equal(recorded[0].binding, 'bc-scrape');
 });
