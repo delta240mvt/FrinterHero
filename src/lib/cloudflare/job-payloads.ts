@@ -24,14 +24,19 @@ export interface JobQueueMessage<TPayload = unknown> extends JobExecutionContext
   payload: TPayload;
 }
 
-export function buildJobQueueMessage<TPayload>(message: JobQueueMessage<TPayload>): JobQueueMessage<TPayload> {
-  if (!message.jobId.trim()) {
+export function validateJobExecutionContext<TContext extends JobExecutionContext>(context: TContext): TContext {
+  if (!context.jobId.trim()) {
     throw new Error('jobId is required');
   }
 
-  if (!Number.isInteger(message.siteId) || message.siteId <= 0) {
+  if (!Number.isInteger(context.siteId) || context.siteId <= 0) {
     throw new Error('siteId must be a positive integer');
   }
 
+  return context;
+}
+
+export function buildJobQueueMessage<TPayload>(message: JobQueueMessage<TPayload>): JobQueueMessage<TPayload> {
+  validateJobExecutionContext(message);
   return message;
 }

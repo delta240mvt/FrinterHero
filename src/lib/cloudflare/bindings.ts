@@ -29,7 +29,6 @@ export interface TenantHostEntry {
 
 export const REQUIRED_CLOUDFLARE_BINDINGS = ['HYPERDRIVE', 'ASSETS_BUCKET', 'JOB_QUEUE'] as const;
 export const REQUIRED_CLOUDFLARE_VARS = [
-  'APP_ENV',
   'API_BASE_URL',
   'FRINTER_HOST',
   'FOCUS_HOST',
@@ -40,21 +39,31 @@ export function normalizeHostname(hostname: string): string {
   return hostname.trim().toLowerCase().replace(/^www\./, '');
 }
 
+function normalizeRequiredTenantHost(binding: TenantHostBindingName, hostname: string): string {
+  const normalized = normalizeHostname(hostname);
+
+  if (!normalized) {
+    throw new Error(`${binding} must be a non-empty hostname`);
+  }
+
+  return normalized;
+}
+
 export function getTenantHostEntries(bindings: TenantHostBindings): TenantHostEntry[] {
   return [
     {
       binding: 'FRINTER_HOST',
-      hostname: normalizeHostname(bindings.FRINTER_HOST),
+      hostname: normalizeRequiredTenantHost('FRINTER_HOST', bindings.FRINTER_HOST),
       siteSlug: 'frinter',
     },
     {
       binding: 'FOCUS_HOST',
-      hostname: normalizeHostname(bindings.FOCUS_HOST),
+      hostname: normalizeRequiredTenantHost('FOCUS_HOST', bindings.FOCUS_HOST),
       siteSlug: 'focusequalsfreedom',
     },
     {
       binding: 'PRZEM_HOST',
-      hostname: normalizeHostname(bindings.PRZEM_HOST),
+      hostname: normalizeRequiredTenantHost('PRZEM_HOST', bindings.PRZEM_HOST),
       siteSlug: 'przemyslawfilipiak',
     },
   ];

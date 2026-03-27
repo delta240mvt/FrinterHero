@@ -39,3 +39,29 @@ test('buildWorkflowFailureResult returns a standardized failed payload', () => {
     topic: 'youtube',
   });
 });
+
+test('workflow result builders reject invalid execution context', () => {
+  assert.throws(
+    () =>
+      buildWorkflowSuccessResult({
+        jobId: '',
+        result: {},
+        siteId: 0,
+        siteSlug: 'frinter',
+        topic: 'geo',
+      }),
+    /jobId|siteId/,
+  );
+
+  assert.throws(
+    () =>
+      buildWorkflowFailureResult({
+        error: 'boom',
+        jobId: 'job_1',
+        siteId: 0,
+        siteSlug: 'frinter',
+        topic: 'geo',
+      }),
+    /siteId/,
+  );
+});

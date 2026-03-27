@@ -1,4 +1,4 @@
-import type { JobExecutionContext } from './job-payloads.ts';
+import { validateJobExecutionContext, type JobExecutionContext } from './job-payloads.ts';
 
 export interface WorkflowSuccessResult<TResult = unknown> extends JobExecutionContext {
   status: 'completed';
@@ -14,6 +14,8 @@ export interface WorkflowFailureResult extends JobExecutionContext {
 export function buildWorkflowSuccessResult<TResult>(
   input: JobExecutionContext & { result: TResult },
 ): WorkflowSuccessResult<TResult> {
+  validateJobExecutionContext(input);
+
   return {
     ...input,
     status: 'completed',
@@ -23,6 +25,8 @@ export function buildWorkflowSuccessResult<TResult>(
 export function buildWorkflowFailureResult(
   input: JobExecutionContext & { error: string; retryable?: boolean },
 ): WorkflowFailureResult {
+  validateJobExecutionContext(input);
+
   return {
     ...input,
     retryable: input.retryable ?? false,
