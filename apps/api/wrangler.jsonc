@@ -31,5 +31,22 @@
         "queue": "frinter-api-jobs"
       }
     ]
-  }
+  },
+  "workflows": [
+    {
+      "name": "frinter-api-geo-run",
+      "binding": "GEO_RUN_WORKFLOW",
+      "class_name": "GeoRunWorkflow"
+    },
+    {
+      "name": "frinter-api-reddit-run",
+      "binding": "REDDIT_RUN_WORKFLOW",
+      "class_name": "RedditRunWorkflow"
+    },
+    {
+      "name": "frinter-api-youtube-run",
+      "binding": "YOUTUBE_RUN_WORKFLOW",
+      "class_name": "YoutubeRunWorkflow"
+    }
+  ]
 }
