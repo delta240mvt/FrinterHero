@@ -35,7 +35,7 @@ Completed implementation tasks:
 
 Current stop point:
 
-- `Task 15` is next: production-readiness checklist before cutover
+- `Task 15` completed: production-readiness checklist before cutover
 
 ---
 
@@ -878,7 +878,7 @@ git commit -m "docs: finalize cloudflare native migration plan and architecture"
 **Files:**
 - Modify: `docs/deployment/cloudflare-native-migration-runbook.md`
 
-- [ ] **Step 1: Verify binding inventory**
+- [x] **Step 1: Verify binding inventory**
 
 Confirm the runbook lists:
 - Hyperdrive binding
@@ -888,14 +888,14 @@ Confirm the runbook lists:
 - per-environment hostnames
 - required secrets
 
-- [ ] **Step 2: Verify rollback path**
+- [x] **Step 2: Verify rollback path**
 
 Document:
 - how to revert traffic to the old runtime
 - which Node/Railway services must remain alive during cutover
 - which verification endpoints to check before and after switch
 
-- [ ] **Step 3: Add final checklist**
+- [x] **Step 3: Add final checklist**
 
 Include:
 - tenant hostname validation
@@ -905,12 +905,14 @@ Include:
 - artifact upload smoke checks
 - admin route smoke checks
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add docs/deployment/cloudflare-native-migration-runbook.md
 git commit -m "docs: add cutover readiness checklist for cloudflare migration"
 ```
+
+**Completed:** 2026-03-27 — commit SHA: <!-- to be filled after commit -->
 
 ## Execution Notes
 

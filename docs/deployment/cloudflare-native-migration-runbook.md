@@ -256,3 +256,73 @@ cd apps/client-przemyslawfilipiak
 cp ../../infra/cloudflare/env/client.env.example .env
 npm run dev
 ```
+
+---
+
+## Production Cutover Checklist
+
+Work through every item before switching production traffic to the Cloudflare-native stack. Check each box only after the condition is confirmed in the target environment.
+
+### Binding inventory verification
+
+- [ ] Hyperdrive binding configured with production connection string
+- [ ] Queue binding created and mapped in `wrangler.jsonc`
+- [ ] R2 bucket created and mapped
+- [ ] All 11 workflow bindings registered
+- [ ] All secrets set: `OPENROUTER_API_KEY`, `ANTHROPIC_API_KEY`, `WAVESPEED_API_KEY`, `ELEVENLABS_API_KEY`, `ADMIN_PASSWORD_HASH`
+- [ ] `NODE_API_URL` points to Railway fallback
+
+### Tenant hostname validation
+
+- [ ] `FRINTER_HOST` matches production domain (`frinter.pl`)
+- [ ] `FOCUS_HOST` matches production domain (`focusequalsfreedom.com`)
+- [ ] `PRZEM_HOST` matches production domain (`przemyslawfilipiak.com`)
+- [ ] DNS records configured for all three tenant domains → Cloudflare Pages
+- [ ] API subdomain DNS configured → Cloudflare Worker
+
+### Auth smoke checks
+
+- [ ] `POST /v1/auth/login` returns session cookie
+- [ ] `GET /v1/auth/me` returns authenticated session
+- [ ] `POST /v1/auth/set-tenant` switches active site
+- [ ] `POST /v1/auth/logout` clears session
+
+### Job enqueue smoke checks
+
+- [ ] `POST /jobs/geo` returns 202 and creates `app_jobs` row
+- [ ] `POST /jobs/reddit` returns 202
+- [ ] `POST /jobs/youtube` returns 202
+- [ ] `POST /jobs/bc-scrape` returns 202
+- [ ] `POST /jobs/sh-copy` returns 202
+
+### Workflow completion smoke checks
+
+- [ ] GEO workflow runs to completion (reserve → execute → finalize)
+- [ ] Reddit workflow runs to completion
+- [ ] At least one BC workflow chain completes (`bc-scrape` → `bc-parse` → `bc-selector` → `bc-cluster` → `bc-generate`)
+- [ ] SH copy workflow runs to completion
+
+### Artifact upload smoke checks
+
+- [ ] `putArtifact` writes to R2 bucket successfully
+- [ ] `getArtifactUrl` returns a valid, accessible URL
+
+### Admin route smoke checks
+
+- [ ] Admin pages load via Cloudflare Pages
+- [ ] Admin CRUD operations work through the Worker proxy
+- [ ] Brand Clarity admin dashboard shows data
+- [ ] Social Hub admin dashboard shows data
+
+### Observability verification
+
+- [ ] Structured request logs appear in Cloudflare dashboard
+- [ ] Queue batch logs appear
+- [ ] Error logs include stack traces
+
+### Rollback readiness
+
+- [ ] Railway Node API is running and accessible at `NODE_API_URL`
+- [ ] Previous Wrangler deployment ID noted
+- [ ] DNS TTL set to low value (5 min) for quick rollback
+- [ ] Team notified of cutover window
