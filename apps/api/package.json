@@ -4,8 +4,11 @@
   "type": "module",
   "scripts": {
     "dev": "tsx src/server.ts",
+    "dev:cf": "npx wrangler dev --config wrangler.jsonc",
     "build": "node ../../scripts/monorepo/noop-build.mjs api",
     "start": "tsx src/server.ts",
-    "migrate": "npm --prefix ../.. run migrate"
+    "migrate": "npm --prefix ../.. run migrate",
+    "deploy:cf": "npx wrangler deploy --config wrangler.jsonc",
+    "test:cf": "node --import tsx --test src/cloudflare/*.test.ts src/cloudflare/**/*.test.ts"
   }
 }

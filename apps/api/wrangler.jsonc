@@ -1,0 +1,35 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "frinter-api",
+  "main": "src/cloudflare/index.ts",
+  "compatibility_date": "2026-03-27",
+  "vars": {
+    "APP_ENV": "development",
+    "API_BASE_URL": "http://127.0.0.1:8787",
+    "FRINTER_HOST": "frinter.pl",
+    "FOCUS_HOST": "focusequalsfreedom.com",
+    "PRZEM_HOST": "przemyslawfilipiak.com"
+  },
+  "hyperdrive": [
+    {
+      "binding": "HYPERDRIVE",
+      "id": "00000000-0000-0000-0000-000000000000",
+      "localConnectionString": "postgres://postgres:postgres@127.0.0.1:5432/frinter"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "ASSETS_BUCKET",
+      "bucket_name": "frinter-assets-dev",
+      "preview_bucket_name": "frinter-assets-dev"
+    }
+  ],
+  "queues": {
+    "producers": [
+      {
+        "binding": "JOB_QUEUE",
+        "queue": "frinter-api-jobs"
+      }
+    ]
+  }
+}
