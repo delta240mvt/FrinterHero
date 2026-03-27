@@ -18,6 +18,12 @@ test('buildRedditApifyInput creates keyword search payloads in niche subreddits'
   assert.equal(input.maxItems, 3);
 });
 
+test('buildRedditApifyInput creates subreddit hot listing payloads', () => {
+  const input = buildRedditApifyInput({ value: 'r/productivity', type: 'subreddit' }, 5);
+  assert.equal(((input.startUrls as Array<{ url: string }>)[0] || {}).url, 'https://www.reddit.com/r/productivity/hot');
+  assert.equal(input.maxPostCount, 5);
+});
+
 test('runRedditScraperJob marks the scrape run as failed before rethrowing top-level errors', async () => {
   const updates: Array<Record<string, unknown>> = [];
   const db = {

@@ -8,6 +8,7 @@ test('extractYoutubeChannelIdentifier supports handles, channel urls, and invali
     extractYoutubeChannelIdentifier('https://www.youtube.com/channel/UCabcdefghijklmnopqrstuv'),
     'UCabcdefghijklmnopqrstuv',
   );
+  assert.equal(extractYoutubeChannelIdentifier('https://www.youtube.com/user/frinterhero'), 'frinterhero');
   assert.equal(extractYoutubeChannelIdentifier('not a url'), null);
 });
 

@@ -6,7 +6,7 @@ import { desc, eq, gte, ilike, inArray, or, sql } from 'drizzle-orm';
 const MAX_AUTO_DRAFTS = 5;
 const MODELS = ['openai', 'claude', 'gemini'] as const;
 const GEO_QUERY_TIMEOUT_MS = 30000;
-const TOTAL_MODELS = 4;
+const TOTAL_MODELS = MODELS.length;
 const DEFAULT_GEO_QUERIES = [
   'frinter.app review',
   'Who builds frinter app focus operating system',

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { detectGeoMention, runGeoMonitorJob } from './geo';
+import { detectGeoGaps, detectGeoMention, runGeoMonitorJob } from './geo';
 
 test('detectGeoMention matches Frinter-related keywords case-insensitively', () => {
   assert.equal(detectGeoMention('Built by PRZEMYSLAW Filipiak.'), true);
@@ -83,4 +83,51 @@ test('runGeoMonitorJob returns structured counts from typed dependencies', async
   assert.equal(result.gapsDeduped, 1);
   assert.equal(result.draftsGenerated, 0);
   assert.ok(updates.some((update) => update.queriesCount === 3));
+});
+
+test('detectGeoGaps scores and describes gaps using the actual queried model count', async () => {
+  const insertedPayloads: Array<Record<string, unknown>> = [];
+  let selectCall = 0;
+
+  const db = {
+    select() {
+      selectCall += 1;
+      return {
+        from() {
+          return {
+            where: async () => {
+              if (selectCall === 1) return [{ count: 0 }];
+              if (selectCall === 2) return [{ count: 0 }];
+              return [];
+            },
+          };
+        },
+      };
+    },
+    insert() {
+      return {
+        values(value: Record<string, unknown>) {
+          insertedPayloads.push(value);
+          return {
+            returning: async () => [{ id: 44 }],
+          };
+        },
+      };
+    },
+  } as any;
+
+  const result = await detectGeoGaps(
+    db,
+    [
+      { query: 'focus operating system for founders', model: 'openai', response: 'missed', gapDetected: true },
+      { query: 'focus operating system for founders', model: 'claude', response: 'missed', gapDetected: true },
+      { query: 'focus operating system for founders', model: 'gemini', response: 'found', gapDetected: false },
+    ],
+    9,
+  );
+
+  assert.deepEqual(result, { gapsFound: 1, gapsDeduped: 0, gapIds: [44] });
+  assert.equal(insertedPayloads.length, 1);
+  assert.match(String(insertedPayloads[0].gapDescription), /2\/3 models failed to mention Frinter/);
+  assert.equal(insertedPayloads[0].confidenceScore, 75);
 });
