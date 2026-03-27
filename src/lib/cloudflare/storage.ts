@@ -8,6 +8,23 @@ export interface ArtifactKeyInput {
   topic: JobTopic;
 }
 
+export interface R2BucketLike {
+  put(
+    key: string,
+    value: ArrayBuffer | ReadableStream | string,
+    options?: { httpMetadata?: { contentType?: string } },
+  ): Promise<unknown>;
+  get(
+    key: string,
+  ): Promise<{ body: ReadableStream; httpMetadata?: { contentType?: string } } | null>;
+}
+
+export interface ArtifactMetadata {
+  key: string;
+  contentType: string;
+  size: number;
+}
+
 export function sanitizeStorageSegment(value: string): string {
   return value
     .trim()
@@ -34,4 +51,31 @@ export function buildArtifactKey({ filename, jobId, siteSlug, topic }: ArtifactK
   }
 
   return ['artifacts', siteSlug, topic, safeJobId, safeFilename].join('/');
+}
+
+export async function putArtifact(
+  bucket: R2BucketLike,
+  input: ArtifactKeyInput,
+  body: ArrayBuffer | ReadableStream | string,
+  contentType = 'application/octet-stream',
+): Promise<ArtifactMetadata> {
+  const key = buildArtifactKey(input);
+
+  await bucket.put(key, body, { httpMetadata: { contentType } });
+
+  let size: number;
+  if (body instanceof ArrayBuffer) {
+    size = body.byteLength;
+  } else if (typeof body === 'string') {
+    size = body.length;
+  } else {
+    size = 0;
+  }
+
+  return { key, contentType, size };
+}
+
+export function getArtifactUrl(bucketDomain: string, input: ArtifactKeyInput): string {
+  const key = buildArtifactKey(input);
+  return `https://${bucketDomain}/${key}`;
 }
