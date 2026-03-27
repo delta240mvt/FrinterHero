@@ -208,106 +208,122 @@ export async function runRedditScraperJob(
   options: RedditScraperOptions,
   overrides: Partial<RedditScraperDeps> = {},
 ): Promise<RedditScraperResult> {
-  const deps = { ...getDefaultRedditDeps(), ...overrides };
   const protocolLines: string[] = [];
-  const logger = deps.logger ?? console;
+  const logger = overrides.logger ?? console;
   const log = (message: string) => logger.log(`[${new Date().toISOString()}] ${message}`);
-
-  if (!options.scrapeTargets || !options.scrapeRunId) {
-    throw new Error('SCRAPE_TARGETS and SCRAPE_RUN_ID env vars required');
-  }
-
-  const targets = parseRedditTargets(options.scrapeTargets);
-  let allPosts: any[] = [];
-  let allDbPostIds: number[] = [];
-
-  let existingIds = new Set<string>();
+  const failureDb = overrides.db ?? defaultDb;
   try {
-    const existing = await deps.db.select({ redditId: redditPosts.redditId }).from(redditPosts);
-    existingIds = new Set(existing.map((row) => row.redditId));
-  } catch {
-    // Startup preload is best effort.
-  }
+    if (!options.scrapeTargets || !options.scrapeRunId) {
+      throw new Error('SCRAPE_TARGETS and SCRAPE_RUN_ID env vars required');
+    }
+    const deps = { ...getDefaultRedditDeps(), ...overrides };
 
-  const oneYearAgo = new Date();
-  oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+    const targets = parseRedditTargets(options.scrapeTargets);
+    const allPosts: any[] = [];
 
-  for (const target of targets) {
-    const input = buildRedditApifyInput(target, options.maxItems);
-    const apifyRun = await deps.apify.actor('trudax/reddit-scraper-lite').call(input);
-    const { items } = await deps.apify.dataset(apifyRun.defaultDatasetId).listItems();
-    const rawItems = items as any[];
-    const newItems = rawItems.filter((item) => {
-      const id = String(item.id || item.redditId || '');
-      if (!id || existingIds.has(id)) return false;
-      const createdAt = item.createdAt ? new Date(item.createdAt) : item.created_utc ? new Date(item.created_utc * 1000) : null;
-      return !createdAt || createdAt >= oneYearAgo;
-    });
+    let existingIds = new Set<string>();
+    try {
+      const existing = await deps.db.select({ redditId: redditPosts.redditId }).from(redditPosts);
+      existingIds = new Set(existing.map((row) => row.redditId));
+    } catch {
+      // Startup preload is best effort.
+    }
 
-    if (newItems.length > 0) {
-      const dbRows = newItems.map((item) => mapToDbPost(options.siteId, options.scrapeRunId, item));
-      const inserted = await deps.db.insert(redditPosts).values(dbRows).returning({ id: redditPosts.id });
-      const ids = inserted.map((row) => row.id);
-      allDbPostIds.push(...ids);
-      allPosts.push(
-        ...newItems.map((item, index) => ({
-          _dbId: ids[index],
-          subreddit: String(item.subreddit || item.community || 'unknown'),
-          title: String(item.title || item.parsedTitle || ''),
-          body: String(item.selftext || item.text || item.body || item.content || ''),
-          upvotes: parseInt(String(item.score || item.upvotes || 0), 10) || 0,
-          topComments: Array.isArray(item.comments)
-            ? item.comments.slice(0, 5).map((comment: any) => String(comment.body || comment.text || comment.content || '').substring(0, 300))
-            : [],
+    const oneYearAgo = new Date();
+    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+
+    for (const target of targets) {
+      const input = buildRedditApifyInput(target, options.maxItems);
+      const apifyRun = await deps.apify.actor('trudax/reddit-scraper-lite').call(input);
+      const { items } = await deps.apify.dataset(apifyRun.defaultDatasetId).listItems();
+      const rawItems = items as any[];
+      const newItems = rawItems.filter((item) => {
+        const id = String(item.id || item.redditId || '');
+        if (!id || existingIds.has(id)) return false;
+        const createdAt = item.createdAt ? new Date(item.createdAt) : item.created_utc ? new Date(item.created_utc * 1000) : null;
+        return !createdAt || createdAt >= oneYearAgo;
+      });
+
+      if (newItems.length > 0) {
+        const dbRows = newItems.map((item) => mapToDbPost(options.siteId, options.scrapeRunId, item));
+        const inserted = await deps.db.insert(redditPosts).values(dbRows).returning({ id: redditPosts.id });
+        const ids = inserted.map((row) => row.id);
+        allPosts.push(
+          ...newItems.map((item, index) => ({
+            _dbId: ids[index],
+            subreddit: String(item.subreddit || item.community || 'unknown'),
+            title: String(item.title || item.parsedTitle || ''),
+            body: String(item.selftext || item.text || item.body || item.content || ''),
+            upvotes: parseInt(String(item.score || item.upvotes || 0), 10) || 0,
+            topComments: Array.isArray(item.comments)
+              ? item.comments.slice(0, 5).map((comment: any) => String(comment.body || comment.text || comment.content || '').substring(0, 300))
+              : [],
+          })),
+        );
+        newItems.forEach((item) => existingIds.add(String(item.id || '')));
+      }
+    }
+
+    const chunks = chunkArray(allPosts, options.chunkSize);
+    const allExtracted: RedditPainPoint[] = [];
+
+    for (let index = 0; index < chunks.length; index++) {
+      const extracted = await analyzePainPoints(deps, options, chunks[index], chunks[index].map((post) => post._dbId), log);
+      allExtracted.push(...extracted);
+    }
+
+    const unique = await deduplicateAgainstExisting(deps.db, allExtracted, log);
+    if (unique.length > 0) {
+      await deps.db.insert(redditExtractedGaps).values(
+        unique.map((gap) => ({
+          scrapeRunId: options.scrapeRunId,
+          siteId: options.siteId,
+          painPointTitle: gap.painPointTitle,
+          painPointDescription: gap.painPointDescription,
+          emotionalIntensity: gap.emotionalIntensity,
+          frequency: gap.frequency,
+          vocabularyQuotes: gap.vocabularyQuotes,
+          sourcePostIds: gap.sourcePostIds,
+          suggestedArticleAngle: gap.suggestedArticleAngle,
+          category: gap.category,
+          status: 'pending',
         })),
       );
-      newItems.forEach((item) => existingIds.add(String(item.id || '')));
     }
-  }
 
-  const chunks = chunkArray(allPosts, options.chunkSize);
-  const allExtracted: RedditPainPoint[] = [];
+    await deps.db
+      .update(redditScrapeRuns)
+      .set({
+        status: 'completed',
+        postsCollected: allPosts.length,
+        painPointsExtracted: unique.length,
+        finishedAt: new Date(),
+      })
+      .where(eq(redditScrapeRuns.id, options.scrapeRunId));
 
-  for (let index = 0; index < chunks.length; index++) {
-    const extracted = await analyzePainPoints(deps, options, chunks[index], chunks[index].map((post) => post._dbId), log);
-    allExtracted.push(...extracted);
-  }
+    protocolLines.push(`painPointsExtracted:${unique.length}`);
+    protocolLines.push(`RESULT_JSON:${JSON.stringify({ success: true, gapsExtracted: unique.length })}`);
 
-  const unique = await deduplicateAgainstExisting(deps.db, allExtracted, log);
-  if (unique.length > 0) {
-    await deps.db.insert(redditExtractedGaps).values(
-      unique.map((gap) => ({
-        scrapeRunId: options.scrapeRunId,
-        siteId: options.siteId,
-        painPointTitle: gap.painPointTitle,
-        painPointDescription: gap.painPointDescription,
-        emotionalIntensity: gap.emotionalIntensity,
-        frequency: gap.frequency,
-        vocabularyQuotes: gap.vocabularyQuotes,
-        sourcePostIds: gap.sourcePostIds,
-        suggestedArticleAngle: gap.suggestedArticleAngle,
-        category: gap.category,
-        status: 'pending',
-      })),
-    );
-  }
-
-  await deps.db
-    .update(redditScrapeRuns)
-    .set({
-      status: 'completed',
+    return {
       postsCollected: allPosts.length,
       painPointsExtracted: unique.length,
-      finishedAt: new Date(),
-    })
-    .where(eq(redditScrapeRuns.id, options.scrapeRunId));
-
-  protocolLines.push(`painPointsExtracted:${unique.length}`);
-  protocolLines.push(`RESULT_JSON:${JSON.stringify({ success: true, gapsExtracted: unique.length })}`);
-
-  return {
-    postsCollected: allPosts.length,
-    painPointsExtracted: unique.length,
-    protocolLines,
-  };
+      protocolLines,
+    };
+  } catch (error: any) {
+    if (options.scrapeRunId) {
+      try {
+        await failureDb
+          .update(redditScrapeRuns)
+          .set({
+            status: 'failed',
+            errorMessage: String(error.message),
+            finishedAt: new Date(),
+          })
+          .where(eq(redditScrapeRuns.id, options.scrapeRunId));
+      } catch {
+        // Preserve best-effort failure reporting.
+      }
+    }
+    throw error;
+  }
 }

@@ -1,8 +1,5 @@
 import * as dotenv from 'dotenv';
 import * as path from 'path';
-import { db } from '../src/db/client';
-import { redditScrapeRuns } from '../src/db/schema';
-import { eq } from 'drizzle-orm';
 import { runRedditScraperJob } from '../src/lib/jobs/reddit';
 
 dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
@@ -24,19 +21,5 @@ runRedditScraperJob(options)
   })
   .catch(async (error: any) => {
     console.error('[FATAL]', error.message);
-    if (options.scrapeRunId) {
-      try {
-        await db
-          .update(redditScrapeRuns)
-          .set({
-            status: 'failed',
-            errorMessage: String(error.message),
-            finishedAt: new Date(),
-          })
-          .where(eq(redditScrapeRuns.id, options.scrapeRunId));
-      } catch {
-        // Preserve best-effort failure reporting.
-      }
-    }
     process.exit(1);
   });

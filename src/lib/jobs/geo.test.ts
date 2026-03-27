@@ -1,6 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { runGeoMonitorJob } from './geo';
+import { detectGeoMention, runGeoMonitorJob } from './geo';
+
+test('detectGeoMention matches Frinter-related keywords case-insensitively', () => {
+  assert.equal(detectGeoMention('Built by PRZEMYSLAW Filipiak.'), true);
+  assert.equal(detectGeoMention('No brand mention here.'), false);
+});
 
 test('runGeoMonitorJob returns structured counts from typed dependencies', async () => {
   const insertedQueries: Array<{ query: string; model: string }> = [];

@@ -1,8 +1,5 @@
 import * as dotenv from 'dotenv';
 import * as path from 'path';
-import { db } from '../src/db/client';
-import { ytScrapeRuns } from '../src/db/schema';
-import { eq } from 'drizzle-orm';
 import { runYoutubeScraperJob } from '../src/lib/jobs/youtube';
 
 dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
@@ -26,19 +23,5 @@ runYoutubeScraperJob(options)
   })
   .catch(async (error: any) => {
     console.error('[FATAL]', error.message);
-    if (options.scrapeRunId) {
-      try {
-        await db
-          .update(ytScrapeRuns)
-          .set({
-            status: 'failed',
-            errorMessage: String(error.message),
-            finishedAt: new Date(),
-          })
-          .where(eq(ytScrapeRuns.id, options.scrapeRunId));
-      } catch {
-        // Preserve best-effort failure reporting.
-      }
-    }
     process.exit(1);
   });

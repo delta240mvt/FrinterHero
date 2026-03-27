@@ -338,55 +338,74 @@ export async function runYoutubeScraperJob(
   options: YoutubeScraperOptions,
   overrides: Partial<YoutubeScraperDeps> = {},
 ): Promise<YoutubeScraperResult> {
-  const deps = { ...getDefaultYoutubeDeps(), ...overrides };
   const protocolLines: string[] = [];
-  const logger = deps.logger ?? console;
+  const logger = overrides.logger ?? console;
   const log = (message: string) => logger.log(`[${new Date().toISOString()}] ${message}`);
-
-  if (!options.scrapeRunId) throw new Error('SCRAPE_RUN_ID required');
-  if (!options.youtubeApiKey) throw new Error('YOUTUBE_API_KEY required');
-
-  const targetIds = options.scrapeTargetIds
-    ? options.scrapeTargetIds
-        .split(',')
-        .map(Number)
-        .filter(Boolean)
-    : [];
-  const targets = targetIds.length
-    ? await deps.db.select().from(ytTargets).where(inArray(ytTargets.id, targetIds))
-    : await deps.db.select().from(ytTargets).where(eq(ytTargets.isActive, true));
-
-  let existingCommentIds = new Set<string>();
+  const failureDb = overrides.db ?? defaultDb;
   try {
-    const existing = await deps.db.select({ commentId: ytComments.commentId }).from(ytComments);
-    existingCommentIds = new Set(existing.map((row) => row.commentId));
-  } catch {
-    // Dedup preload is best effort.
-  }
+    if (!options.scrapeRunId) throw new Error('SCRAPE_RUN_ID required');
+    if (!options.youtubeApiKey) throw new Error('YOUTUBE_API_KEY required');
+    const deps = { ...getDefaultYoutubeDeps(), ...overrides };
 
-  let totalComments = 0;
-  let totalPainPoints = 0;
+    const targetIds = options.scrapeTargetIds
+      ? options.scrapeTargetIds
+          .split(',')
+          .map(Number)
+          .filter(Boolean)
+      : [];
+    const targets = targetIds.length
+      ? await deps.db.select().from(ytTargets).where(inArray(ytTargets.id, targetIds))
+      : await deps.db.select().from(ytTargets).where(eq(ytTargets.isActive, true));
 
-  for (const target of targets) {
+    let existingCommentIds = new Set<string>();
     try {
-      if (target.type === 'channel') {
-        const identifier = target.channelHandle ?? extractYoutubeChannelIdentifier(target.url);
-        if (!identifier) continue;
-        const channelId = await resolveChannelId(deps, options.youtubeApiKey, identifier, log);
-        if (!channelId) continue;
-        const videos = await getTopChannelVideos(
-          deps,
-          options.youtubeApiKey,
-          channelId,
-          target.maxVideosPerChannel ?? options.maxVideosPerChannel,
-          log,
-        );
-        for (const video of videos) {
+      const existing = await deps.db.select({ commentId: ytComments.commentId }).from(ytComments);
+      existingCommentIds = new Set(existing.map((row) => row.commentId));
+    } catch {
+      // Dedup preload is best effort.
+    }
+
+    let totalComments = 0;
+    let totalPainPoints = 0;
+
+    for (const target of targets) {
+      try {
+        if (target.type === 'channel') {
+          const identifier = target.channelHandle ?? extractYoutubeChannelIdentifier(target.url);
+          if (!identifier) continue;
+          const channelId = await resolveChannelId(deps, options.youtubeApiKey, identifier, log);
+          if (!channelId) continue;
+          const videos = await getTopChannelVideos(
+            deps,
+            options.youtubeApiKey,
+            channelId,
+            target.maxVideosPerChannel ?? options.maxVideosPerChannel,
+            log,
+          );
+          for (const video of videos) {
+            const result = await processVideo(
+              deps,
+              options,
+              video.videoId,
+              video.title,
+              existingCommentIds,
+              totalComments,
+              totalPainPoints,
+              log,
+              protocolLines,
+            );
+            totalComments += result.comments;
+            totalPainPoints += result.painPoints;
+          }
+        } else {
+          const videoId = target.videoId ?? new URL(target.url).searchParams.get('v') ?? '';
+          if (!videoId) continue;
+          const title = await getVideoTitle(deps, options.youtubeApiKey, videoId);
           const result = await processVideo(
             deps,
             options,
-            video.videoId,
-            video.title,
+            videoId,
+            title,
             existingCommentIds,
             totalComments,
             totalPainPoints,
@@ -396,53 +415,52 @@ export async function runYoutubeScraperJob(
           totalComments += result.comments;
           totalPainPoints += result.painPoints;
         }
-      } else {
-        const videoId = target.videoId ?? new URL(target.url).searchParams.get('v') ?? '';
-        if (!videoId) continue;
-        const title = await getVideoTitle(deps, options.youtubeApiKey, videoId);
-        const result = await processVideo(
-          deps,
-          options,
-          videoId,
-          title,
-          existingCommentIds,
-          totalComments,
-          totalPainPoints,
-          log,
-          protocolLines,
-        );
-        totalComments += result.comments;
-        totalPainPoints += result.painPoints;
+
+        await deps.db.update(ytTargets).set({ lastScrapedAt: new Date() }).where(eq(ytTargets.id, target.id));
+        await deps.db
+          .update(ytScrapeRuns)
+          .set({
+            commentsCollected: totalComments,
+            targetsScraped: targets.map((item) => item.label),
+          })
+          .where(eq(ytScrapeRuns.id, options.scrapeRunId));
+      } catch (error: any) {
+        log(`[WARN] Failed: "${target.label}": ${error.message}`);
       }
-
-      await deps.db.update(ytTargets).set({ lastScrapedAt: new Date() }).where(eq(ytTargets.id, target.id));
-      await deps.db
-        .update(ytScrapeRuns)
-        .set({
-          commentsCollected: totalComments,
-          targetsScraped: targets.map((item) => item.label),
-        })
-        .where(eq(ytScrapeRuns.id, options.scrapeRunId));
-    } catch (error: any) {
-      log(`[WARN] Failed: "${target.label}": ${error.message}`);
     }
-  }
 
-  await deps.db
-    .update(ytScrapeRuns)
-    .set({
-      status: 'completed',
+    await deps.db
+      .update(ytScrapeRuns)
+      .set({
+        status: 'completed',
+        commentsCollected: totalComments,
+        painPointsExtracted: totalPainPoints,
+        finishedAt: new Date(),
+      })
+      .where(eq(ytScrapeRuns.id, options.scrapeRunId));
+
+    protocolLines.push(`RESULT_JSON:${JSON.stringify({ commentsCollected: totalComments, painPointsExtracted: totalPainPoints })}`);
+
+    return {
       commentsCollected: totalComments,
       painPointsExtracted: totalPainPoints,
-      finishedAt: new Date(),
-    })
-    .where(eq(ytScrapeRuns.id, options.scrapeRunId));
-
-  protocolLines.push(`RESULT_JSON:${JSON.stringify({ commentsCollected: totalComments, painPointsExtracted: totalPainPoints })}`);
-
-  return {
-    commentsCollected: totalComments,
-    painPointsExtracted: totalPainPoints,
-    protocolLines,
-  };
+      protocolLines,
+    };
+  } catch (error: any) {
+    if (options.scrapeRunId) {
+      try {
+        await failureDb
+          .update(ytScrapeRuns)
+          .set({
+            status: 'failed',
+            errorMessage: String(error.message),
+            finishedAt: new Date(),
+          })
+          .where(eq(ytScrapeRuns.id, options.scrapeRunId));
+      } catch {
+        // Preserve best-effort failure reporting.
+      }
+    }
+    throw error;
+  }
 }

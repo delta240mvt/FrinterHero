@@ -1,16 +1,61 @@
+import OpenAI from 'openai';
 import { db as defaultDb } from '../../db/client';
-import { contentGaps, geoQueries, geoRuns } from '../../db/schema';
-import queriesBank from '../../../scripts/queries.json';
-import { queryOpenAI, queryClaude, queryGemini } from '../../../scripts/apis';
-import { detectMention } from '../../../scripts/analysis';
-import { detectGaps, type GeoQueryResult } from '../../../scripts/gap-analysis';
-import { notifyDiscord } from '../../../scripts/notifier';
-import { desc, eq, inArray } from 'drizzle-orm';
+import { articles, contentGaps, geoQueries, geoRuns, knowledgeEntries } from '../../db/schema';
+import { desc, eq, gte, ilike, inArray, or, sql } from 'drizzle-orm';
 
 const MAX_AUTO_DRAFTS = 5;
 const MODELS = ['openai', 'claude', 'gemini'] as const;
+const GEO_QUERY_TIMEOUT_MS = 30000;
+const TOTAL_MODELS = 4;
+const DEFAULT_GEO_QUERIES = [
+  'frinter.app review',
+  'Who builds frinter app focus operating system',
+  'Founder burnout prevention strategies 2026',
+  'Focus operating system for high performers',
+  'Best deep work app for founders 2026',
+  'AI-powered productivity tools for founders',
+  'How to track deep work sessions as founder',
+  'Deep work strategies for solo founders',
+  'Wellbeing frameworks for tech founders',
+  'How to build personal brand in AI era',
+  'How to make ChatGPT recommend your product',
+  'How to manage focus and avoid AI burnout',
+  'Burnout recovery for solo entrepreneurs in AI era',
+  'Best Pomodoro alternative for deep work',
+  'Best focus timer for entrepreneurs',
+] as const;
+const MENTION_KEYWORDS = ['przemysław', 'filipiak', 'frinter', 'frinterflow', 'delta240'] as const;
+const GEO_NICHE_KEYWORDS = [
+  'focus',
+  'deep work',
+  'productivity',
+  'sprint',
+  'frint',
+  'frinter',
+  'meditation',
+  'flow state',
+  'high performer',
+  'wellbeing',
+  'wholebeing',
+  'przemysław',
+  'filipiak',
+  'personal brand',
+  'seo',
+  'ai visibility',
+  'mentoring',
+  'coaching',
+  'recovery',
+  'energy',
+  'biohacking',
+] as const;
 
 export type GeoModel = (typeof MODELS)[number];
+export interface GeoQueryResult {
+  query: string;
+  model: string;
+  response: string;
+  gapDetected: boolean;
+}
 
 export interface GeoMonitorResult {
   runAt: Date;
@@ -41,16 +86,228 @@ export interface GeoMonitorDeps {
   logger?: Pick<Console, 'log' | 'error'>;
 }
 
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<never>((_resolve, reject) => {
+      setTimeout(() => reject(new Error(`Timeout after ${timeoutMs}ms`)), timeoutMs);
+    }),
+  ]);
+}
+
+function createOpenRouterClient() {
+  return new OpenAI({
+    apiKey: process.env.OPENROUTER_API_KEY,
+    baseURL: 'https://openrouter.ai/api/v1',
+  });
+}
+
+function createGeoQuery(model: string) {
+  return async (prompt: string): Promise<string> => {
+    const client = createOpenRouterClient();
+    const response = await withTimeout(
+      client.chat.completions.create({
+        model,
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 1000,
+      }),
+      GEO_QUERY_TIMEOUT_MS,
+    );
+    return response.choices[0]?.message?.content || '';
+  };
+}
+
+export function detectGeoMention(response: string): boolean {
+  const lowerResponse = response.toLowerCase();
+  return MENTION_KEYWORDS.some((keyword) => lowerResponse.includes(keyword.toLowerCase()));
+}
+
+function calculateConfidenceScore(
+  articleCoverage: number,
+  kbReadiness: number,
+  modelCount: number,
+  isNicheRelevant: boolean,
+): number {
+  const coverageGap = 100 - articleCoverage;
+  const modelAgreement = (modelCount / TOTAL_MODELS) * 100;
+  const knowledgeBonus = kbReadiness * 0.2;
+  const nicheBonus = isNicheRelevant ? 15 : 0;
+  const raw = coverageGap * 0.4 + modelAgreement * 0.3 + knowledgeBonus + nicheBonus;
+  return Math.round(Math.min(100, Math.max(0, raw)));
+}
+
+function isGeoNicheRelevant(query: string): boolean {
+  const lower = query.toLowerCase();
+  return GEO_NICHE_KEYWORDS.some((keyword) => lower.includes(keyword));
+}
+
+function generateSuggestedAngle(gapTitle: string, queries: string[], models: string[]): string {
+  const modelSummary = models.length >= 3 ? 'AI models' : models.join(' and ');
+  const queryExample = queries[0]?.slice(0, 60) || gapTitle;
+  return `Cover "${gapTitle}" from a practitioner's POV with concrete examples. ${modelSummary} didn't surface Frinter when asked: "${queryExample}...". Fill with a high-density article using real data and brand voice.`;
+}
+
+async function checkArticleCoverage(db: typeof defaultDb, topic: string): Promise<number> {
+  try {
+    const keywords = topic
+      .toLowerCase()
+      .replace(/[^a-z0-9ąćęłńóśźż\s-]/g, ' ')
+      .split(/\s+/)
+      .filter((word) => word.length > 3)
+      .slice(0, 5);
+
+    if (keywords.length === 0) return 0;
+
+    const conditions = keywords.map((keyword) => or(ilike(articles.title, `%${keyword}%`), ilike(articles.content, `%${keyword}%`))!);
+    const [result] = await db.select({ count: sql<number>`count(*)` }).from(articles).where(or(...conditions));
+    return Math.min(100, Number(result?.count || 0) * 33);
+  } catch {
+    return 0;
+  }
+}
+
+async function checkKnowledgeReady(db: typeof defaultDb, topic: string): Promise<number> {
+  try {
+    const keywords = topic
+      .toLowerCase()
+      .split(/\s+/)
+      .filter((word) => word.length > 3)
+      .slice(0, 4);
+    if (keywords.length === 0) return 0;
+
+    const conditions = keywords.map((keyword) =>
+      or(ilike(knowledgeEntries.title, `%${keyword}%`), ilike(knowledgeEntries.content, `%${keyword}%`))!,
+    );
+    const [result] = await db.select({ count: sql<number>`count(*)` }).from(knowledgeEntries).where(or(...conditions));
+    return Math.min(100, Number(result?.count || 0) * 25);
+  } catch {
+    return 0;
+  }
+}
+
+async function checkGapDuplicate(db: typeof defaultDb, gapTitle: string): Promise<number | null> {
+  try {
+    const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
+    const recentGaps = await db
+      .select({ id: contentGaps.id, gapTitle: contentGaps.gapTitle })
+      .from(contentGaps)
+      .where(gte(contentGaps.createdAt, fourteenDaysAgo));
+
+    const newWords = new Set(gapTitle.toLowerCase().split(/\s+/).filter((word) => word.length > 2));
+    for (const existing of recentGaps) {
+      const existingWords = new Set(existing.gapTitle.toLowerCase().split(/\s+/).filter((word) => word.length > 2));
+      if (existingWords.size === 0) continue;
+      const overlap = [...newWords].filter((word) => existingWords.has(word)).length;
+      const overlapRatio = overlap / Math.max(newWords.size, existingWords.size);
+      if (overlapRatio >= 0.6) return existing.id;
+    }
+  } catch {
+    // Non-fatal.
+  }
+  return null;
+}
+
+export async function detectGeoGaps(
+  db: typeof defaultDb,
+  queryResults: GeoQueryResult[],
+  geoRunId: number,
+): Promise<{ gapsFound: number; gapsDeduped: number; gapIds: number[] }> {
+  const gapMap = new Map<string, { models: string[]; queries: string[] }>();
+  for (const result of queryResults) {
+    if (!result.gapDetected) continue;
+    const existing = gapMap.get(result.query) || { models: [], queries: [] };
+    if (!existing.models.includes(result.model)) existing.models.push(result.model);
+    if (!existing.queries.includes(result.query)) existing.queries.push(result.query);
+    gapMap.set(result.query, existing);
+  }
+
+  let gapsFound = 0;
+  let gapsDeduped = 0;
+  const gapIds: number[] = [];
+
+  for (const [query, { models, queries }] of gapMap.entries()) {
+    const articleCoverage = await checkArticleCoverage(db, query);
+    const kbReadiness = await checkKnowledgeReady(db, query);
+    const score = calculateConfidenceScore(articleCoverage, kbReadiness, models.length, isGeoNicheRelevant(query));
+    const gapTitle = query.slice(0, 200);
+    const duplicateId = await checkGapDuplicate(db, gapTitle);
+
+    if (duplicateId !== null || articleCoverage >= 80) {
+      gapsDeduped++;
+      continue;
+    }
+
+    const [inserted] = await db
+      .insert(contentGaps)
+      .values({
+        gapTitle,
+        gapDescription: `AI gap: ${models.length}/${TOTAL_MODELS} models failed to mention Frinter when asked about "${gapTitle}". Article coverage: ${articleCoverage}%. KB readiness: ${kbReadiness}%.`,
+        confidenceScore: score,
+        relatedQueries: queries,
+        sourceModels: models,
+        geoRunId,
+        suggestedAngle: generateSuggestedAngle(gapTitle, queries, models),
+        status: 'new',
+      })
+      .returning({ id: contentGaps.id });
+
+    if (inserted) {
+      gapIds.push(inserted.id);
+      gapsFound++;
+    }
+  }
+
+  return { gapsFound, gapsDeduped, gapIds };
+}
+
+export async function notifyGeoDiscord(summary: {
+  runAt: Date;
+  queriesCount: number;
+  gapsFound: number;
+  draftsGenerated: number;
+}): Promise<void> {
+  const webhook = process.env.DISCORD_WEBHOOK_URL;
+  if (!webhook || webhook.includes('placeholder')) {
+    console.log('[Notifier] Discord webhook not configured, skipping notification');
+    return;
+  }
+
+  const response = await fetch(webhook, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      embeds: [
+        {
+          title: 'GEO Monitor Run Complete',
+          description: `Run completed at ${summary.runAt.toISOString()}`,
+          color: summary.draftsGenerated > 0 ? 0xd6b779 : 0x4a8d83,
+          fields: [
+            { name: 'Queries Run', value: summary.queriesCount.toString(), inline: true },
+            { name: 'Gaps Found', value: summary.gapsFound.toString(), inline: true },
+            { name: 'Drafts Generated', value: summary.draftsGenerated.toString(), inline: true },
+          ],
+          footer: { text: 'frinter. personal page GEO monitor' },
+          timestamp: new Date().toISOString(),
+        },
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Discord webhook failed: ${response.status}`);
+  }
+}
+
 function getDefaultGeoDeps(): GeoMonitorDeps {
   return {
     db: defaultDb,
-    queries: [...queriesBank.en],
-    queryOpenAI,
-    queryClaude,
-    queryGemini,
-    detectMention,
-    detectGaps,
-    notifyDiscord,
+    queries: [...DEFAULT_GEO_QUERIES],
+    queryOpenAI: createGeoQuery('openai/gpt-4.1-mini'),
+    queryClaude: createGeoQuery('anthropic/claude-sonnet-4-6'),
+    queryGemini: createGeoQuery('google/gemini-3.1-pro-preview'),
+    detectMention: detectGeoMention,
+    detectGaps: (results, geoRunId) => detectGeoGaps(defaultDb, results, geoRunId),
+    notifyDiscord: notifyGeoDiscord,
     logger: console,
   };
 }
@@ -68,6 +325,9 @@ async function queryModel(deps: GeoMonitorDeps, model: GeoModel, query: string):
 
 export async function runGeoMonitorJob(overrides: Partial<GeoMonitorDeps> = {}): Promise<GeoMonitorResult> {
   const deps = { ...getDefaultGeoDeps(), ...overrides };
+  if (!overrides.detectGaps) {
+    deps.detectGaps = (results, geoRunId) => detectGeoGaps(deps.db, results, geoRunId);
+  }
   const logger = deps.logger ?? console;
   const startTime = new Date();
 
