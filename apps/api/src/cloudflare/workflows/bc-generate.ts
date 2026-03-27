@@ -1,0 +1,167 @@
+/// <reference path="../workers-runtime.d.ts" />
+import { and, eq } from 'drizzle-orm';
+
+import { getCloudflareDb } from '../../../../../src/db/client.ts';
+import { appJobs } from '../../../../../src/db/schema.ts';
+import { buildWorkflowFailureResult, buildWorkflowSuccessResult } from '../../../../../src/lib/cloudflare/workflow-results.ts';
+import type { JobQueueMessage } from '../../../../../src/lib/cloudflare/job-payloads.ts';
+import { runBcGenerateJob, type BcGenerateResult } from '../../../../../src/lib/jobs/bc-generate.ts';
+
+type BcGenerateQueueMessage = JobQueueMessage<{ projectId: number; iterationId: number | null }>;
+export type BcGenerateWorkflowMessage = BcGenerateQueueMessage;
+
+type WorkflowStepLike = Pick<CloudflareWorkflowStep, 'do'>;
+
+interface BcGenerateWorkflowEnv {}
+
+interface BcGenerateWorkflowDeps {
+  db?: any;
+  env?: BcGenerateWorkflowEnv;
+  runBcGenerateJob?: (options: Parameters<typeof runBcGenerateJob>[0], overrides: Record<string, unknown>) => Promise<BcGenerateResult>;
+  step: WorkflowStepLike;
+}
+
+type WorkflowEntrypointConstructor<TEnv> = abstract new (_ctx: unknown, env: TEnv) => {
+  readonly env: TEnv;
+};
+
+const WorkflowEntrypointBase = (((globalThis as Record<string, unknown>).WorkflowEntrypoint as WorkflowEntrypointConstructor<BcGenerateWorkflowEnv> | undefined) ??
+  class {
+    readonly env: BcGenerateWorkflowEnv;
+
+    constructor(_ctx: unknown, env: BcGenerateWorkflowEnv) {
+      this.env = env;
+    }
+  }) as WorkflowEntrypointConstructor<BcGenerateWorkflowEnv>;
+
+function getDb(db?: unknown) {
+  return (db ?? getCloudflareDb()) as any;
+}
+
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error);
+}
+
+async function loadWorkflowJob(db: any, message: BcGenerateQueueMessage) {
+  const jobId = Number(message.jobId);
+  const [job] = await db
+    .select()
+    .from(appJobs)
+    .where(and(eq(appJobs.id, jobId), eq(appJobs.siteId, message.siteId)))
+    .limit(1);
+
+  if (!job) {
+    throw new Error(`Job not found: ${message.jobId}`);
+  }
+
+  if (job.topic !== message.topic) {
+    throw new Error(`Job topic mismatch: expected ${message.topic}, received ${String(job.topic)}`);
+  }
+
+  return job;
+}
+
+export async function executeBcGenerateWorkflow(message: BcGenerateQueueMessage, deps: BcGenerateWorkflowDeps) {
+  const db = getDb(deps.db);
+  const reservedJob = await deps.step.do('reserve', async () => {
+    const job = await loadWorkflowJob(db, message);
+    await db
+      .update(appJobs)
+      .set({
+        error: null,
+        progress: { stage: 'reserved' },
+        startedAt: new Date(),
+        status: 'running',
+        updatedAt: new Date(),
+        workerName: 'cloudflare:bc-generate',
+      })
+      .where(and(eq(appJobs.id, job.id), eq(appJobs.siteId, message.siteId)));
+
+    return job;
+  });
+
+  try {
+    const jobResult = await deps.step.do('execute', async () => {
+      const runner = deps.runBcGenerateJob ?? runBcGenerateJob;
+      const payload = message.payload ?? {};
+      return runner(
+        {
+          projectId: Number(payload.projectId),
+          iterationId: payload.iterationId != null ? Number(payload.iterationId) : null,
+        },
+        {
+          db,
+        },
+      );
+    });
+
+    return deps.step.do('finalize', async () => {
+      const result = buildWorkflowSuccessResult({
+        jobId: message.jobId,
+        result: jobResult,
+        siteId: message.siteId,
+        siteSlug: message.siteSlug,
+        topic: message.topic,
+      });
+
+      await db
+        .update(appJobs)
+        .set({
+          error: null,
+          finishedAt: new Date(),
+          progress: { stage: 'finalized' },
+          result,
+          status: 'completed',
+          updatedAt: new Date(),
+        })
+        .where(and(eq(appJobs.id, reservedJob.id), eq(appJobs.siteId, message.siteId)));
+
+      return result;
+    });
+  } catch (error) {
+    await deps.step.do('finalize', async () => {
+      const result = buildWorkflowFailureResult({
+        error: getErrorMessage(error),
+        jobId: message.jobId,
+        retryable: false,
+        siteId: message.siteId,
+        siteSlug: message.siteSlug,
+        topic: message.topic,
+      });
+
+      await db
+        .update(appJobs)
+        .set({
+          error: result.error,
+          finishedAt: new Date(),
+          progress: { stage: 'finalized' },
+          result,
+          status: 'failed',
+          updatedAt: new Date(),
+        })
+        .where(and(eq(appJobs.id, reservedJob.id), eq(appJobs.siteId, message.siteId)));
+
+      return result;
+    });
+
+    throw error;
+  }
+}
+
+export interface BcGenerateWorkflowBinding extends Pick<CloudflareWorkflow<BcGenerateWorkflowMessage>, 'create'> {}
+
+export async function startBcGenerateWorkflow(binding: BcGenerateWorkflowBinding, message: BcGenerateWorkflowMessage) {
+  return binding.create({
+    id: `job-${message.jobId}`,
+    params: message,
+  });
+}
+
+export class BcGenerateWorkflow extends WorkflowEntrypointBase {
+  async run(event: CloudflareWorkflowEvent<BcGenerateWorkflowMessage>, step: WorkflowStepLike) {
+    return executeBcGenerateWorkflow(event.payload, {
+      env: this.env,
+      step,
+    });
+  }
+}

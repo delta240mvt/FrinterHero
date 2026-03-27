@@ -47,6 +47,31 @@
       "name": "frinter-api-youtube-run",
       "binding": "YOUTUBE_RUN_WORKFLOW",
       "class_name": "YoutubeRunWorkflow"
+    },
+    {
+      "name": "frinter-api-bc-scrape",
+      "binding": "BC_SCRAPE_WORKFLOW",
+      "class_name": "BcScrapeWorkflow"
+    },
+    {
+      "name": "frinter-api-bc-parse",
+      "binding": "BC_PARSE_WORKFLOW",
+      "class_name": "BcParseWorkflow"
+    },
+    {
+      "name": "frinter-api-bc-selector",
+      "binding": "BC_SELECTOR_WORKFLOW",
+      "class_name": "BcSelectorWorkflow"
+    },
+    {
+      "name": "frinter-api-bc-cluster",
+      "binding": "BC_CLUSTER_WORKFLOW",
+      "class_name": "BcClusterWorkflow"
+    },
+    {
+      "name": "frinter-api-bc-generate",
+      "binding": "BC_GENERATE_WORKFLOW",
+      "class_name": "BcGenerateWorkflow"
     }
   ]
 }

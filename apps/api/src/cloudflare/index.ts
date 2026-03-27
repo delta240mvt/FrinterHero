@@ -4,13 +4,23 @@ import { routeRequest } from './router.ts';
 import { GeoRunWorkflow, startGeoRunWorkflow, type GeoRunWorkflowBinding } from './workflows/geo-run.ts';
 import { RedditRunWorkflow, startRedditRunWorkflow, type RedditRunWorkflowBinding } from './workflows/reddit-run.ts';
 import { YoutubeRunWorkflow, startYoutubeRunWorkflow, type YoutubeRunWorkflowBinding } from './workflows/youtube-run.ts';
+import { BcScrapeWorkflow, startBcScrapeWorkflow, type BcScrapeWorkflowBinding } from './workflows/bc-scrape.ts';
+import { BcParseWorkflow, startBcParseWorkflow, type BcParseWorkflowBinding } from './workflows/bc-parse.ts';
+import { BcSelectorWorkflow, startBcSelectorWorkflow, type BcSelectorWorkflowBinding } from './workflows/bc-selector.ts';
+import { BcClusterWorkflow, startBcClusterWorkflow, type BcClusterWorkflowBinding } from './workflows/bc-cluster.ts';
+import { BcGenerateWorkflow, startBcGenerateWorkflow, type BcGenerateWorkflowBinding } from './workflows/bc-generate.ts';
 
-const WORKER_QUEUE_TOPICS = ['geo', 'reddit', 'youtube'] as const;
+const WORKER_QUEUE_TOPICS = ['geo', 'reddit', 'youtube', 'bc-scrape', 'bc-parse', 'bc-selector', 'bc-cluster', 'bc-generate'] as const;
 
 interface WorkerEnv extends Partial<ApiEnv> {
   GEO_RUN_WORKFLOW?: GeoRunWorkflowBinding;
   REDDIT_RUN_WORKFLOW?: RedditRunWorkflowBinding;
   YOUTUBE_RUN_WORKFLOW?: YoutubeRunWorkflowBinding;
+  BC_SCRAPE_WORKFLOW?: BcScrapeWorkflowBinding;
+  BC_PARSE_WORKFLOW?: BcParseWorkflowBinding;
+  BC_SELECTOR_WORKFLOW?: BcSelectorWorkflowBinding;
+  BC_CLUSTER_WORKFLOW?: BcClusterWorkflowBinding;
+  BC_GENERATE_WORKFLOW?: BcGenerateWorkflowBinding;
 }
 
 function json(status: number, body: unknown): Response {
@@ -41,13 +51,27 @@ const worker = {
   },
 
   async queue(batch: unknown, env: WorkerEnv): Promise<void> {
-    if (!env.GEO_RUN_WORKFLOW || !env.REDDIT_RUN_WORKFLOW || !env.YOUTUBE_RUN_WORKFLOW) {
+    if (
+      !env.GEO_RUN_WORKFLOW ||
+      !env.REDDIT_RUN_WORKFLOW ||
+      !env.YOUTUBE_RUN_WORKFLOW ||
+      !env.BC_SCRAPE_WORKFLOW ||
+      !env.BC_PARSE_WORKFLOW ||
+      !env.BC_SELECTOR_WORKFLOW ||
+      !env.BC_CLUSTER_WORKFLOW ||
+      !env.BC_GENERATE_WORKFLOW
+    ) {
       throw new Error('Missing Cloudflare workflow bindings');
     }
 
     const geoWorkflow = env.GEO_RUN_WORKFLOW;
     const redditWorkflow = env.REDDIT_RUN_WORKFLOW;
     const youtubeWorkflow = env.YOUTUBE_RUN_WORKFLOW;
+    const bcScrapeWorkflow = env.BC_SCRAPE_WORKFLOW;
+    const bcParseWorkflow = env.BC_PARSE_WORKFLOW;
+    const bcSelectorWorkflow = env.BC_SELECTOR_WORKFLOW;
+    const bcClusterWorkflow = env.BC_CLUSTER_WORKFLOW;
+    const bcGenerateWorkflow = env.BC_GENERATE_WORKFLOW;
 
     await handleJobQueueBatch(
       batch as Parameters<typeof handleJobQueueBatch>[0],
@@ -61,20 +85,20 @@ const worker = {
         startYoutubeWorkflow(message) {
           return startYoutubeRunWorkflow(youtubeWorkflow, message as Parameters<typeof startYoutubeRunWorkflow>[1]);
         },
-        async startBcScrapeWorkflow() {
-          throw new Error('Workflow starter not implemented for topic: bc-scrape');
+        startBcScrapeWorkflow(message) {
+          return startBcScrapeWorkflow(bcScrapeWorkflow, message as Parameters<typeof startBcScrapeWorkflow>[1]);
         },
-        async startBcParseWorkflow() {
-          throw new Error('Workflow starter not implemented for topic: bc-parse');
+        startBcParseWorkflow(message) {
+          return startBcParseWorkflow(bcParseWorkflow, message as Parameters<typeof startBcParseWorkflow>[1]);
         },
-        async startBcSelectorWorkflow() {
-          throw new Error('Workflow starter not implemented for topic: bc-selector');
+        startBcSelectorWorkflow(message) {
+          return startBcSelectorWorkflow(bcSelectorWorkflow, message as Parameters<typeof startBcSelectorWorkflow>[1]);
         },
-        async startBcClusterWorkflow() {
-          throw new Error('Workflow starter not implemented for topic: bc-cluster');
+        startBcClusterWorkflow(message) {
+          return startBcClusterWorkflow(bcClusterWorkflow, message as Parameters<typeof startBcClusterWorkflow>[1]);
         },
-        async startBcGenerateWorkflow() {
-          throw new Error('Workflow starter not implemented for topic: bc-generate');
+        startBcGenerateWorkflow(message) {
+          return startBcGenerateWorkflow(bcGenerateWorkflow, message as Parameters<typeof startBcGenerateWorkflow>[1]);
         },
         async startShCopyWorkflow() {
           throw new Error('Workflow starter not implemented for topic: sh-copy');
@@ -97,4 +121,4 @@ const worker = {
 };
 
 export default worker;
-export { GeoRunWorkflow, RedditRunWorkflow, YoutubeRunWorkflow };
+export { GeoRunWorkflow, RedditRunWorkflow, YoutubeRunWorkflow, BcScrapeWorkflow, BcParseWorkflow, BcSelectorWorkflow, BcClusterWorkflow, BcGenerateWorkflow };
