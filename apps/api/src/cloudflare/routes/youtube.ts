@@ -9,7 +9,6 @@ import {
 } from '../../../../../src/db/schema.ts';
 import { requireAuthMiddleware } from '../middleware/auth.ts';
 import type { HonoEnv } from '../app.ts';
-import { getCloudflareDb } from '../../../../../src/db/client.ts';
 import { findOffBrandMatch } from '../../../../../src/utils/brandFilter.ts';
 
 export const youtubeRouter = new Hono<HonoEnv>();
@@ -47,11 +46,7 @@ function ytStatuses(raw: string | null): string[] {
   return raw.split(',').map(s => s.trim()).filter(s => ['pending', 'approved', 'rejected'].includes(s));
 }
 
-async function hydrateYtGaps(gaps: (typeof ytExtractedGaps.$inferSelect)[]) {
-  return gaps;
-}
-
-async function ytSourceComments(db: ReturnType<typeof getCloudflareDb>, ids: number[]) {
+async function ytSourceComments(db: any, ids: number[]) {
   if (ids.length === 0) return [];
   return db.select().from(ytComments).where(inArray(ytComments.id, ids));
 }
@@ -240,13 +235,12 @@ youtubeRouter.get('/v1/admin/youtube/runs/:id', requireAuthMiddleware, async (c)
 
   if (!run) return c.json({ error: 'Run not found' }, 404);
 
-  const rawGaps = await db
+  const gaps = await db
     .select()
     .from(ytExtractedGaps)
     .where(and(eq(ytExtractedGaps.scrapeRunId, id), ytGapScope(siteId)!))
     .orderBy(desc(ytExtractedGaps.emotionalIntensity), desc(ytExtractedGaps.createdAt));
 
-  const gaps = await hydrateYtGaps(rawGaps);
   return c.json({ run, gaps });
 });
 
@@ -292,7 +286,7 @@ youtubeRouter.get('/v1/admin/youtube/gaps', requireAuthMiddleware, async (c) => 
 
   const whereClause = conditions.length === 1 ? conditions[0] : and(...conditions);
 
-  const [rawGaps, totalRows, statsRows] = await Promise.all([
+  const [items, totalRows, statsRows] = await Promise.all([
     db.select().from(ytExtractedGaps).where(whereClause).orderBy(desc(ytExtractedGaps.emotionalIntensity), desc(ytExtractedGaps.createdAt)).limit(limit).offset(offset),
     db.select({ total: sql<number>`count(*)::int` }).from(ytExtractedGaps).where(whereClause),
     db.select({
@@ -302,7 +296,6 @@ youtubeRouter.get('/v1/admin/youtube/gaps', requireAuthMiddleware, async (c) => 
     }).from(ytExtractedGaps).where(ytGapScope(siteId)!),
   ]);
 
-  const items = await hydrateYtGaps(rawGaps);
   return c.json({
     gaps: items,
     items,
