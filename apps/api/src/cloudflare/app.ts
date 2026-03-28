@@ -7,6 +7,8 @@ import { adminRouter } from './routes/admin.ts';
 import { sitesRouter } from './routes/sites.ts';
 import { articlesRouter } from './routes/articles.ts';
 import { knowledgeRouter } from './routes/knowledge.ts';
+import { geoRouter } from './routes/geo.ts';
+import { contentGapsRouter } from './routes/content-gaps.ts';
 
 export type HonoEnv = {
   Bindings: ApiEnv;
@@ -35,6 +37,8 @@ export function createApp() {
   app.route('/', sitesRouter);
   app.route('/', articlesRouter);
   app.route('/', knowledgeRouter);
+  app.route('/', geoRouter);
+  app.route('/', contentGapsRouter);
 
   return app;
 }
