@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import type { ApiEnv } from './env.ts';
 import { initCloudflareDb, getCloudflareDb } from '../../../../src/db/client.ts';
 import { authRouter } from './routes/auth.ts';
+import { jobsRouter } from './routes/jobs.ts';
 
 export type HonoEnv = {
   Bindings: ApiEnv;
@@ -25,6 +26,7 @@ export function createApp() {
   app.get('/health', (c) => c.json({ service: 'api', status: 'ok' }));
 
   app.route('/', authRouter);
+  app.route('/', jobsRouter);
 
   return app;
 }
