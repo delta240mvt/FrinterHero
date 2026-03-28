@@ -11,8 +11,8 @@ const VALID_TOPICS = new Set<JobTopic>(['geo', 'reddit', 'youtube', 'bc-scrape',
 export const jobsRouter = new Hono<HonoEnv>();
 
 jobsRouter.post('/v1/jobs/:topic', async (c, next) => {
-  const topic = c.req.param('topic') as JobTopic;
-  if (!VALID_TOPICS.has(topic)) return c.json({ error: 'Unknown job topic' }, 404);
+  const topicParam = c.req.param('topic');
+  if (!VALID_TOPICS.has(topicParam as JobTopic)) return c.json({ error: 'Unknown job topic' }, 404);
   await next();
 }, requireAuthMiddleware, async (c) => {
   const topic = c.req.param('topic') as JobTopic;
@@ -25,6 +25,7 @@ jobsRouter.post('/v1/jobs/:topic', async (c, next) => {
 
   const payload = await c.req.json<Record<string, unknown>>().catch(() => ({}));
   const [job] = await db.insert(appJobs).values({ payload, progress: {}, siteId: site.id, topic, type: topic }).returning();
+  if (!job) return c.json({ error: 'Failed to create job' }, 500);
 
   try {
     await c.env.JOB_QUEUE.send(buildJobQueueMessage({ jobId: String(job.id), payload, siteId: site.id, siteSlug: tenant.siteSlug, topic }));
