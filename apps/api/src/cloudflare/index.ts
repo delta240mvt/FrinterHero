@@ -1,6 +1,6 @@
-import { readApiEnv, type ApiEnv } from './env.ts';
+import type { ApiEnv } from './env.ts';
 import { handleJobQueueBatch } from './queues/index.ts';
-import { routeRequest } from './router.ts';
+import { honoApp } from './app.ts';
 import { GeoRunWorkflow, startGeoRunWorkflow, type GeoRunWorkflowBinding } from './workflows/geo-run.ts';
 import { RedditRunWorkflow, startRedditRunWorkflow, type RedditRunWorkflowBinding } from './workflows/reddit-run.ts';
 import { YoutubeRunWorkflow, startYoutubeRunWorkflow, type YoutubeRunWorkflowBinding } from './workflows/youtube-run.ts';
@@ -29,48 +29,18 @@ interface WorkerEnv extends Partial<ApiEnv> {
   SH_PUBLISH_WORKFLOW?: ShPublishWorkflowBinding;
 }
 
-function json(status: number, body: unknown): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: {
-      'content-type': 'application/json; charset=utf-8',
-    },
-  });
-}
-
 const worker = {
-  async fetch(request: Request, env: WorkerEnv): Promise<Response> {
+  async fetch(request: Request, env: WorkerEnv, ctx: ExecutionContext): Promise<Response> {
     const start = Date.now();
     const { method } = request;
     const pathname = new URL(request.url).pathname;
     try {
-      let response: Response;
-
-      if (method === 'GET' && pathname === '/health') {
-        response = await routeRequest(request);
-      } else {
-        response = await routeRequest(request, readApiEnv(env));
-      }
-
-      console.log(JSON.stringify({
-        type: 'request',
-        method,
-        pathname,
-        status: response.status,
-        duration_ms: Date.now() - start,
-      }));
-
+      const response = await honoApp.fetch(request, env, ctx);
+      console.log(JSON.stringify({ type: 'request', method, pathname, status: response.status, duration_ms: Date.now() - start }));
       return response;
     } catch (error) {
-      console.error(JSON.stringify({
-        type: 'error',
-        message: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined,
-      }));
-      return json(500, {
-        error: 'Internal server error',
-        detail: error instanceof Error ? error.message : String(error),
-      });
+      console.error(JSON.stringify({ type: 'error', message: error instanceof Error ? error.message : String(error) }));
+      return new Response(JSON.stringify({ error: 'Internal server error' }), { status: 500, headers: { 'content-type': 'application/json' } });
     }
   },
 

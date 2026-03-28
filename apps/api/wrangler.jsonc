@@ -3,6 +3,7 @@
   "name": "frinter-api",
   "main": "src/cloudflare/index.ts",
   "compatibility_date": "2026-03-27",
+  "compatibility_flags": ["nodejs_compat"],
   "vars": {
     "APP_ENV": "development",
     "API_BASE_URL": "http://127.0.0.1:8787",
