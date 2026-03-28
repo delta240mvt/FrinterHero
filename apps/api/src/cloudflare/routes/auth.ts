@@ -51,8 +51,10 @@ authRouter.get('/v1/auth/me', sessionMiddleware, async (c) => {
   let activeSiteSlug: string | null = null;
   if (session.activeSiteId) {
     const db = c.get('db');
-    const [site] = await db.select().from(sites).where(eq(sites.id, session.activeSiteId)).limit(1);
-    activeSiteSlug = site?.slug ?? null;
+    if (db) {
+      const [site] = await db.select().from(sites).where(eq(sites.id, session.activeSiteId)).limit(1);
+      activeSiteSlug = site?.slug ?? null;
+    }
   }
   return c.json({ authenticated: true, session: { id: session.id, siteId: session.siteId ?? null, activeSiteId: session.activeSiteId ?? null, activeSiteSlug, expiresAt: session.expiresAt } });
 });
