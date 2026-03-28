@@ -129,14 +129,20 @@ test('worker.fetch returns a response and does not throw when logging', async ()
   assert.ok(response.status >= 200 && response.status < 600);
 });
 
-test('worker.fetch returns 500 with error detail on unhandled exception', async () => {
-  // Pass env that will cause readApiEnv to throw (missing required vars)
-  const request = new Request('http://localhost/api/unknown-route-xyz');
-  const response = await worker.fetch(request, {} as never, {} as never);
-  // Should return a structured 500 error rather than throwing
-  assert.equal(response.status, 500);
-  const body = await response.json() as { error: string };
-  assert.equal(body.error, 'Internal server error');
+test('worker.fetch returns a structured JSON 500 on unhandled exception', async () => {
+  // Simulate an unhandled exception by monkey-patching honoApp.fetch temporarily
+  const { honoApp } = await import('./app.ts');
+  const original = honoApp.fetch.bind(honoApp);
+  (honoApp as unknown as { fetch: unknown }).fetch = () => { throw new Error('boom'); };
+  try {
+    const request = new Request('http://localhost/api/any-route');
+    const response = await worker.fetch(request, {} as never, {} as never);
+    assert.equal(response.status, 500);
+    const body = await response.json() as { error: string };
+    assert.equal(body.error, 'Internal server error');
+  } finally {
+    (honoApp as unknown as { fetch: unknown }).fetch = original;
+  }
 });
 
 test('worker.queue emits structured log and does not swallow errors for missing bindings', async () => {
