@@ -344,7 +344,7 @@ redditRouter.post('/v1/admin/reddit/gaps/:id/approve', requireAuthMiddleware, as
     .where(eq(redditExtractedGaps.id, id))
     .returning();
 
-  return c.json({ gap: updatedGap, contentGap });
+  return c.json({ ok: true, contentGapId: contentGap.id });
 });
 
 // POST /v1/admin/reddit/gaps/:id/reject
@@ -371,5 +371,5 @@ redditRouter.post('/v1/admin/reddit/gaps/:id/reject', requireAuthMiddleware, asy
     .where(eq(redditExtractedGaps.id, id))
     .returning();
 
-  return c.json({ gap: updatedGap });
+  return c.json({ ok: true });
 });
