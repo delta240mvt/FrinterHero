@@ -13,7 +13,8 @@ export default defineConfig({
   integrations: [tailwind({ configFile: './tailwind.config.mjs', applyBaseStyles: false })],
   vite: {
     define: {
-      'process.env.SITE_SLUG': JSON.stringify('frinter'),
+      'import.meta.env.SITE_SLUG': JSON.stringify('frinter'),
+      'import.meta.env.API_BASE_URL': JSON.stringify('https://frinter-api.delta240mvt.workers.dev'),
     },
     resolve: {
       alias: [
