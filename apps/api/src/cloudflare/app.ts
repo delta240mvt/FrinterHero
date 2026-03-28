@@ -13,6 +13,7 @@ import { redditRouter } from './routes/reddit.ts';
 import { youtubeRouter } from './routes/youtube.ts';
 import { brandClarityRouter } from './routes/brand-clarity.ts';
 import { socialHubRouter } from './routes/social-hub.ts';
+import { yoloRouter } from './routes/yolo.ts';
 
 export type HonoEnv = {
   Bindings: ApiEnv;
@@ -47,6 +48,7 @@ export function createApp() {
   app.route('/', youtubeRouter);
   app.route('/', brandClarityRouter);
   app.route('/', socialHubRouter);
+  app.route('/', yoloRouter);
 
   return app;
 }
