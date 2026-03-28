@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import type { ApiEnv } from './env.ts';
 import { initCloudflareDb, getCloudflareDb } from '../../../../src/db/client.ts';
+import { createAuth } from './auth.ts';
 import { authRouter } from './routes/auth.ts';
 import { jobsRouter } from './routes/jobs.ts';
 import { adminRouter } from './routes/admin.ts';
@@ -35,6 +36,14 @@ export function createApp() {
   });
 
   app.get('/health', (c) => c.json({ service: 'api', status: 'ok' }));
+
+  app.all('/api/auth/*', async (c) => {
+    const auth = createAuth({
+      DATABASE_URL: c.env.DATABASE_URL,
+      BETTER_AUTH_SECRET: c.env.BETTER_AUTH_SECRET,
+    });
+    return auth.handler(c.req.raw);
+  });
 
   app.route('/', authRouter);
   app.route('/', jobsRouter);

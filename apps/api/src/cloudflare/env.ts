@@ -21,6 +21,8 @@ export interface ApiEnv {
   ASSETS_BUCKET: R2BucketBinding;
   JOB_QUEUE: QueueBinding;
   YOUTUBE_API_KEY?: string;
+  DATABASE_URL: string;
+  BETTER_AUTH_SECRET: string;
 }
 
 export function readApiEnv(env: Partial<ApiEnv>): ApiEnv {
@@ -41,6 +43,12 @@ export function readApiEnv(env: Partial<ApiEnv>): ApiEnv {
   if (!env.JOB_QUEUE) {
     missing.push('JOB_QUEUE');
   }
+  if (!env.DATABASE_URL) {
+    missing.push('DATABASE_URL');
+  }
+  if (!env.BETTER_AUTH_SECRET) {
+    missing.push('BETTER_AUTH_SECRET');
+  }
 
   if (missing.length > 0) {
     throw new Error(`Missing Cloudflare API env: ${missing.join(', ')}`);
@@ -57,5 +65,7 @@ export function readApiEnv(env: Partial<ApiEnv>): ApiEnv {
     ASSETS_BUCKET: env.ASSETS_BUCKET!,
     JOB_QUEUE: env.JOB_QUEUE!,
     YOUTUBE_API_KEY: env.YOUTUBE_API_KEY,
+    DATABASE_URL: env.DATABASE_URL!,
+    BETTER_AUTH_SECRET: env.BETTER_AUTH_SECRET!,
   };
 }
