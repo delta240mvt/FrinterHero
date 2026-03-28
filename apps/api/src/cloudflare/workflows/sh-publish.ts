@@ -1,4 +1,5 @@
 /// <reference path="../workers-runtime.d.ts" />
+import { WorkflowEntrypoint } from 'cloudflare:workers';
 import { and, eq } from 'drizzle-orm';
 
 import { getCloudflareDb } from '../../../../../src/db/client.ts';
@@ -26,18 +27,6 @@ interface ShPublishWorkflowDeps {
   step: WorkflowStepLike;
 }
 
-type WorkflowEntrypointConstructor<TEnv> = abstract new (_ctx: unknown, env: TEnv) => {
-  readonly env: TEnv;
-};
-
-const WorkflowEntrypointBase = (((globalThis as Record<string, unknown>).WorkflowEntrypoint as WorkflowEntrypointConstructor<ShPublishWorkflowEnv> | undefined) ??
-  class {
-    readonly env: ShPublishWorkflowEnv;
-
-    constructor(_ctx: unknown, env: ShPublishWorkflowEnv) {
-      this.env = env;
-    }
-  }) as WorkflowEntrypointConstructor<ShPublishWorkflowEnv>;
 
 function getDb(db?: unknown) {
   return (db ?? getCloudflareDb()) as any;
@@ -159,7 +148,7 @@ export async function startShPublishWorkflow(binding: ShPublishWorkflowBinding, 
   });
 }
 
-export class ShPublishWorkflow extends WorkflowEntrypointBase {
+export class ShPublishWorkflow extends WorkflowEntrypoint<ShPublishWorkflowEnv> {
   async run(event: CloudflareWorkflowEvent<ShPublishWorkflowMessage>, step: WorkflowStepLike) {
     return executeShPublishWorkflow(event.payload, {
       env: this.env,

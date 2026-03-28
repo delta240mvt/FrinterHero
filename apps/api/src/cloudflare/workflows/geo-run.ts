@@ -1,4 +1,5 @@
 /// <reference path="../workers-runtime.d.ts" />
+import { WorkflowEntrypoint } from 'cloudflare:workers';
 import OpenAI from 'openai';
 import { and, eq } from 'drizzle-orm';
 
@@ -25,18 +26,6 @@ interface GeoWorkflowDeps {
   step: WorkflowStepLike;
 }
 
-type WorkflowEntrypointConstructor<TEnv> = abstract new (_ctx: unknown, env: TEnv) => {
-  readonly env: TEnv;
-};
-
-const WorkflowEntrypointBase = (((globalThis as Record<string, unknown>).WorkflowEntrypoint as WorkflowEntrypointConstructor<GeoWorkflowEnv> | undefined) ??
-  class {
-    readonly env: GeoWorkflowEnv;
-
-    constructor(_ctx: unknown, env: GeoWorkflowEnv) {
-      this.env = env;
-    }
-  }) as WorkflowEntrypointConstructor<GeoWorkflowEnv>;
 
 function getDb(db?: unknown) {
   return (db ?? getCloudflareDb()) as any;
@@ -223,7 +212,7 @@ export async function startGeoRunWorkflow(binding: GeoRunWorkflowBinding, messag
   });
 }
 
-export class GeoRunWorkflow extends WorkflowEntrypointBase {
+export class GeoRunWorkflow extends WorkflowEntrypoint<GeoWorkflowEnv> {
   async run(event: CloudflareWorkflowEvent<GeoRunWorkflowMessage>, step: WorkflowStepLike) {
     return executeGeoRunWorkflow(event.payload, {
       env: this.env,

@@ -5,8 +5,8 @@
   "compatibility_date": "2026-03-27",
   "compatibility_flags": ["nodejs_compat"],
   "vars": {
-    "APP_ENV": "development",
-    "API_BASE_URL": "http://127.0.0.1:8787",
+    "APP_ENV": "production",
+    "API_BASE_URL": "https://frinter-api.delta240mvt.workers.dev",
     "FRINTER_HOST": "frinter.pl",
     "FOCUS_HOST": "focusequalsfreedom.com",
     "PRZEM_HOST": "przemyslawfilipiak.com"
@@ -14,15 +14,15 @@
   "hyperdrive": [
     {
       "binding": "HYPERDRIVE",
-      "id": "00000000-0000-0000-0000-000000000000",
+      "id": "1adb924aec33432cb131b7adecde714c",
       "localConnectionString": "postgres://postgres:postgres@127.0.0.1:5432/frinter"
     }
   ],
   "r2_buckets": [
     {
       "binding": "ASSETS_BUCKET",
-      "bucket_name": "frinter-assets-dev",
-      "preview_bucket_name": "frinter-assets-dev"
+      "bucket_name": "frinter-artifacts",
+      "preview_bucket_name": "frinter-artifacts"
     }
   ],
   "queues": {
@@ -30,6 +30,13 @@
       {
         "binding": "JOB_QUEUE",
         "queue": "frinter-api-jobs"
+      }
+    ],
+    "consumers": [
+      {
+        "queue": "frinter-api-jobs",
+        "max_batch_size": 10,
+        "max_batch_timeout": 5
       }
     ]
   },

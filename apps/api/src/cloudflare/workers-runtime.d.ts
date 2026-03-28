@@ -11,15 +11,15 @@ interface CloudflareWorkflowStep {
   do<T>(name: string, options: unknown, callback: () => Promise<T>): Promise<T>;
 }
 
-declare abstract class WorkflowEntrypoint<TEnv = unknown, TParams = unknown> {
-  protected readonly env: TEnv;
-
-  constructor(ctx: unknown, env: TEnv);
-
-  abstract run(
-    event: CloudflareWorkflowEvent<TParams>,
-    step: CloudflareWorkflowStep,
-  ): Promise<unknown>;
+declare module 'cloudflare:workers' {
+  export abstract class WorkflowEntrypoint<TEnv = unknown, TParams = unknown> {
+    protected readonly env: TEnv;
+    constructor(ctx: unknown, env: TEnv);
+    abstract run(
+      event: CloudflareWorkflowEvent<TParams>,
+      step: CloudflareWorkflowStep,
+    ): Promise<unknown>;
+  }
 }
 
 interface ExecutionContext {

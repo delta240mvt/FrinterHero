@@ -1,4 +1,5 @@
 /// <reference path="../workers-runtime.d.ts" />
+import { WorkflowEntrypoint } from 'cloudflare:workers';
 import OpenAI from 'openai';
 import { and, eq } from 'drizzle-orm';
 
@@ -25,18 +26,6 @@ interface YoutubeWorkflowDeps {
   step: WorkflowStepLike;
 }
 
-type WorkflowEntrypointConstructor<TEnv> = abstract new (_ctx: unknown, env: TEnv) => {
-  readonly env: TEnv;
-};
-
-const WorkflowEntrypointBase = (((globalThis as Record<string, unknown>).WorkflowEntrypoint as WorkflowEntrypointConstructor<YoutubeWorkflowEnv> | undefined) ??
-  class {
-    readonly env: YoutubeWorkflowEnv;
-
-    constructor(_ctx: unknown, env: YoutubeWorkflowEnv) {
-      this.env = env;
-    }
-  }) as WorkflowEntrypointConstructor<YoutubeWorkflowEnv>;
 
 function getDb(db?: unknown) {
   return (db ?? getCloudflareDb()) as any;
@@ -215,7 +204,7 @@ export async function startYoutubeRunWorkflow(binding: YoutubeRunWorkflowBinding
   });
 }
 
-export class YoutubeRunWorkflow extends WorkflowEntrypointBase {
+export class YoutubeRunWorkflow extends WorkflowEntrypoint<YoutubeWorkflowEnv> {
   async run(event: CloudflareWorkflowEvent<YoutubeRunWorkflowMessage>, step: WorkflowStepLike) {
     return executeYoutubeRunWorkflow(event.payload, {
       env: this.env,

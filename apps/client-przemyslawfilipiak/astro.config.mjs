@@ -23,6 +23,6 @@ export default defineConfig({
         { find: '@', replacement: path.resolve(appDir, 'src') },
       ],
     },
-    ssr: { noExternal: ['drizzle-orm'], external: ['node:*'] },
+    ssr: { noExternal: ['drizzle-orm'], external: ['node:*', 'pg', 'drizzle-orm/node-postgres'] },
   },
 });

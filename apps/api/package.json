@@ -2,6 +2,9 @@
   "name": "@frinter/api",
   "private": true,
   "type": "module",
+  "imports": {
+    "cloudflare:workers": "./src/cloudflare/__stubs__/cloudflare-workers.ts"
+  },
   "scripts": {
     "dev": "wrangler dev --config wrangler.jsonc",
     "dev:cf": "wrangler dev --config wrangler.jsonc",

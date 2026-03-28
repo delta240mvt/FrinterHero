@@ -1,4 +1,5 @@
 /// <reference path="../workers-runtime.d.ts" />
+import { WorkflowEntrypoint } from 'cloudflare:workers';
 import { and, eq } from 'drizzle-orm';
 
 import { getCloudflareDb } from '../../../../../src/db/client.ts';
@@ -31,18 +32,6 @@ interface ShVideoWorkflowDeps {
   step: WorkflowStepLike;
 }
 
-type WorkflowEntrypointConstructor<TEnv> = abstract new (_ctx: unknown, env: TEnv) => {
-  readonly env: TEnv;
-};
-
-const WorkflowEntrypointBase = (((globalThis as Record<string, unknown>).WorkflowEntrypoint as WorkflowEntrypointConstructor<ShVideoWorkflowEnv> | undefined) ??
-  class {
-    readonly env: ShVideoWorkflowEnv;
-
-    constructor(_ctx: unknown, env: ShVideoWorkflowEnv) {
-      this.env = env;
-    }
-  }) as WorkflowEntrypointConstructor<ShVideoWorkflowEnv>;
 
 function getDb(db?: unknown) {
   return (db ?? getCloudflareDb()) as any;
@@ -179,7 +168,7 @@ export async function startShVideoWorkflow(binding: ShVideoWorkflowBinding, mess
   });
 }
 
-export class ShVideoWorkflow extends WorkflowEntrypointBase {
+export class ShVideoWorkflow extends WorkflowEntrypoint<ShVideoWorkflowEnv> {
   async run(event: CloudflareWorkflowEvent<ShVideoWorkflowMessage>, step: WorkflowStepLike) {
     return executeShVideoWorkflow(event.payload, {
       env: this.env,

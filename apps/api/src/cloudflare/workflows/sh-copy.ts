@@ -1,4 +1,5 @@
 /// <reference path="../workers-runtime.d.ts" />
+import { WorkflowEntrypoint } from 'cloudflare:workers';
 import { and, eq } from 'drizzle-orm';
 
 import { getCloudflareDb } from '../../../../../src/db/client.ts';
@@ -38,18 +39,6 @@ function createShCallLlm(env: ShCopyWorkflowEnv): typeof callBcLlm {
   };
 }
 
-type WorkflowEntrypointConstructor<TEnv> = abstract new (_ctx: unknown, env: TEnv) => {
-  readonly env: TEnv;
-};
-
-const WorkflowEntrypointBase = (((globalThis as Record<string, unknown>).WorkflowEntrypoint as WorkflowEntrypointConstructor<ShCopyWorkflowEnv> | undefined) ??
-  class {
-    readonly env: ShCopyWorkflowEnv;
-
-    constructor(_ctx: unknown, env: ShCopyWorkflowEnv) {
-      this.env = env;
-    }
-  }) as WorkflowEntrypointConstructor<ShCopyWorkflowEnv>;
 
 function getDb(db?: unknown) {
   return (db ?? getCloudflareDb()) as any;
@@ -177,7 +166,7 @@ export async function startShCopyWorkflow(binding: ShCopyWorkflowBinding, messag
   });
 }
 
-export class ShCopyWorkflow extends WorkflowEntrypointBase {
+export class ShCopyWorkflow extends WorkflowEntrypoint<ShCopyWorkflowEnv> {
   async run(event: CloudflareWorkflowEvent<ShCopyWorkflowMessage>, step: WorkflowStepLike) {
     return executeShCopyWorkflow(event.payload, {
       env: this.env,

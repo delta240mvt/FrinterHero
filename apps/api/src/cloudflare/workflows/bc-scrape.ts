@@ -1,4 +1,5 @@
 /// <reference path="../workers-runtime.d.ts" />
+import { WorkflowEntrypoint } from 'cloudflare:workers';
 import { and, eq } from 'drizzle-orm';
 
 import { getCloudflareDb } from '../../../../../src/db/client.ts';
@@ -38,18 +39,6 @@ function createBcCallLlm(env: BcScrapeWorkflowEnv): typeof callBcLlm {
   };
 }
 
-type WorkflowEntrypointConstructor<TEnv> = abstract new (_ctx: unknown, env: TEnv) => {
-  readonly env: TEnv;
-};
-
-const WorkflowEntrypointBase = (((globalThis as Record<string, unknown>).WorkflowEntrypoint as WorkflowEntrypointConstructor<BcScrapeWorkflowEnv> | undefined) ??
-  class {
-    readonly env: BcScrapeWorkflowEnv;
-
-    constructor(_ctx: unknown, env: BcScrapeWorkflowEnv) {
-      this.env = env;
-    }
-  }) as WorkflowEntrypointConstructor<BcScrapeWorkflowEnv>;
 
 function getDb(db?: unknown) {
   return (db ?? getCloudflareDb()) as any;
@@ -180,7 +169,7 @@ export async function startBcScrapeWorkflow(binding: BcScrapeWorkflowBinding, me
   });
 }
 
-export class BcScrapeWorkflow extends WorkflowEntrypointBase {
+export class BcScrapeWorkflow extends WorkflowEntrypoint<BcScrapeWorkflowEnv> {
   async run(event: CloudflareWorkflowEvent<BcScrapeWorkflowMessage>, step: WorkflowStepLike) {
     return executeBcScrapeWorkflow(event.payload, {
       env: this.env,

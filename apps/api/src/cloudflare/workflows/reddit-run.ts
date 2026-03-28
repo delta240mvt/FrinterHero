@@ -1,4 +1,5 @@
 /// <reference path="../workers-runtime.d.ts" />
+import { WorkflowEntrypoint } from 'cloudflare:workers';
 import { ApifyClient } from 'apify-client';
 import OpenAI from 'openai';
 import { and, eq } from 'drizzle-orm';
@@ -26,18 +27,6 @@ interface RedditWorkflowDeps {
   step: WorkflowStepLike;
 }
 
-type WorkflowEntrypointConstructor<TEnv> = abstract new (_ctx: unknown, env: TEnv) => {
-  readonly env: TEnv;
-};
-
-const WorkflowEntrypointBase = (((globalThis as Record<string, unknown>).WorkflowEntrypoint as WorkflowEntrypointConstructor<RedditWorkflowEnv> | undefined) ??
-  class {
-    readonly env: RedditWorkflowEnv;
-
-    constructor(_ctx: unknown, env: RedditWorkflowEnv) {
-      this.env = env;
-    }
-  }) as WorkflowEntrypointConstructor<RedditWorkflowEnv>;
 
 function getDb(db?: unknown) {
   return (db ?? getCloudflareDb()) as any;
@@ -209,7 +198,7 @@ export async function startRedditRunWorkflow(binding: RedditRunWorkflowBinding, 
   });
 }
 
-export class RedditRunWorkflow extends WorkflowEntrypointBase {
+export class RedditRunWorkflow extends WorkflowEntrypoint<RedditWorkflowEnv> {
   async run(event: CloudflareWorkflowEvent<RedditRunWorkflowMessage>, step: WorkflowStepLike) {
     return executeRedditRunWorkflow(event.payload, {
       env: this.env,
