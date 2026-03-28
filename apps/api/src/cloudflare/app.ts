@@ -3,6 +3,8 @@ import type { ApiEnv } from './env.ts';
 import { initCloudflareDb, getCloudflareDb } from '../../../../src/db/client.ts';
 import { authRouter } from './routes/auth.ts';
 import { jobsRouter } from './routes/jobs.ts';
+import { adminRouter } from './routes/admin.ts';
+import { sitesRouter } from './routes/sites.ts';
 
 export type HonoEnv = {
   Bindings: ApiEnv;
@@ -27,6 +29,8 @@ export function createApp() {
 
   app.route('/', authRouter);
   app.route('/', jobsRouter);
+  app.route('/', adminRouter);
+  app.route('/', sitesRouter);
 
   return app;
 }
