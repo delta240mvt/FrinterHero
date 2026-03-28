@@ -21,6 +21,7 @@ export interface ApiEnv {
   HYPERDRIVE: HyperdriveBinding;
   ASSETS_BUCKET: R2BucketBinding;
   JOB_QUEUE: QueueBinding;
+  YOUTUBE_API_KEY?: string;
 }
 
 export function readApiEnv(env: Partial<ApiEnv>): ApiEnv {
@@ -57,5 +58,6 @@ export function readApiEnv(env: Partial<ApiEnv>): ApiEnv {
     HYPERDRIVE: env.HYPERDRIVE!,
     ASSETS_BUCKET: env.ASSETS_BUCKET!,
     JOB_QUEUE: env.JOB_QUEUE!,
+    YOUTUBE_API_KEY: env.YOUTUBE_API_KEY,
   };
 }

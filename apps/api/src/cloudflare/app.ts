@@ -11,6 +11,7 @@ import { geoRouter } from './routes/geo.ts';
 import { contentGapsRouter } from './routes/content-gaps.ts';
 import { redditRouter } from './routes/reddit.ts';
 import { youtubeRouter } from './routes/youtube.ts';
+import { brandClarityRouter } from './routes/brand-clarity.ts';
 
 export type HonoEnv = {
   Bindings: ApiEnv;
@@ -43,6 +44,7 @@ export function createApp() {
   app.route('/', contentGapsRouter);
   app.route('/', redditRouter);
   app.route('/', youtubeRouter);
+  app.route('/', brandClarityRouter);
 
   return app;
 }
