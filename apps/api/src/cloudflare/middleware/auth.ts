@@ -1,7 +1,7 @@
 import { createMiddleware } from 'hono/factory';
-import { getCookie, setCookie, deleteCookie } from 'hono/cookie';
+import { getCookie } from 'hono/cookie';
 import { eq } from 'drizzle-orm';
-import { sessions, sites } from '../../../../../src/db/schema.ts';
+import { sessions } from '../../../../../src/db/schema.ts';
 import type { HonoEnv } from '../app.ts';
 
 export const SESSION_COOKIE = 'session';
@@ -52,7 +52,7 @@ export const sessionMiddleware = createMiddleware<HonoEnv>(async (c, next) => {
   const db = c.get('db');
   const token = getCookie(c, SESSION_COOKIE);
   if (token && db) {
-    const [session] = await (db as any).select().from(sessions).where(eq(sessions.token, token)).limit(1);
+    const [session] = await db.select().from(sessions).where(eq(sessions.token, token)).limit(1);
     c.set('session', session?.expiresAt > new Date() ? session : null);
   } else {
     c.set('session', null);
@@ -64,7 +64,7 @@ export const requireAuthMiddleware = createMiddleware<HonoEnv>(async (c, next) =
   const db = c.get('db');
   const token = getCookie(c, SESSION_COOKIE);
   if (!token || !db) return c.json({ error: 'Unauthorized' }, 401);
-  const [session] = await (db as any).select().from(sessions).where(eq(sessions.token, token)).limit(1);
+  const [session] = await db.select().from(sessions).where(eq(sessions.token, token)).limit(1);
   if (!session || session.expiresAt <= new Date()) return c.json({ error: 'Unauthorized' }, 401);
   c.set('session', session);
   await next();

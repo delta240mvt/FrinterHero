@@ -17,6 +17,7 @@ export interface ApiEnv {
   FRINTER_HOST: string;
   FOCUS_HOST: string;
   PRZEM_HOST: string;
+  ADMIN_PASSWORD_HASH: string;
   HYPERDRIVE: HyperdriveBinding;
   ASSETS_BUCKET: R2BucketBinding;
   JOB_QUEUE: QueueBinding;
@@ -27,6 +28,9 @@ export function readApiEnv(env: Partial<ApiEnv>): ApiEnv {
 
   if (!env.API_BASE_URL) {
     missing.push('API_BASE_URL');
+  }
+  if (!env.ADMIN_PASSWORD_HASH) {
+    missing.push('ADMIN_PASSWORD_HASH');
   }
   if (!env.HYPERDRIVE) {
     missing.push('HYPERDRIVE');
@@ -49,6 +53,7 @@ export function readApiEnv(env: Partial<ApiEnv>): ApiEnv {
     FRINTER_HOST: env.FRINTER_HOST ?? 'frinter.pl',
     FOCUS_HOST: env.FOCUS_HOST ?? 'focusequalsfreedom.com',
     PRZEM_HOST: env.PRZEM_HOST ?? 'przemyslawfilipiak.com',
+    ADMIN_PASSWORD_HASH: env.ADMIN_PASSWORD_HASH!,
     HYPERDRIVE: env.HYPERDRIVE!,
     ASSETS_BUCKET: env.ASSETS_BUCKET!,
     JOB_QUEUE: env.JOB_QUEUE!,
