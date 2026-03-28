@@ -5,6 +5,7 @@ import { authRouter } from './routes/auth.ts';
 import { jobsRouter } from './routes/jobs.ts';
 import { adminRouter } from './routes/admin.ts';
 import { sitesRouter } from './routes/sites.ts';
+import { articlesRouter } from './routes/articles.ts';
 
 export type HonoEnv = {
   Bindings: ApiEnv;
@@ -31,6 +32,7 @@ export function createApp() {
   app.route('/', jobsRouter);
   app.route('/', adminRouter);
   app.route('/', sitesRouter);
+  app.route('/', articlesRouter);
 
   return app;
 }
