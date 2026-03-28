@@ -123,7 +123,7 @@ test('worker.queue dispatches bc-scrape topic to the correct workflow binding', 
 
 test('worker.fetch returns a response and does not throw when logging', async () => {
   const request = new Request('http://localhost/health');
-  const response = await worker.fetch(request, {} as never);
+  const response = await worker.fetch(request, {} as never, {} as never);
   // /health should return a valid HTTP response (not throw)
   assert.ok(response instanceof Response);
   assert.ok(response.status >= 200 && response.status < 600);
@@ -132,7 +132,7 @@ test('worker.fetch returns a response and does not throw when logging', async ()
 test('worker.fetch returns 500 with error detail on unhandled exception', async () => {
   // Pass env that will cause readApiEnv to throw (missing required vars)
   const request = new Request('http://localhost/api/unknown-route-xyz');
-  const response = await worker.fetch(request, {} as never);
+  const response = await worker.fetch(request, {} as never, {} as never);
   // Should return a structured 500 error rather than throwing
   assert.equal(response.status, 500);
   const body = await response.json() as { error: string };

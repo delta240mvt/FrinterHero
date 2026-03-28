@@ -80,7 +80,7 @@ redditRouter.post('/v1/admin/reddit/targets', requireAuthMiddleware, async (c) =
   const siteId = session.activeSiteId ?? session.siteId;
   if (!siteId) return c.json({ error: 'No active site' }, 400);
 
-  const body = await c.req.json<Record<string, unknown>>().catch(() => ({}));
+  const body = await c.req.json<Record<string, unknown>>().catch((): Record<string, unknown> => ({}));
   const type = typeof body.type === 'string' ? body.type : null;
   const value = typeof body.value === 'string' ? body.value.trim() : null;
   const label = typeof body.label === 'string' ? body.label.trim() : null;
@@ -112,7 +112,7 @@ redditRouter.put('/v1/admin/reddit/targets/:id', requireAuthMiddleware, async (c
   const id = Number(c.req.param('id'));
   if (!id) return c.json({ error: 'Invalid id' }, 400);
 
-  const body = await c.req.json<Record<string, unknown>>().catch(() => ({}));
+  const body = await c.req.json<Record<string, unknown>>().catch((): Record<string, unknown> => ({}));
   const patch: Record<string, unknown> = {};
   if (typeof body.isActive === 'boolean') patch.isActive = body.isActive;
   if (typeof body.priority === 'number') patch.priority = Math.max(0, Math.min(100, body.priority));

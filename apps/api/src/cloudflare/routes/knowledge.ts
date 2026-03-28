@@ -64,7 +64,7 @@ knowledgeRouter.post('/v1/admin/knowledge-base/import', requireAuthMiddleware, a
   const session = c.get('session')!;
   const siteId = session.activeSiteId ?? session.siteId;
   if (!siteId) return c.json({ error: 'No active site' }, 400);
-  const body = await c.req.json<Record<string, unknown>>().catch(() => ({}));
+  const body = await c.req.json<Record<string, unknown>>().catch((): Record<string, unknown> => ({}));
   const folderName = typeof body.folderName === 'string' && body.folderName.trim() ? body.folderName.trim() : null;
   const files = Array.isArray(body.files)
     ? body.files
@@ -72,7 +72,7 @@ knowledgeRouter.post('/v1/admin/knowledge-base/import', requireAuthMiddleware, a
           filename: typeof (file as Record<string, unknown>)?.filename === 'string' ? (file as Record<string, unknown>).filename as string : '',
           content: typeof (file as Record<string, unknown>)?.content === 'string' ? (file as Record<string, unknown>).content as string : '',
         }))
-        .filter(file => file.filename.endsWith('.md') && file.content)
+        .filter((file: { filename: string; content: string }) => file.filename.endsWith('.md') && file.content)
     : [];
   if (files.length === 0) return c.json({ error: 'No .md files provided' }, 400);
   const { valid, errors } = importMarkdownFiles(files);
@@ -116,7 +116,7 @@ knowledgeRouter.post('/v1/admin/knowledge-base', requireAuthMiddleware, async (c
   const session = c.get('session')!;
   const siteId = session.activeSiteId ?? session.siteId;
   if (!siteId) return c.json({ error: 'No active site' }, 400);
-  const body = await c.req.json<Record<string, unknown>>().catch(() => ({}));
+  const body = await c.req.json<Record<string, unknown>>().catch((): Record<string, unknown> => ({}));
 
   const fieldErrors: Record<string, string> = {};
   const type = typeof body.type === 'string' ? body.type : '';
@@ -157,7 +157,7 @@ knowledgeRouter.put('/v1/admin/knowledge-base/:id', requireAuthMiddleware, async
   if (!entryId) return c.json({ error: 'Invalid id' }, 400);
   const [existing] = await db.select().from(knowledgeEntries).where(and(kbScope(siteId)!, eq(knowledgeEntries.id, entryId))).limit(1);
   if (!existing) return c.json({ error: 'Knowledge entry not found' }, 404);
-  const body = await c.req.json<Record<string, unknown>>().catch(() => ({}));
+  const body = await c.req.json<Record<string, unknown>>().catch((): Record<string, unknown> => ({}));
   const fieldErrors: Record<string, string> = {};
   const updates: Record<string, unknown> = { updatedAt: new Date() };
   if (body.type !== undefined) { const t = String(body.type); if (!KB_TYPES.includes(t as KbType)) fieldErrors.type = `Must be one of: ${KB_TYPES.join(', ')}`; else updates.type = t; }

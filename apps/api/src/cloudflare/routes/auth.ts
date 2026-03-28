@@ -11,7 +11,7 @@ import type { HonoEnv } from '../app.ts';
 export const authRouter = new Hono<HonoEnv>();
 
 authRouter.post('/v1/auth/login', async (c) => {
-  const body = await c.req.json<{ password?: string; siteSlug?: string }>().catch(() => ({}));
+  const body = await c.req.json<{ password?: string; siteSlug?: string }>().catch((): { password?: string; siteSlug?: string } => ({}));
   const password = typeof body.password === 'string' ? body.password : '';
   const hash = c.env?.ADMIN_PASSWORD_HASH;
   if (!password || !hash) return c.json({ error: 'Password required or server misconfigured' }, 400);
@@ -33,7 +33,7 @@ authRouter.post('/v1/auth/login', async (c) => {
 
 authRouter.post('/v1/auth/set-tenant', requireAuthMiddleware, async (c) => {
   const session = c.get('session')!;
-  const body = await c.req.json<{ siteSlug?: string }>().catch(() => ({}));
+  const body = await c.req.json<{ siteSlug?: string }>().catch((): { siteSlug?: string } => ({}));
   const slug = typeof body.siteSlug === 'string' ? body.siteSlug.trim().toLowerCase() : '';
   if (!slug) return c.json({ error: 'siteSlug is required' }, 400);
   const db = c.get('db');

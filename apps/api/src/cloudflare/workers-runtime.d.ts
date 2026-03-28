@@ -21,3 +21,10 @@ declare abstract class WorkflowEntrypoint<TEnv = unknown, TParams = unknown> {
     step: CloudflareWorkflowStep,
   ): Promise<unknown>;
 }
+
+interface ExecutionContext {
+  waitUntil(promise: Promise<unknown>): void;
+  passThroughOnException(): void;
+  props: unknown;
+  exports?: unknown;
+}

@@ -28,7 +28,7 @@ jobsRouter.post('/v1/jobs/:topic', async (c, next) => {
   if (!job) return c.json({ error: 'Failed to create job' }, 500);
 
   try {
-    await c.env.JOB_QUEUE.send(buildJobQueueMessage({ jobId: String(job.id), payload, siteId: site.id, siteSlug: tenant.siteSlug, topic }));
+    await c.env.JOB_QUEUE.send!(buildJobQueueMessage({ jobId: String(job.id), payload, siteId: site.id, siteSlug: tenant.siteSlug, topic }));
   } catch {
     await db.delete(appJobs).where(and(eq(appJobs.id, job.id), eq(appJobs.siteId, site.id)));
     return c.json({ error: 'Failed to enqueue job' }, 502);

@@ -168,7 +168,7 @@ contentGapsRouter.post('/v1/admin/content-gaps/:id/acknowledge', requireAuthMidd
   const gapId = Number(c.req.param('id'));
   if (!gapId) return c.json({ error: 'Invalid id' }, 400);
 
-  const body = await c.req.json<Record<string, unknown>>().catch(() => ({}));
+  const body = await c.req.json<Record<string, unknown>>().catch((): Record<string, unknown> => ({}));
   const action = typeof body.action === 'string' ? body.action : '';
   const authorNotes = typeof body.authorNotes === 'string' ? body.authorNotes : (typeof body.author_notes === 'string' ? body.author_notes : null);
   const model = typeof body.model === 'string' ? body.model : null;
@@ -252,7 +252,7 @@ contentGapsRouter.post('/v1/admin/content-gaps/:id/archive', requireAuthMiddlewa
   const [gap] = await db.select().from(contentGaps).where(and(gapScope(siteId)!, eq(contentGaps.id, gapId))).limit(1);
   if (!gap) return c.json({ error: 'Content gap not found' }, 404);
 
-  const body = await c.req.json<Record<string, unknown>>().catch(() => ({}));
+  const body = await c.req.json<Record<string, unknown>>().catch((): Record<string, unknown> => ({}));
   const reason = typeof body.reason === 'string' ? body.reason : null;
 
   const archivedAt = new Date();

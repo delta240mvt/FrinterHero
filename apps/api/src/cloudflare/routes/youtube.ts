@@ -110,7 +110,7 @@ youtubeRouter.post('/v1/admin/youtube/targets', requireAuthMiddleware, async (c)
   const siteId = session.activeSiteId ?? session.siteId;
   if (!siteId) return c.json({ error: 'No active site' }, 400);
 
-  const body = await c.req.json<Record<string, unknown>>().catch(() => ({}));
+  const body = await c.req.json<Record<string, unknown>>().catch((): Record<string, unknown> => ({}));
   const urlValue = typeof body.url === 'string' ? body.url.trim() : '';
   const label = typeof body.label === 'string' ? body.label.trim() : '';
   const type = body.type === 'channel' ? 'channel' : 'video';
@@ -160,7 +160,7 @@ youtubeRouter.put('/v1/admin/youtube/targets/:id', requireAuthMiddleware, async 
   const id = Number(c.req.param('id'));
   if (!id) return c.json({ error: 'Invalid id' }, 400);
 
-  const body = await c.req.json<Record<string, unknown>>().catch(() => ({}));
+  const body = await c.req.json<Record<string, unknown>>().catch((): Record<string, unknown> => ({}));
   const updates: Record<string, unknown> = {};
   if (typeof body.isActive === 'boolean') updates.isActive = body.isActive;
   if (typeof body.priority === 'number') updates.priority = Math.max(0, Math.min(100, body.priority));
@@ -365,7 +365,7 @@ youtubeRouter.post('/v1/admin/youtube/gaps/:id/approve', requireAuthMiddleware, 
   if (!gap) return c.json({ error: 'Gap not found' }, 404);
   if (!['pending', 'rejected'].includes(gap.status)) return c.json({ error: 'Gap already processed' }, 400);
 
-  const body = await c.req.json<Record<string, unknown>>().catch(() => ({}));
+  const body = await c.req.json<Record<string, unknown>>().catch((): Record<string, unknown> => ({}));
   const authorNotes =
     typeof body.authorNotes === 'string'
       ? body.authorNotes
@@ -381,7 +381,7 @@ youtubeRouter.post('/v1/admin/youtube/gaps/:id/approve', requireAuthMiddleware, 
       ? `\n\nSource Context\n- Video: "${gap.sourceVideoTitle}"\n- Frequency: ${gap.frequency} total mentions analyzed`
       : '',
     sourceComments.length > 0
-      ? `\n\nRepresentative Voices\n${sourceComments.map((comment) => `- "${String(comment.commentText ?? '').slice(0, 150)}" (${comment.voteCount} votes)`).join('\n')}`
+      ? `\n\nRepresentative Voices\n${(sourceComments as Array<{ commentText?: string | null; voteCount?: number | null }>).map((comment) => `- "${String(comment.commentText ?? '').slice(0, 150)}" (${comment.voteCount} votes)`).join('\n')}`
       : '',
     gap.vocabularyQuotes.length > 0
       ? `\n\nVoice of Customer\n${gap.vocabularyQuotes.join(', ')}`

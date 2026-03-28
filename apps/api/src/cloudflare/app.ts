@@ -29,7 +29,7 @@ export function createApp() {
 
   app.use('*', async (c, next) => {
     if (c.env?.HYPERDRIVE) {
-      initCloudflareDb(c.env.HYPERDRIVE);
+      initCloudflareDb(c.env.HYPERDRIVE as { connectionString: string });
       c.set('db', getCloudflareDb());
     }
     await next();

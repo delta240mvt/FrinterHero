@@ -140,7 +140,7 @@ test('executeShPublishWorkflow reserves, executes, and finalizes the job', async
 
   assert.deepEqual(step.calls, ['reserve', 'execute', 'finalize']);
   assert.equal(result.status, 'completed');
-  assert.equal((result.result as Record<string, unknown>).publishedCount, 2);
+  assert.equal((result.result as unknown as Record<string, unknown>).publishedCount, 2);
   assert.equal((db.jobs[0].status as string), 'completed');
   assert.deepEqual(db.jobs[0].progress, { stage: 'finalized' });
   assert.equal((db.jobs[0].result as Record<string, unknown>).status, 'completed');
