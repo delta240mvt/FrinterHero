@@ -7,7 +7,6 @@
   "vars": {
     "APP_ENV": "development",
     "API_BASE_URL": "http://127.0.0.1:8787",
-    "NODE_API_URL": "http://127.0.0.1:3001",
     "FRINTER_HOST": "frinter.pl",
     "FOCUS_HOST": "focusequalsfreedom.com",
     "PRZEM_HOST": "przemyslawfilipiak.com"
