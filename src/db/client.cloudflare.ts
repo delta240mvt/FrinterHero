@@ -1,9 +1,18 @@
+import { Pool } from 'pg';
+import { drizzle } from 'drizzle-orm/node-postgres';
 import * as schema from './schema';
 
-let cloudflareDb: unknown = null;
+let cloudflareDb: ReturnType<typeof drizzle<typeof schema>> | null = null;
 
 export function setCloudflareDb(instance: unknown) {
-  cloudflareDb = instance;
+  cloudflareDb = instance as ReturnType<typeof drizzle<typeof schema>>;
+}
+
+export function initCloudflareDb(hyperdrive: { connectionString: string }) {
+  if (!cloudflareDb) {
+    const pool = new Pool({ connectionString: hyperdrive.connectionString });
+    cloudflareDb = drizzle(pool, { schema });
+  }
 }
 
 export function getCloudflareDb() {

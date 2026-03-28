@@ -784,3 +784,9 @@ export const yoloSettings = pgTable('yolo_settings', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
+
+// ========================================
+// Derived types
+// ========================================
+
+export type SessionRecord = typeof sessions.$inferSelect;

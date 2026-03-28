@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import type { ApiEnv } from './env.ts';
-import { getCloudflareDb, setCloudflareDb } from '../../../../src/db/client.ts';
+import { initCloudflareDb, getCloudflareDb } from '../../../../src/db/client.ts';
 
 export type HonoEnv = {
   Bindings: ApiEnv;
@@ -15,7 +15,7 @@ export function createApp() {
 
   app.use('*', async (c, next) => {
     if (c.env?.HYPERDRIVE) {
-      setCloudflareDb(c.env.HYPERDRIVE);
+      initCloudflareDb(c.env.HYPERDRIVE);
       c.set('db', getCloudflareDb());
     }
     await next();
