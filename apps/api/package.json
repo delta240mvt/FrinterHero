@@ -3,10 +3,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx src/server.ts",
+    "dev": "wrangler dev --config wrangler.jsonc",
     "dev:cf": "wrangler dev --config wrangler.jsonc",
     "build": "node ../../scripts/monorepo/noop-build.mjs api",
-    "start": "tsx src/server.ts",
     "migrate": "npm --prefix ../.. run migrate",
     "check:cf": "node -e \"const { execSync } = require('node:child_process'); const { mkdtempSync, rmSync } = require('node:fs'); const { tmpdir } = require('node:os'); const { join, resolve } = require('node:path'); const outDir = mkdtempSync(join(tmpdir(), 'frinter-wrangler-')); const outFile = join(outDir, 'worker-configuration.d.ts'); const bin = process.platform === 'win32' ? resolve('../../node_modules/.bin/wrangler.cmd') : resolve('../../node_modules/.bin/wrangler'); const command = '\"' + bin + '\" types \"' + outFile + '\" --config wrangler.jsonc'; try { execSync(command, { stdio: 'inherit' }); } finally { rmSync(outDir, { recursive: true, force: true }); }\"",
     "deploy:cf": "wrangler deploy --config wrangler.jsonc",
