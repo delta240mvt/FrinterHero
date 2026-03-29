@@ -279,16 +279,30 @@ youtubeRouter.get('/v1/admin/youtube/gaps', requireAuthMiddleware, async (c) => 
   const runIdParam = c.req.query('runId') ?? null;
   const runId = Number(runIdParam ?? 0);
 
-  const conditions: ReturnType<typeof and>[] = [ytGapScope(siteId)!];
-  conditions.push(inArray(ytExtractedGaps.status, statuses.length > 0 ? statuses : ['pending']));
-  if (category) conditions.push(eq(ytExtractedGaps.category, category));
-  if (runId) conditions.push(eq(ytExtractedGaps.scrapeRunId, runId));
+  // Build fresh condition arrays per query to avoid shared mutable SQL state
+  function buildConditions() {
+    const conds: any[] = [ytGapScope(siteId!)!];
+    conds.push(inArray(ytExtractedGaps.status, statuses.length > 0 ? statuses : ['pending']));
+    if (category) conds.push(eq(ytExtractedGaps.category, category));
+    if (runId) conds.push(eq(ytExtractedGaps.scrapeRunId, runId));
+    return conds.length === 1 ? conds[0] : and(...conds);
+  }
 
-  const whereClause = conditions.length === 1 ? conditions[0] : and(...conditions);
+  // Run sequentially to avoid any concurrent SQL-object state issues
+  let items: typeof ytExtractedGaps.$inferSelect[] = [];
+  let itemsError: string | null = null;
+  try {
+    items = await db.select().from(ytExtractedGaps)
+      .where(buildConditions())
+      .orderBy(desc(ytExtractedGaps.emotionalIntensity), desc(ytExtractedGaps.createdAt))
+      .limit(limit)
+      .offset(offset);
+  } catch (err: any) {
+    itemsError = String(err?.message ?? err);
+  }
 
-  const [items, totalRows, statsRows] = await Promise.all([
-    db.select().from(ytExtractedGaps).where(whereClause).orderBy(desc(ytExtractedGaps.emotionalIntensity), desc(ytExtractedGaps.createdAt)).limit(limit).offset(offset),
-    db.select({ total: sql<number>`count(*)::int` }).from(ytExtractedGaps).where(whereClause),
+  const [totalRows, statsRows] = await Promise.all([
+    db.select({ total: sql<number>`count(*)::int` }).from(ytExtractedGaps).where(buildConditions()),
     db.select({
       pending: sql<number>`count(*) filter (where status = 'pending')::int`,
       approved: sql<number>`count(*) filter (where status = 'approved')::int`,
@@ -303,6 +317,7 @@ youtubeRouter.get('/v1/admin/youtube/gaps', requireAuthMiddleware, async (c) => 
     page,
     limit,
     stats: statsRows[0] ?? { pending: 0, approved: 0, rejected: 0 },
+    ...(itemsError ? { _itemsError: itemsError } : {}),
   });
 });
 

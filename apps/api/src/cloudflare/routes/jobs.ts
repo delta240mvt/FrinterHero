@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, inArray, desc } from 'drizzle-orm';
 import { appJobs, sites } from '../../../../../src/db/schema.ts';
 import { buildJobQueueMessage, type JobTopic } from '../../../../../src/lib/cloudflare/job-payloads.ts';
 import { requireAuthMiddleware } from '../middleware/auth.ts';
@@ -35,6 +35,23 @@ jobsRouter.post('/v1/jobs/:topic', async (c, next) => {
   }
 
   return c.json({ jobId: job.id, status: job.status, topic: job.topic }, 202);
+});
+
+jobsRouter.get('/v1/jobs/active', requireAuthMiddleware, async (c) => {
+  const topic = c.req.query('topic');
+  const db = c.get('db');
+  const session = c.get('session')!;
+  const siteId = session.activeSiteId ?? session.siteId;
+  if (!siteId) return c.json({ error: 'No active site' }, 400);
+
+  const conditions = [
+    eq(appJobs.siteId, siteId),
+    inArray(appJobs.status, ['pending', 'running']),
+  ];
+  if (topic) conditions.push(eq(appJobs.topic, topic));
+
+  const jobs = await db.select().from(appJobs).where(and(...conditions)).orderBy(desc(appJobs.createdAt)).limit(20);
+  return c.json({ jobs });
 });
 
 jobsRouter.get('/v1/jobs/:id', requireAuthMiddleware, async (c) => {

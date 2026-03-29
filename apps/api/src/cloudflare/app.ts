@@ -28,8 +28,8 @@ export function createApp() {
   const app = new Hono<HonoEnv>();
 
   app.use('*', async (c, next) => {
-    if (c.env?.HYPERDRIVE) {
-      initCloudflareDb(c.env.HYPERDRIVE as { connectionString: string });
+    if (c.env?.DATABASE_URL) {
+      initCloudflareDb(c.env.HYPERDRIVE, c.env.DATABASE_URL);
       c.set('db', getCloudflareDb());
     }
     await next();

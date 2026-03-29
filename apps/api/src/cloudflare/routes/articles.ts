@@ -60,7 +60,7 @@ articlesRouter.get('/v1/articles', async (c) => {
   const status = c.req.query('status') ?? 'published';
   const limit = toPositiveInt(c.req.query('limit'), 20, { max: 5000 });
   const offset = toNonNegativeInt(c.req.query('offset'), 0, 1000);
-  const whereClause = and(eq(articles.siteId, site.id), eq(articles.status, status));
+  const whereClause = and(articleScope(site.id)!, eq(articles.status, status));
   const [rows, totals] = await Promise.all([
     db.select()
       .from(articles)

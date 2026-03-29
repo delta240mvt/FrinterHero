@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { and, asc, desc, eq, gte, inArray, isNull, lte, or } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, isNull, lte, or, sql } from 'drizzle-orm';
 import {
   shSettings,
   shSocialAccounts,
@@ -52,6 +52,15 @@ function shTemplateScope(siteId: number) {
 
 function shPublishScope(siteId: number) {
   return or(eq(shPublishLog.siteId, siteId), isNull(shPublishLog.siteId));
+}
+
+function shBriefScope(siteId: number) {
+  return or(eq(shContentBriefs.siteId, siteId), isNull(shContentBriefs.siteId));
+}
+
+function toInt(val: string | null | undefined, def: number): number {
+  const n = parseInt(val ?? '', 10);
+  return isNaN(n) ? def : n;
 }
 
 // ─── GET /v1/social-hub/settings ──────────────────────────────────────────────
@@ -423,4 +432,114 @@ socialHubRouter.post('/v1/social-hub/repurpose', requireAuthMiddleware, async (c
 
   // Stub: queue for Worker processing
   return c.json({ ok: true, message: 'queued', sourceType, sourceId, targetAccountIds }, 202);
+});
+
+// ─── Briefs ───────────────────────────────────────────────────────────────────
+
+socialHubRouter.get('/v1/social-hub/briefs', requireAuthMiddleware, async (c) => {
+  const db = c.get('db');
+  if (!db) return c.json({ error: 'DB unavailable' }, 500);
+  const session = c.get('session')!;
+  const siteId = session.activeSiteId ?? session.siteId;
+  if (!siteId) return c.json({ error: 'No active site' }, 400);
+
+  const limit = Math.min(toInt(c.req.query('limit'), 20), 100);
+  const offset = Math.max(toInt(c.req.query('offset'), 0), 0);
+  const statusFilter = c.req.query('status');
+
+  const conditions: any[] = [shBriefScope(siteId)!];
+  if (statusFilter) conditions.push(eq(shContentBriefs.status, statusFilter));
+  const whereClause = and(...conditions);
+
+  const [briefs, totals] = await Promise.all([
+    db.select().from(shContentBriefs).where(whereClause).orderBy(desc(shContentBriefs.createdAt)).limit(limit).offset(offset),
+    db.select({ total: sql<number>`count(*)::int` }).from(shContentBriefs).where(whereClause),
+  ]);
+
+  return c.json({ briefs, total: totals[0]?.total ?? 0, limit, offset });
+});
+
+socialHubRouter.post('/v1/social-hub/briefs', requireAuthMiddleware, async (c) => {
+  const db = c.get('db');
+  if (!db) return c.json({ error: 'DB unavailable' }, 500);
+  const session = c.get('session')!;
+  const siteId = session.activeSiteId ?? session.siteId;
+  if (!siteId) return c.json({ error: 'No active site' }, 400);
+
+  const body = await c.req.json<Record<string, unknown>>().catch(() => ({} as Record<string, unknown>));
+  const { sourceType, sourceId, sourceTitle, outputFormat, targetPlatforms, targetAccountIds } = body as any;
+
+  if (!sourceType || !sourceId || !outputFormat) {
+    return c.json({ error: 'Missing required: sourceType, sourceId, outputFormat' }, 400);
+  }
+
+  const [brief] = await db.insert(shContentBriefs).values({
+    siteId,
+    sourceType: String(sourceType),
+    sourceId: Number(sourceId),
+    sourceTitle: sourceTitle ? String(sourceTitle) : null,
+    outputFormat: String(outputFormat),
+    targetPlatforms: Array.isArray(targetPlatforms) ? targetPlatforms : [],
+    targetAccountIds: Array.isArray(targetAccountIds) ? targetAccountIds : [],
+  }).returning();
+
+  return c.json({ brief }, 201);
+});
+
+socialHubRouter.get('/v1/social-hub/briefs/:id', requireAuthMiddleware, async (c) => {
+  const db = c.get('db');
+  if (!db) return c.json({ error: 'DB unavailable' }, 500);
+  const session = c.get('session')!;
+  const siteId = session.activeSiteId ?? session.siteId;
+  if (!siteId) return c.json({ error: 'No active site' }, 400);
+  const briefId = Number(c.req.param('id'));
+  if (isNaN(briefId)) return c.json({ error: 'Invalid id' }, 400);
+
+  const [brief] = await db.select().from(shContentBriefs)
+    .where(and(eq(shContentBriefs.id, briefId), shBriefScope(siteId)!))
+    .limit(1);
+  if (!brief) return c.json({ error: 'Brief not found' }, 404);
+  return c.json({ brief });
+});
+
+socialHubRouter.put('/v1/social-hub/briefs/:id', requireAuthMiddleware, async (c) => {
+  const db = c.get('db');
+  if (!db) return c.json({ error: 'DB unavailable' }, 500);
+  const session = c.get('session')!;
+  const siteId = session.activeSiteId ?? session.siteId;
+  if (!siteId) return c.json({ error: 'No active site' }, 400);
+  const briefId = Number(c.req.param('id'));
+  if (isNaN(briefId)) return c.json({ error: 'Invalid id' }, 400);
+
+  const body = await c.req.json<Record<string, unknown>>().catch(() => ({} as Record<string, unknown>));
+  const allowed = ['sourceTitle', 'sourceSnapshot', 'suggestionPrompt', 'outputFormat', 'targetPlatforms', 'targetAccountIds', 'status', 'viralEngineEnabled', 'viralEngineMode'];
+  const updates: Record<string, unknown> = {};
+  for (const key of allowed) {
+    if (key in body) updates[key] = (body as any)[key];
+  }
+  if (Object.keys(updates).length === 0) return c.json({ error: 'No valid fields to update' }, 400);
+  updates.updatedAt = new Date();
+
+  const [updated] = await db.update(shContentBriefs)
+    .set(updates as any)
+    .where(and(eq(shContentBriefs.id, briefId), shBriefScope(siteId)!))
+    .returning();
+  if (!updated) return c.json({ error: 'Brief not found' }, 404);
+  return c.json({ brief: updated });
+});
+
+socialHubRouter.delete('/v1/social-hub/briefs/:id', requireAuthMiddleware, async (c) => {
+  const db = c.get('db');
+  if (!db) return c.json({ error: 'DB unavailable' }, 500);
+  const session = c.get('session')!;
+  const siteId = session.activeSiteId ?? session.siteId;
+  if (!siteId) return c.json({ error: 'No active site' }, 400);
+  const briefId = Number(c.req.param('id'));
+  if (isNaN(briefId)) return c.json({ error: 'Invalid id' }, 400);
+
+  const [deleted] = await db.delete(shContentBriefs)
+    .where(and(eq(shContentBriefs.id, briefId), shBriefScope(siteId)!))
+    .returning({ id: shContentBriefs.id });
+  if (!deleted) return c.json({ error: 'Brief not found' }, 404);
+  return c.json({ ok: true });
 });

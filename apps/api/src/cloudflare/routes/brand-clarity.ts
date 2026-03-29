@@ -5,6 +5,10 @@ import {
   bcProjects,
   bcTargetChannels,
   bcTargetVideos,
+  bcExtractedPainPoints,
+  bcLandingPageVariants,
+  bcIterations,
+  bcPainClusters,
   appJobs,
 } from '../../../../../src/db/schema.ts';
 import { requireAuthMiddleware } from '../middleware/auth.ts';
@@ -667,4 +671,204 @@ brandClarityRouter.post('/v1/admin/bc/projects/:id/videos/add-manual', requireAu
     commentCount: parseInt(stats?.commentCount || '0', 10) || 0,
     videoUrl: `https://www.youtube.com/watch?v=${videoId}`,
   });
+});
+
+// ─── Pain Points ──────────────────────────────────────────────────────────────
+
+brandClarityRouter.get('/v1/admin/bc/projects/:id/pain-points', requireAuthMiddleware, async (c) => {
+  const db = c.get('db');
+  if (!db) return c.json({ error: 'DB unavailable' }, 500);
+  const session = c.get('session')!;
+  const siteId = session.activeSiteId ?? session.siteId;
+  if (!siteId) return c.json({ error: 'No active site' }, 400);
+  const projectId = Number(c.req.param('id'));
+  if (isNaN(projectId)) return c.json({ error: 'Invalid project id' }, 400);
+
+  const statusFilter = c.req.query('status');
+  const limit = Math.min(parseInt(c.req.query('limit') ?? '50', 10) || 50, 200);
+  const offset = Math.max(parseInt(c.req.query('offset') ?? '0', 10) || 0, 0);
+
+  const scope = or(eq(bcExtractedPainPoints.siteId, siteId), isNull(bcExtractedPainPoints.siteId))!;
+  const conditions: any[] = [eq(bcExtractedPainPoints.projectId, projectId), scope];
+  if (statusFilter) conditions.push(eq(bcExtractedPainPoints.status, statusFilter));
+  const whereClause = and(...conditions);
+
+  const [painPoints, totals] = await Promise.all([
+    db.select().from(bcExtractedPainPoints).where(whereClause)
+      .orderBy(desc(bcExtractedPainPoints.emotionalIntensity), desc(bcExtractedPainPoints.createdAt))
+      .limit(limit).offset(offset),
+    db.select({ total: sql<number>`count(*)::int` }).from(bcExtractedPainPoints).where(whereClause),
+  ]);
+
+  return c.json({ painPoints, total: totals[0]?.total ?? 0, limit, offset });
+});
+
+brandClarityRouter.put('/v1/admin/bc/projects/:id/pain-points/:ppId', requireAuthMiddleware, async (c) => {
+  const db = c.get('db');
+  if (!db) return c.json({ error: 'DB unavailable' }, 500);
+  const session = c.get('session')!;
+  const siteId = session.activeSiteId ?? session.siteId;
+  if (!siteId) return c.json({ error: 'No active site' }, 400);
+  const projectId = Number(c.req.param('id'));
+  const ppId = Number(c.req.param('ppId'));
+  if (isNaN(projectId) || isNaN(ppId)) return c.json({ error: 'Invalid id' }, 400);
+
+  const body = await c.req.json<Record<string, unknown>>().catch(() => ({} as Record<string, unknown>));
+  const allowed = ['status', 'emotionalIntensity', 'category', 'customerLanguage', 'desiredOutcome', 'painPointTitle', 'painPointDescription', 'vocabularyQuotes'];
+  const updates: Record<string, unknown> = {};
+  for (const key of allowed) if (key in body) updates[key] = (body as any)[key];
+  if (!Object.keys(updates).length) return c.json({ error: 'No valid fields to update' }, 400);
+
+  const [updated] = await db.update(bcExtractedPainPoints)
+    .set(updates as any)
+    .where(and(eq(bcExtractedPainPoints.id, ppId), eq(bcExtractedPainPoints.projectId, projectId)))
+    .returning({ id: bcExtractedPainPoints.id, status: bcExtractedPainPoints.status });
+  if (!updated) return c.json({ error: 'Pain point not found' }, 404);
+  return c.json({ ok: true, painPoint: updated });
+});
+
+brandClarityRouter.delete('/v1/admin/bc/projects/:id/pain-points/:ppId', requireAuthMiddleware, async (c) => {
+  const db = c.get('db');
+  if (!db) return c.json({ error: 'DB unavailable' }, 500);
+  const ppId = Number(c.req.param('ppId'));
+  if (isNaN(ppId)) return c.json({ error: 'Invalid id' }, 400);
+
+  const [deleted] = await db.delete(bcExtractedPainPoints)
+    .where(eq(bcExtractedPainPoints.id, ppId))
+    .returning({ id: bcExtractedPainPoints.id });
+  if (!deleted) return c.json({ error: 'Pain point not found' }, 404);
+  return c.json({ ok: true });
+});
+
+// ─── LP Variants ──────────────────────────────────────────────────────────────
+
+brandClarityRouter.get('/v1/admin/bc/projects/:id/variants', requireAuthMiddleware, async (c) => {
+  const db = c.get('db');
+  if (!db) return c.json({ error: 'DB unavailable' }, 500);
+  const session = c.get('session')!;
+  const siteId = session.activeSiteId ?? session.siteId;
+  if (!siteId) return c.json({ error: 'No active site' }, 400);
+  const projectId = Number(c.req.param('id'));
+  if (isNaN(projectId)) return c.json({ error: 'Invalid project id' }, 400);
+
+  const iterationId = c.req.query('iterationId') ? Number(c.req.query('iterationId')) : null;
+  const conditions: any[] = [eq(bcLandingPageVariants.projectId, projectId)];
+  if (iterationId && !isNaN(iterationId)) conditions.push(eq(bcLandingPageVariants.iterationId, iterationId));
+
+  const variants = await db.select().from(bcLandingPageVariants)
+    .where(and(...conditions))
+    .orderBy(desc(bcLandingPageVariants.createdAt));
+  return c.json({ variants });
+});
+
+brandClarityRouter.put('/v1/admin/bc/projects/:id/variants/:variantId', requireAuthMiddleware, async (c) => {
+  const db = c.get('db');
+  if (!db) return c.json({ error: 'DB unavailable' }, 500);
+  const variantId = Number(c.req.param('variantId'));
+  if (isNaN(variantId)) return c.json({ error: 'Invalid id' }, 400);
+
+  const body = await c.req.json<Record<string, unknown>>().catch(() => ({} as Record<string, unknown>));
+  const allowed = ['isSelected', 'variantLabel', 'htmlContent', 'improvementSuggestions'];
+  const updates: Record<string, unknown> = {};
+  for (const key of allowed) if (key in body) updates[key] = (body as any)[key];
+  if (!Object.keys(updates).length) return c.json({ error: 'No valid fields to update' }, 400);
+
+  const [updated] = await db.update(bcLandingPageVariants)
+    .set(updates as any)
+    .where(eq(bcLandingPageVariants.id, variantId))
+    .returning({ id: bcLandingPageVariants.id, isSelected: bcLandingPageVariants.isSelected });
+  if (!updated) return c.json({ error: 'Variant not found' }, 404);
+  return c.json({ ok: true, variant: updated });
+});
+
+// ─── Iterations ───────────────────────────────────────────────────────────────
+
+brandClarityRouter.get('/v1/admin/bc/projects/:id/iterations', requireAuthMiddleware, async (c) => {
+  const db = c.get('db');
+  if (!db) return c.json({ error: 'DB unavailable' }, 500);
+  const session = c.get('session')!;
+  const siteId = session.activeSiteId ?? session.siteId;
+  if (!siteId) return c.json({ error: 'No active site' }, 400);
+  const projectId = Number(c.req.param('id'));
+  if (isNaN(projectId)) return c.json({ error: 'Invalid project id' }, 400);
+
+  const iterations = await db.select().from(bcIterations)
+    .where(eq(bcIterations.projectId, projectId))
+    .orderBy(desc(bcIterations.createdAt));
+  return c.json({ iterations });
+});
+
+brandClarityRouter.post('/v1/admin/bc/projects/:id/iterations', requireAuthMiddleware, async (c) => {
+  const db = c.get('db');
+  if (!db) return c.json({ error: 'DB unavailable' }, 500);
+  const session = c.get('session')!;
+  const siteId = session.activeSiteId ?? session.siteId;
+  if (!siteId) return c.json({ error: 'No active site' }, 400);
+  const projectId = Number(c.req.param('id'));
+  if (isNaN(projectId)) return c.json({ error: 'Invalid project id' }, 400);
+
+  const body = await c.req.json<{ name: string; intention?: string }>().catch(() => ({ name: '' }));
+  if (!body.name?.trim()) return c.json({ error: 'name is required' }, 400);
+
+  const [iteration] = await db.insert(bcIterations).values({
+    siteId,
+    projectId,
+    name: body.name.trim(),
+    intention: body.intention ?? null,
+  }).returning();
+  return c.json({ iteration }, 201);
+});
+
+// ─── Scrape Data (composite) ──────────────────────────────────────────────────
+
+brandClarityRouter.get('/v1/admin/bc/projects/:id/scrape-data', requireAuthMiddleware, async (c) => {
+  const db = c.get('db');
+  if (!db) return c.json({ error: 'DB unavailable' }, 500);
+  const session = c.get('session')!;
+  const siteId = session.activeSiteId ?? session.siteId;
+  if (!siteId) return c.json({ error: 'No active site' }, 400);
+  const projectId = Number(c.req.param('id'));
+  if (isNaN(projectId)) return c.json({ error: 'Invalid project id' }, 400);
+
+  const bcScope = or(eq(bcProjects.siteId, siteId), isNull(bcProjects.siteId))!;
+  const [projectRows] = await db.select().from(bcProjects).where(and(eq(bcProjects.id, projectId), bcScope)).limit(1);
+  if (!projectRows) return c.json({ error: 'Project not found' }, 404);
+
+  const [painPoints, clusters, selectedVideos, iterations] = await Promise.all([
+    db.select().from(bcExtractedPainPoints)
+      .where(and(eq(bcExtractedPainPoints.projectId, projectId), or(eq(bcExtractedPainPoints.siteId, siteId), isNull(bcExtractedPainPoints.siteId))!))
+      .orderBy(desc(bcExtractedPainPoints.emotionalIntensity), desc(bcExtractedPainPoints.createdAt)),
+    db.select().from(bcPainClusters)
+      .where(and(eq(bcPainClusters.projectId, projectId), or(eq(bcPainClusters.siteId, siteId), isNull(bcPainClusters.siteId))!))
+      .orderBy(desc(bcPainClusters.aggregateIntensity)),
+    db.select().from(bcTargetVideos)
+      .where(and(eq(bcTargetVideos.projectId, projectId), or(eq(bcTargetVideos.siteId, siteId), isNull(bcTargetVideos.siteId))!))
+      .orderBy(asc(bcTargetVideos.createdAt)),
+    db.select().from(bcIterations)
+      .where(eq(bcIterations.projectId, projectId))
+      .orderBy(desc(bcIterations.createdAt)),
+  ]);
+
+  return c.json({ project: projectRows, painPoints, clusters, selectedVideos, iterations });
+});
+
+// ─── Variants List (alias) ────────────────────────────────────────────────────
+
+brandClarityRouter.get('/v1/admin/bc/projects/:id/variants-list', requireAuthMiddleware, async (c) => {
+  const db = c.get('db');
+  if (!db) return c.json({ error: 'DB unavailable' }, 500);
+  const session = c.get('session')!;
+  const siteId = session.activeSiteId ?? session.siteId;
+  if (!siteId) return c.json({ error: 'No active site' }, 400);
+  const projectId = Number(c.req.param('id'));
+  if (isNaN(projectId)) return c.json({ error: 'Invalid project id' }, 400);
+
+  const iterationId = c.req.query('iterationId') ? Number(c.req.query('iterationId')) : null;
+  const conditions: any[] = [eq(bcLandingPageVariants.projectId, projectId)];
+  if (iterationId && !isNaN(iterationId)) conditions.push(eq(bcLandingPageVariants.iterationId, iterationId));
+
+  const variants = await db.select().from(bcLandingPageVariants)
+    .where(and(...conditions))
+    .orderBy(desc(bcLandingPageVariants.createdAt));
+  return c.json({ variants });
 });
