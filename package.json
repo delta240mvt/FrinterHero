@@ -68,7 +68,7 @@
     "astro": "^4.16.0",
     "bcrypt": "^5.1.0",
     "dotenv": "^16.4.0",
-    "drizzle-orm": "^0.36.0",
+    "drizzle-orm": "^0.38.4",
     "feed": "^4.2.0",
     "marked": "^14.0.0",
     "openai": "^5.20.3",
@@ -80,7 +80,7 @@
     "@resvg/resvg-js": "^2.6.2",
     "@types/bcrypt": "^5.0.0",
     "@types/pg": "^8.11.0",
-    "drizzle-kit": "^0.28.0",
+    "drizzle-kit": "^0.29.1",
     "tailwindcss": "^3.4.0",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0"

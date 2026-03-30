@@ -8,6 +8,7 @@ import { buildWorkflowFailureResult, buildWorkflowSuccessResult } from '../../..
 import type { JobQueueMessage } from '../../../../../src/lib/cloudflare/job-payloads.ts';
 import { runBcScrapeJob, type BcScrapeResult } from '../../../../../src/lib/jobs/bc-scrape.ts';
 import { callBcLlm, type BcLlmCallOptions } from '../../../../../src/lib/bc-llm-client.ts';
+import { initWorkflowDb } from './workflow-db-init.ts';
 
 type BcScrapeQueueMessage = JobQueueMessage<{ projectId: number; videoId: number }>;
 export type BcScrapeWorkflowMessage = BcScrapeQueueMessage;
@@ -171,6 +172,7 @@ export async function startBcScrapeWorkflow(binding: BcScrapeWorkflowBinding, me
 
 export class BcScrapeWorkflow extends WorkflowEntrypoint<BcScrapeWorkflowEnv> {
   async run(event: CloudflareWorkflowEvent<BcScrapeWorkflowMessage>, step: WorkflowStepLike) {
+    initWorkflowDb(this.env as unknown as Record<string, unknown>);
     return executeBcScrapeWorkflow(event.payload, {
       env: this.env,
       step,

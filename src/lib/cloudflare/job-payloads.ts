@@ -12,6 +12,7 @@ export const JOB_TOPICS = [
   'sh-copy',
   'sh-video',
   'sh-publish',
+  'draft',
 ] as const;
 export type JobTopic = (typeof JOB_TOPICS)[number];
 

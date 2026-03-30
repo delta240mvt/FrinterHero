@@ -78,6 +78,11 @@ const timeAgo = (() => {
     {gap.status === 'in_progress' && gap.draftArticleId && (
       <a href={`/admin/article/${gap.draftArticleId}`} class="btn-see-draft">See Draft →</a>
     )}
+    {gap.status === 'in_progress' && (
+      <button class="btn-reset-lock" onclick={`resetDraftLock(${gap.id})`} title="Cancel stuck draft job and reset to New">
+        ↺ Reset Lock
+      </button>
+    )}
     <button class="btn-archive" onclick={`archiveGap(${gap.id})`}>Archive</button>
   </div>
 </div>
@@ -119,4 +124,6 @@ const timeAgo = (() => {
   .btn-see-draft:hover { background: rgba(214,183,121,0.2); border-color: var(--gold); }
   .btn-archive { padding: 0.4rem 0.875rem; background: none; border: 1px solid rgba(239,68,68,0.2); color: rgba(239,68,68,0.7); border-radius: 0.25rem; font-family: var(--font-mono); font-size: var(--text-xs); cursor: pointer; transition: all 0.15s; margin-left: auto; }
   .btn-archive:hover { border-color: rgba(239,68,68,0.5); color: #ef4444; background: rgba(239,68,68,0.06); }
+  .btn-reset-lock { padding: 0.4rem 0.875rem; background: none; border: 1px solid rgba(239,68,68,0.35); color: rgba(239,68,68,0.85); border-radius: 0.25rem; font-family: var(--font-mono); font-size: var(--text-xs); cursor: pointer; transition: all 0.15s; }
+  .btn-reset-lock:hover { border-color: rgba(239,68,68,0.7); color: #ef4444; background: rgba(239,68,68,0.08); }
 </style>

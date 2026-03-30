@@ -361,6 +361,21 @@ function lastRunLabel(d: any) {
       if (bodyEl) bodyEl.innerHTML += `<div class="console-line" style="color:#ef4444">Error: ${err.message}</div>`;
       if (statusEl) { statusEl.textContent = 'Error'; statusEl.style.color = '#ef4444'; }
       if (btn) { btn.disabled = false; btn.textContent = 'Approve & Generate Draft'; }
+      if (bodyEl) bodyEl.innerHTML += `<div class="console-line" style="margin-top:6px"><button onclick="resetDraftLock(${gapId})" style="padding:4px 12px;background:#ef444422;border:1px solid #ef4444;color:#ef4444;border-radius:4px;font-family:var(--font-mono);font-size:0.7rem;cursor:pointer">↺ Reset Lock & Retry</button></div>`;
+    }
+  }
+
+  async function resetDraftLock(gapId) {
+    const bodyEl   = document.getElementById(`console-body-${gapId}`);
+    const statusEl = document.getElementById(`console-status-${gapId}`);
+    try {
+      const res = await fetch(`/api/content-gaps/${gapId}/reset-draft`, { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Reset failed');
+      if (bodyEl) bodyEl.innerHTML += `<div class="console-line" style="color:var(--teal)">Lock cleared (${data.cancelledJobs} job(s) cancelled). Click Approve & Generate Draft to retry.</div>`;
+      if (statusEl) { statusEl.textContent = 'Reset'; statusEl.style.color = 'var(--teal)'; }
+    } catch (err) {
+      if (bodyEl) bodyEl.innerHTML += `<div class="console-line" style="color:#ef4444">Reset error: ${err.message}</div>`;
     }
   }
 
@@ -475,6 +490,7 @@ function lastRunLabel(d: any) {
   window.closeExpanded = closeExpanded;
   window.generateDraft = generateDraft;
   window.abortDraft    = abortDraft;
+  window.resetDraftLock = resetDraftLock;
 
   // Auto-refresh stats counts
   setInterval(async () => {

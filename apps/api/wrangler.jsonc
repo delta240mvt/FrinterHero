@@ -110,6 +110,11 @@
       "name": "frinter-api-sh-publish",
       "binding": "SH_PUBLISH_WORKFLOW",
       "class_name": "ShPublishWorkflow"
+    },
+    {
+      "name": "frinter-api-draft",
+      "binding": "DRAFT_WORKFLOW",
+      "class_name": "DraftWorkflow"
     }
   ]
 }

@@ -54,6 +54,61 @@ jobsRouter.get('/v1/jobs/active', requireAuthMiddleware, async (c) => {
   return c.json({ jobs });
 });
 
+jobsRouter.delete('/v1/jobs/active', requireAuthMiddleware, async (c) => {
+  const topic = c.req.query('topic');
+  const db = c.get('db');
+  const session = c.get('session')!;
+  const siteId = session.activeSiteId ?? session.siteId;
+  if (!siteId) return c.json({ error: 'No active site' }, 400);
+
+  const conditions = [
+    eq(appJobs.siteId, siteId),
+    inArray(appJobs.status, ['pending', 'running']),
+  ];
+  if (topic) conditions.push(eq(appJobs.topic, topic));
+
+  const cancelled = await db
+    .update(appJobs)
+    .set({ status: 'cancelled', updatedAt: new Date() })
+    .where(and(...conditions))
+    .returning({ id: appJobs.id });
+
+  return c.json({ success: true, cancelled: cancelled.length });
+});
+
+jobsRouter.get('/v1/jobs/latest', requireAuthMiddleware, async (c) => {
+  const topic = c.req.query('topic');
+  const db = c.get('db');
+  const session = c.get('session')!;
+  const siteId = session.activeSiteId ?? session.siteId;
+  if (!siteId) return c.json({ error: 'No active site' }, 400);
+
+  const conditions = [eq(appJobs.siteId, siteId)];
+  if (topic) conditions.push(eq(appJobs.topic, topic));
+
+  const [job] = await db
+    .select()
+    .from(appJobs)
+    .where(and(...conditions))
+    .orderBy(desc(appJobs.createdAt))
+    .limit(1);
+
+  if (!job) return c.json({ job: null });
+
+  const finishedStatuses = ['done', 'error', 'cancelled'];
+  return c.json({
+    job: {
+      id: job.id,
+      topic: job.topic,
+      status: job.status,
+      startedAt: job.createdAt,
+      finishedAt: finishedStatuses.includes(job.status) ? job.updatedAt : null,
+      result: job.result ?? null,
+      createdAt: job.createdAt,
+    },
+  });
+});
+
 jobsRouter.get('/v1/jobs/:id', requireAuthMiddleware, async (c) => {
   const id = Number(c.req.param('id'));
   const db = c.get('db');

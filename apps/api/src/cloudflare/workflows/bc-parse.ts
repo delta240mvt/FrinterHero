@@ -7,6 +7,7 @@ import { appJobs } from '../../../../../src/db/schema.ts';
 import { buildWorkflowFailureResult, buildWorkflowSuccessResult } from '../../../../../src/lib/cloudflare/workflow-results.ts';
 import type { JobQueueMessage } from '../../../../../src/lib/cloudflare/job-payloads.ts';
 import { runBcParseJob, type BcLpParseResult } from '../../../../../src/lib/jobs/bc-parse.ts';
+import { initWorkflowDb } from './workflow-db-init.ts';
 import { callBcLlm, type BcLlmCallOptions } from '../../../../../src/lib/bc-llm-client.ts';
 
 type BcParseQueueMessage = JobQueueMessage<{ projectId: number }>;
@@ -165,6 +166,7 @@ export async function startBcParseWorkflow(binding: BcParseWorkflowBinding, mess
 
 export class BcParseWorkflow extends WorkflowEntrypoint<BcParseWorkflowEnv> {
   async run(event: CloudflareWorkflowEvent<BcParseWorkflowMessage>, step: WorkflowStepLike) {
+    initWorkflowDb(this.env as unknown as Record<string, unknown>);
     return executeBcParseWorkflow(event.payload, {
       env: this.env,
       step,

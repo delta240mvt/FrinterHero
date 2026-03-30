@@ -35,6 +35,7 @@ export interface JobQueueConsumerDeps {
   startShCopyWorkflow(message: JobQueueMessage): Promise<unknown>;
   startShVideoWorkflow(message: JobQueueMessage): Promise<unknown>;
   startShPublishWorkflow(message: JobQueueMessage): Promise<unknown>;
+  startDraftWorkflow(message: JobQueueMessage): Promise<unknown>;
 }
 
 function parseJobTopic(value: unknown): JobTopic {
@@ -114,6 +115,9 @@ export async function dispatchJobQueueMessage(message: JobQueueMessage, deps: Jo
       return;
     case 'sh-publish':
       await deps.startShPublishWorkflow(message);
+      return;
+    case 'draft':
+      await deps.startDraftWorkflow(message);
       return;
     default: {
       const unsupportedTopic: never = message.topic;

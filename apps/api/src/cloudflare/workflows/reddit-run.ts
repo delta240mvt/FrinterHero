@@ -9,6 +9,7 @@ import { appJobs, redditScrapeRuns } from '../../../../../src/db/schema.ts';
 import { buildWorkflowFailureResult, buildWorkflowSuccessResult } from '../../../../../src/lib/cloudflare/workflow-results.ts';
 import type { JobQueueMessage } from '../../../../../src/lib/cloudflare/job-payloads.ts';
 import { runRedditScraperJob, type RedditScraperOptions, type RedditScraperResult } from '../../../../../src/lib/jobs/reddit.ts';
+import { initWorkflowDb } from './workflow-db-init.ts';
 
 type RedditQueueMessage = JobQueueMessage<Record<string, unknown>>;
 export type RedditRunWorkflowMessage = RedditQueueMessage;
@@ -200,6 +201,7 @@ export async function startRedditRunWorkflow(binding: RedditRunWorkflowBinding, 
 
 export class RedditRunWorkflow extends WorkflowEntrypoint<RedditWorkflowEnv> {
   async run(event: CloudflareWorkflowEvent<RedditRunWorkflowMessage>, step: WorkflowStepLike) {
+    initWorkflowDb(this.env as unknown as Record<string, unknown>);
     return executeRedditRunWorkflow(event.payload, {
       env: this.env,
       step,

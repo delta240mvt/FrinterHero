@@ -7,6 +7,7 @@ import { appJobs } from '../../../../../src/db/schema.ts';
 import { buildWorkflowFailureResult, buildWorkflowSuccessResult } from '../../../../../src/lib/cloudflare/workflow-results.ts';
 import type { JobQueueMessage } from '../../../../../src/lib/cloudflare/job-payloads.ts';
 import { runBcClusterJob, type BcClusterResult } from '../../../../../src/lib/jobs/bc-cluster.ts';
+import { initWorkflowDb } from './workflow-db-init.ts';
 import { callBcLlm, type BcLlmCallOptions } from '../../../../../src/lib/bc-llm-client.ts';
 
 type BcClusterQueueMessage = JobQueueMessage<{ projectId: number; iterationId: number | null }>;
@@ -165,6 +166,7 @@ export async function startBcClusterWorkflow(binding: BcClusterWorkflowBinding, 
 
 export class BcClusterWorkflow extends WorkflowEntrypoint<BcClusterWorkflowEnv> {
   async run(event: CloudflareWorkflowEvent<BcClusterWorkflowMessage>, step: WorkflowStepLike) {
+    initWorkflowDb(this.env as unknown as Record<string, unknown>);
     return executeBcClusterWorkflow(event.payload, {
       env: this.env,
       step,

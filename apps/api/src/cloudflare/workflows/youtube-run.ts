@@ -8,6 +8,7 @@ import { appJobs, ytScrapeRuns } from '../../../../../src/db/schema.ts';
 import { buildWorkflowFailureResult, buildWorkflowSuccessResult } from '../../../../../src/lib/cloudflare/workflow-results.ts';
 import type { JobQueueMessage } from '../../../../../src/lib/cloudflare/job-payloads.ts';
 import { runYoutubeScraperJob, type YoutubeScraperOptions, type YoutubeScraperResult } from '../../../../../src/lib/jobs/youtube.ts';
+import { initWorkflowDb } from './workflow-db-init.ts';
 
 type YoutubeQueueMessage = JobQueueMessage<Record<string, unknown>>;
 export type YoutubeRunWorkflowMessage = YoutubeQueueMessage;
@@ -206,6 +207,7 @@ export async function startYoutubeRunWorkflow(binding: YoutubeRunWorkflowBinding
 
 export class YoutubeRunWorkflow extends WorkflowEntrypoint<YoutubeWorkflowEnv> {
   async run(event: CloudflareWorkflowEvent<YoutubeRunWorkflowMessage>, step: WorkflowStepLike) {
+    initWorkflowDb(this.env as unknown as Record<string, unknown>);
     return executeYoutubeRunWorkflow(event.payload, {
       env: this.env,
       step,

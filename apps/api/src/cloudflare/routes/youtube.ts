@@ -235,11 +235,25 @@ youtubeRouter.get('/v1/admin/youtube/runs/:id', requireAuthMiddleware, async (c)
 
   if (!run) return c.json({ error: 'Run not found' }, 404);
 
-  const gaps = await db
+  const gapRows = await db
     .select()
     .from(ytExtractedGaps)
     .where(and(eq(ytExtractedGaps.scrapeRunId, id), ytGapScope(siteId)!))
     .orderBy(desc(ytExtractedGaps.emotionalIntensity), desc(ytExtractedGaps.createdAt));
+
+  const allCommentIds = gapRows.flatMap(g => g.sourceCommentIds ?? []);
+  const commentsById = new Map<number, typeof ytComments.$inferSelect>();
+  if (allCommentIds.length > 0) {
+    const fetched = await db.select().from(ytComments).where(inArray(ytComments.id, allCommentIds));
+    for (const c of fetched) commentsById.set(c.id, c);
+  }
+  const gaps = gapRows.map(g => ({
+    ...g,
+    sourceComments: (g.sourceCommentIds ?? [])
+      .map(id => commentsById.get(id))
+      .filter(Boolean)
+      .map(c => ({ id: c!.id, commentText: c!.commentText, author: c!.author, voteCount: c!.voteCount, videoTitle: c!.videoTitle })),
+  }));
 
   return c.json({ run, gaps });
 });
@@ -310,9 +324,30 @@ youtubeRouter.get('/v1/admin/youtube/gaps', requireAuthMiddleware, async (c) => 
     }).from(ytExtractedGaps).where(ytGapScope(siteId)!),
   ]);
 
+  // Batch-fetch source comments for all gaps in one query
+  const allCommentIds = items.flatMap(g => g.sourceCommentIds ?? []);
+  const commentsById = new Map<number, typeof ytComments.$inferSelect>();
+  if (allCommentIds.length > 0) {
+    const fetched = await db.select().from(ytComments).where(inArray(ytComments.id, allCommentIds));
+    for (const c of fetched) commentsById.set(c.id, c);
+  }
+
+  const gapsWithComments = items.map(g => ({
+    ...g,
+    sourceComments: (g.sourceCommentIds ?? [])
+      .map(id => commentsById.get(id))
+      .filter(Boolean)
+      .map(c => ({
+        id: c!.id,
+        commentText: c!.commentText,
+        author: c!.author,
+        voteCount: c!.voteCount,
+        videoTitle: c!.videoTitle,
+      })),
+  }));
+
   return c.json({
-    gaps: items,
-    items,
+    gaps: gapsWithComments,
     total: totalRows[0]?.total ?? 0,
     page,
     limit,

@@ -7,6 +7,7 @@ import { appJobs } from '../../../../../src/db/schema.ts';
 import { buildWorkflowFailureResult, buildWorkflowSuccessResult } from '../../../../../src/lib/cloudflare/workflow-results.ts';
 import type { JobQueueMessage } from '../../../../../src/lib/cloudflare/job-payloads.ts';
 import { runShVideoJob, type ShVideoResult } from '../../../../../src/lib/jobs/sh-video.ts';
+import { initWorkflowDb } from './workflow-db-init.ts';
 
 type ShVideoQueueMessage = JobQueueMessage<{
   briefId: number;
@@ -170,6 +171,7 @@ export async function startShVideoWorkflow(binding: ShVideoWorkflowBinding, mess
 
 export class ShVideoWorkflow extends WorkflowEntrypoint<ShVideoWorkflowEnv> {
   async run(event: CloudflareWorkflowEvent<ShVideoWorkflowMessage>, step: WorkflowStepLike) {
+    initWorkflowDb(this.env as unknown as Record<string, unknown>);
     return executeShVideoWorkflow(event.payload, {
       env: this.env,
       step,

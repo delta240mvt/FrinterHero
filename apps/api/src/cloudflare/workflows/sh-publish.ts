@@ -7,6 +7,7 @@ import { appJobs } from '../../../../../src/db/schema.ts';
 import { buildWorkflowFailureResult, buildWorkflowSuccessResult } from '../../../../../src/lib/cloudflare/workflow-results.ts';
 import type { JobQueueMessage } from '../../../../../src/lib/cloudflare/job-payloads.ts';
 import { runShPublishJob, type ShPublishResult } from '../../../../../src/lib/jobs/sh-publish.ts';
+import { initWorkflowDb } from './workflow-db-init.ts';
 
 type ShPublishQueueMessage = JobQueueMessage<{
   briefId: number;
@@ -150,6 +151,7 @@ export async function startShPublishWorkflow(binding: ShPublishWorkflowBinding, 
 
 export class ShPublishWorkflow extends WorkflowEntrypoint<ShPublishWorkflowEnv> {
   async run(event: CloudflareWorkflowEvent<ShPublishWorkflowMessage>, step: WorkflowStepLike) {
+    initWorkflowDb(this.env as unknown as Record<string, unknown>);
     return executeShPublishWorkflow(event.payload, {
       env: this.env,
       step,

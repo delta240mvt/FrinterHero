@@ -8,6 +8,7 @@ import { appJobs } from '../../../../../src/db/schema.ts';
 import { buildWorkflowFailureResult, buildWorkflowSuccessResult } from '../../../../../src/lib/cloudflare/workflow-results.ts';
 import type { JobQueueMessage } from '../../../../../src/lib/cloudflare/job-payloads.ts';
 import { runGeoMonitorJob, type GeoMonitorResult } from '../../../../../src/lib/jobs/geo.ts';
+import { initWorkflowDb } from './workflow-db-init.ts';
 
 type GeoQueueMessage = JobQueueMessage<Record<string, unknown>>;
 export type GeoRunWorkflowMessage = GeoQueueMessage;
@@ -214,6 +215,7 @@ export async function startGeoRunWorkflow(binding: GeoRunWorkflowBinding, messag
 
 export class GeoRunWorkflow extends WorkflowEntrypoint<GeoWorkflowEnv> {
   async run(event: CloudflareWorkflowEvent<GeoRunWorkflowMessage>, step: WorkflowStepLike) {
+    initWorkflowDb(this.env as unknown as Record<string, unknown>);
     return executeGeoRunWorkflow(event.payload, {
       env: this.env,
       step,

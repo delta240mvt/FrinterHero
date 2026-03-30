@@ -1,6 +1,8 @@
 import { Hono } from 'hono';
 import { and, desc, eq, gte, ilike, inArray, isNotNull, isNull, lte, or, sql } from 'drizzle-orm';
-import { appJobs, contentGaps, geoRuns, knowledgeEntries } from '../../../../../src/db/schema.ts';
+import { appJobs, contentGaps, geoRuns, knowledgeEntries, sites } from '../../../../../src/db/schema.ts';
+import { buildJobQueueMessage } from '../../../../../src/lib/cloudflare/job-payloads.ts';
+import type { CloudflareSiteSlug } from '../../../../../src/lib/cloudflare/bindings.ts';
 import { requireAuthMiddleware } from '../middleware/auth.ts';
 import type { HonoEnv } from '../app.ts';
 
@@ -37,6 +39,7 @@ async function enqueueDraftJob(
   gapId: number,
   model: string | null,
   authorNotes: string | null,
+  queue?: { send?: (...args: any[]) => Promise<void> | void },
 ) {
   const [job] = await db
     .insert(appJobs)
@@ -47,6 +50,23 @@ async function enqueueDraftJob(
       payload: { gapId, model, authorNotes },
     })
     .returning();
+
+  if (job && queue?.send) {
+    try {
+      const [siteRow] = await db.select({ slug: sites.slug }).from(sites).where(eq(sites.id, siteId)).limit(1);
+      const siteSlug = (siteRow?.slug ?? 'frinter') as CloudflareSiteSlug;
+      await queue.send(buildJobQueueMessage({
+        jobId: String(job.id),
+        payload: { gapId, model, authorNotes },
+        siteId,
+        siteSlug,
+        topic: 'draft',
+      }));
+    } catch (e) {
+      console.error('[content-gaps] Failed to send draft job to queue:', e);
+    }
+  }
+
   return job;
 }
 
@@ -210,7 +230,7 @@ contentGapsRouter.post('/v1/admin/content-gaps/:id/acknowledge', requireAuthMidd
       return c.json({ error: 'Draft generation already in progress for this gap' }, 409);
     }
 
-    const job = await enqueueDraftJob(db, siteId, gapId, model, authorNotes);
+    const job = await enqueueDraftJob(db, siteId, gapId, model, authorNotes, c.env.JOB_QUEUE);
     if (job) {
       jobId = job.id;
       draftGenerationStarted = true;
@@ -270,4 +290,41 @@ contentGapsRouter.post('/v1/admin/content-gaps/:id/archive', requireAuthMiddlewa
     archived_at: updatedGap?.acknowledgedAt ?? archivedAt,
     reason,
   });
+});
+
+// POST /v1/admin/content-gaps/:id/reset-draft
+// Cancels stuck pending/running draft jobs for this gap and resets gap status to 'new'
+contentGapsRouter.post('/v1/admin/content-gaps/:id/reset-draft', requireAuthMiddleware, async (c) => {
+  const db = c.get('db');
+  if (!db) return c.json({ error: 'DB unavailable' }, 500);
+  const session = c.get('session')!;
+  const siteId = session.activeSiteId ?? session.siteId;
+  if (!siteId) return c.json({ error: 'No active site' }, 400);
+  const gapId = Number(c.req.param('id'));
+  if (!gapId) return c.json({ error: 'Invalid id' }, 400);
+
+  // Cancel all stuck draft jobs for this gap
+  const cancelled = await db
+    .update(appJobs)
+    .set({ status: 'cancelled', updatedAt: new Date() })
+    .where(
+      and(
+        eq(appJobs.siteId, siteId),
+        eq(appJobs.type, 'draft'),
+        inArray(appJobs.status, ['pending', 'running']),
+        sql`${appJobs.payload}->>'gapId' = ${String(gapId)}`,
+      ),
+    )
+    .returning({ id: appJobs.id });
+
+  // Reset gap status to 'new' so it can be re-triggered
+  const [updatedGap] = await db
+    .update(contentGaps)
+    .set({ status: 'new' })
+    .where(and(eq(contentGaps.id, gapId), gapScope(siteId)!))
+    .returning({ id: contentGaps.id, status: contentGaps.status });
+
+  if (!updatedGap) return c.json({ error: 'Content gap not found' }, 404);
+
+  return c.json({ ok: true, gapId, cancelledJobs: cancelled.length, status: updatedGap.status });
 });

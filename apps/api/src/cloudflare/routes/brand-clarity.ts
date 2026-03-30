@@ -8,6 +8,7 @@ import {
   bcExtractedPainPoints,
   bcLandingPageVariants,
   bcIterations,
+  bcIterationSelections,
   bcPainClusters,
   appJobs,
 } from '../../../../../src/db/schema.ts';
@@ -761,6 +762,18 @@ brandClarityRouter.get('/v1/admin/bc/projects/:id/variants', requireAuthMiddlewa
   return c.json({ variants });
 });
 
+brandClarityRouter.get('/v1/admin/bc/projects/:id/variants/:variantId', requireAuthMiddleware, async (c) => {
+  const db = c.get('db');
+  if (!db) return c.json({ error: 'DB unavailable' }, 500);
+  const variantId = Number(c.req.param('variantId'));
+  if (isNaN(variantId)) return c.json({ error: 'Invalid id' }, 400);
+
+  const [variant] = await db.select().from(bcLandingPageVariants)
+    .where(eq(bcLandingPageVariants.id, variantId));
+  if (!variant) return c.json({ error: 'Variant not found' }, 404);
+  return c.json(variant);
+});
+
 brandClarityRouter.put('/v1/admin/bc/projects/:id/variants/:variantId', requireAuthMiddleware, async (c) => {
   const db = c.get('db');
   if (!db) return c.json({ error: 'DB unavailable' }, 500);
@@ -817,6 +830,75 @@ brandClarityRouter.post('/v1/admin/bc/projects/:id/iterations', requireAuthMiddl
     intention: body.intention ?? null,
   }).returning();
   return c.json({ iteration }, 201);
+});
+
+brandClarityRouter.get('/v1/admin/bc/projects/:id/iterations/:itId/detail', requireAuthMiddleware, async (c) => {
+  const db = c.get('db');
+  if (!db) return c.json({ error: 'DB unavailable' }, 500);
+  const session = c.get('session')!;
+  const siteId = session.activeSiteId ?? session.siteId;
+  if (!siteId) return c.json({ error: 'No active site' }, 400);
+  const projectId = Number(c.req.param('id'));
+  const itId = Number(c.req.param('itId'));
+  if (isNaN(projectId) || isNaN(itId)) return c.json({ error: 'Invalid id' }, 400);
+
+  const bcScope = or(eq(bcProjects.siteId, siteId), isNull(bcProjects.siteId))!;
+  const [[project], [iteration], selections, clusters, [approvedRow]] = await Promise.all([
+    db.select().from(bcProjects).where(and(eq(bcProjects.id, projectId), bcScope)).limit(1),
+    db.select().from(bcIterations).where(eq(bcIterations.id, itId)).limit(1),
+    db.select({
+      rank: bcIterationSelections.rank,
+      selectionReason: bcIterationSelections.selectionReason,
+      pp: {
+        painPointTitle: bcExtractedPainPoints.painPointTitle,
+        emotionalIntensity: bcExtractedPainPoints.emotionalIntensity,
+        category: bcExtractedPainPoints.category,
+        customerLanguage: bcExtractedPainPoints.customerLanguage,
+      },
+    })
+      .from(bcIterationSelections)
+      .innerJoin(bcExtractedPainPoints, eq(bcIterationSelections.painPointId, bcExtractedPainPoints.id))
+      .where(eq(bcIterationSelections.iterationId, itId))
+      .orderBy(asc(bcIterationSelections.rank)),
+    db.select().from(bcPainClusters)
+      .where(and(eq(bcPainClusters.projectId, projectId), eq(bcPainClusters.iterationId, itId)))
+      .orderBy(desc(bcPainClusters.aggregateIntensity)),
+    db.select({ total: sql<number>`count(*)::int` })
+      .from(bcExtractedPainPoints)
+      .where(and(eq(bcExtractedPainPoints.projectId, projectId), eq(bcExtractedPainPoints.status, 'approved'))),
+  ]);
+  if (!project) return c.json({ error: 'Project not found' }, 404);
+  if (!iteration) return c.json({ error: 'Iteration not found' }, 404);
+  return c.json({ project, iteration, selections, clusters, approvedCount: approvedRow?.total ?? 0 });
+});
+
+brandClarityRouter.put('/v1/admin/bc/projects/:id/iterations/:itId', requireAuthMiddleware, async (c) => {
+  const db = c.get('db');
+  if (!db) return c.json({ error: 'DB unavailable' }, 500);
+  const itId = Number(c.req.param('itId'));
+  if (isNaN(itId)) return c.json({ error: 'Invalid id' }, 400);
+
+  const body = await c.req.json<Record<string, unknown>>().catch(() => ({} as Record<string, unknown>));
+  const allowed = ['name', 'intention', 'status'];
+  const updates: Record<string, unknown> = {};
+  for (const key of allowed) if (key in body) updates[key] = (body as any)[key];
+  if (!Object.keys(updates).length) return c.json({ error: 'No valid fields to update' }, 400);
+
+  const [updated] = await db.update(bcIterations).set(updates as any)
+    .where(eq(bcIterations.id, itId))
+    .returning();
+  if (!updated) return c.json({ error: 'Iteration not found' }, 404);
+  return c.json({ iteration: updated });
+});
+
+brandClarityRouter.delete('/v1/admin/bc/projects/:id/iterations/:itId', requireAuthMiddleware, async (c) => {
+  const db = c.get('db');
+  if (!db) return c.json({ error: 'DB unavailable' }, 500);
+  const itId = Number(c.req.param('itId'));
+  if (isNaN(itId)) return c.json({ error: 'Invalid id' }, 400);
+
+  await db.delete(bcIterations).where(eq(bcIterations.id, itId));
+  return c.json({ ok: true });
 });
 
 // ─── Scrape Data (composite) ──────────────────────────────────────────────────

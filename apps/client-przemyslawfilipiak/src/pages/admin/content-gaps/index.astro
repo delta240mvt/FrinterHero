@@ -48,13 +48,17 @@ try {
 
   const inProgressIds = gaps.filter((gap) => gap.status === 'in_progress').map((gap) => gap.id);
   if (inProgressIds.length > 0) {
-    const articleData = await apiFetch('/api/articles?limit=200&status=draft');
-    const draftMap = new Map(
-      (articleData.results || [])
-        .filter((article: any) => article.sourceGapId && inProgressIds.includes(article.sourceGapId))
-        .map((article: any) => [article.sourceGapId, article.id]),
-    );
-    gaps = gaps.map((gap) => ({ ...gap, draftArticleId: draftMap.get(gap.id) ?? null }));
+    try {
+      const articleData = await apiFetch('/api/articles?limit=200&status=draft');
+      const draftMap = new Map(
+        (articleData.results || [])
+          .filter((article: any) => article.sourceGapId && inProgressIds.includes(article.sourceGapId))
+          .map((article: any) => [article.sourceGapId, article.id]),
+      );
+      gaps = gaps.map((gap) => ({ ...gap, draftArticleId: draftMap.get(gap.id) ?? null }));
+    } catch (e) {
+      console.error('[ContentGaps] Draft lookup failed', e);
+    }
   }
 } catch (e) { console.error(e); }
 
@@ -390,6 +394,23 @@ function lastRunLabel(d: any) {
     } catch (e) {}
   }
 
+  async function resetDraftLock(gapId) {
+    if (!confirm('Reset stuck draft lock and set gap back to New?')) return;
+    try {
+      const res = await fetch(`/api/content-gaps/${gapId}/reset-draft`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+      });
+      if (res.ok) {
+        window.location.reload();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert('Reset failed: ' + (err.error || res.status));
+      }
+    } catch (e) {
+      alert('Reset failed: ' + e.message);
+    }
+  }
+
   function startPolling(gapId) {
     if (pollIntervals[gapId]) clearInterval(pollIntervals[gapId]);
 
@@ -468,13 +489,14 @@ function lastRunLabel(d: any) {
   checkActiveJob();
 
   // Expose globally
-  window.expandGap     = expandGap;
-  window.archiveGap    = archiveGap;
-  window.snoozeGap     = snoozeGap;
-  window.approveGap    = approveGap;
-  window.closeExpanded = closeExpanded;
-  window.generateDraft = generateDraft;
-  window.abortDraft    = abortDraft;
+  window.expandGap      = expandGap;
+  window.archiveGap     = archiveGap;
+  window.snoozeGap      = snoozeGap;
+  window.approveGap     = approveGap;
+  window.closeExpanded  = closeExpanded;
+  window.generateDraft  = generateDraft;
+  window.abortDraft     = abortDraft;
+  window.resetDraftLock = resetDraftLock;
 
   // Auto-refresh stats counts
   setInterval(async () => {

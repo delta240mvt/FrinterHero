@@ -12,8 +12,9 @@ import { BcGenerateWorkflow, startBcGenerateWorkflow, type BcGenerateWorkflowBin
 import { ShCopyWorkflow, startShCopyWorkflow, type ShCopyWorkflowBinding } from './workflows/sh-copy.ts';
 import { ShVideoWorkflow, startShVideoWorkflow, type ShVideoWorkflowBinding } from './workflows/sh-video.ts';
 import { ShPublishWorkflow, startShPublishWorkflow, type ShPublishWorkflowBinding } from './workflows/sh-publish.ts';
+import { DraftWorkflow, startDraftWorkflow, type DraftWorkflowBinding } from './workflows/draft.ts';
 
-const WORKER_QUEUE_TOPICS = ['geo', 'reddit', 'youtube', 'bc-scrape', 'bc-parse', 'bc-selector', 'bc-cluster', 'bc-generate', 'sh-copy', 'sh-video', 'sh-publish'] as const;
+const WORKER_QUEUE_TOPICS = ['geo', 'reddit', 'youtube', 'bc-scrape', 'bc-parse', 'bc-selector', 'bc-cluster', 'bc-generate', 'sh-copy', 'sh-video', 'sh-publish', 'draft'] as const;
 
 interface WorkerEnv extends Partial<ApiEnv> {
   GEO_RUN_WORKFLOW?: GeoRunWorkflowBinding;
@@ -27,6 +28,8 @@ interface WorkerEnv extends Partial<ApiEnv> {
   SH_COPY_WORKFLOW?: ShCopyWorkflowBinding;
   SH_VIDEO_WORKFLOW?: ShVideoWorkflowBinding;
   SH_PUBLISH_WORKFLOW?: ShPublishWorkflowBinding;
+  DRAFT_WORKFLOW?: DraftWorkflowBinding;
+  ANTHROPIC_API_KEY?: string;
 }
 
 const worker = {
@@ -59,7 +62,8 @@ const worker = {
         !env.BC_GENERATE_WORKFLOW ||
         !env.SH_COPY_WORKFLOW ||
         !env.SH_VIDEO_WORKFLOW ||
-        !env.SH_PUBLISH_WORKFLOW
+        !env.SH_PUBLISH_WORKFLOW ||
+        !env.DRAFT_WORKFLOW
       ) {
         throw new Error('Missing Cloudflare workflow bindings');
       }
@@ -75,6 +79,7 @@ const worker = {
       const shCopyWorkflow = env.SH_COPY_WORKFLOW;
       const shVideoWorkflow = env.SH_VIDEO_WORKFLOW;
       const shPublishWorkflow = env.SH_PUBLISH_WORKFLOW;
+      const draftWorkflow = env.DRAFT_WORKFLOW;
 
       await handleJobQueueBatch(
         batch as Parameters<typeof handleJobQueueBatch>[0],
@@ -112,6 +117,9 @@ const worker = {
           startShPublishWorkflow(message) {
             return startShPublishWorkflow(shPublishWorkflow, message as Parameters<typeof startShPublishWorkflow>[1]);
           },
+          startDraftWorkflow(message) {
+            return startDraftWorkflow(draftWorkflow!, message as Parameters<typeof startDraftWorkflow>[1]);
+          },
         },
         {
           async onUnsupportedTopic(_message, entry) {
@@ -138,4 +146,4 @@ const worker = {
 };
 
 export default worker;
-export { GeoRunWorkflow, RedditRunWorkflow, YoutubeRunWorkflow, BcScrapeWorkflow, BcParseWorkflow, BcSelectorWorkflow, BcClusterWorkflow, BcGenerateWorkflow, ShCopyWorkflow, ShVideoWorkflow, ShPublishWorkflow };
+export { GeoRunWorkflow, RedditRunWorkflow, YoutubeRunWorkflow, BcScrapeWorkflow, BcParseWorkflow, BcSelectorWorkflow, BcClusterWorkflow, BcGenerateWorkflow, ShCopyWorkflow, ShVideoWorkflow, ShPublishWorkflow, DraftWorkflow };

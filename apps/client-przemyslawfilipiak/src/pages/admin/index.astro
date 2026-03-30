@@ -1,6 +1,7 @@
 ---
 export const prerender = false;
 import Base from '@/components/layouts/Base.astro';
+import { loadAdminDashboardData } from '@/lib/admin/dashboard-data';
 
 let allArticles: any[] = [];
 let recentRuns: any[]  = [];
@@ -24,47 +25,20 @@ async function apiFetch(path: string) {
 }
 
 try {
-  const [
-    articleList,
-    draftCount,
-    publishedCount,
-    archivedCount,
-    totalCount,
-    gapNew,
-    gapProg,
-    gapProps,
-    kbCount,
-    runs,
-    redditPendingData,
-  ] = await Promise.all([
-    apiFetch(`/api/articles?page=${page}&limit=${LIMIT}${search ? `&search=${encodeURIComponent(search)}` : ''}${statusFilter ? `&status=${encodeURIComponent(statusFilter)}` : ''}`),
-    apiFetch('/api/articles?limit=1&status=draft'),
-    apiFetch('/api/articles?limit=1&status=published'),
-    apiFetch('/api/articles?limit=1&status=archived'),
-    apiFetch('/api/articles?limit=1'),
-    apiFetch('/api/content-gaps?limit=1&status=new'),
-    apiFetch('/api/content-gaps?limit=1&status=in_progress'),
-    apiFetch('/api/content-gaps?limit=1&has_proposal=true'),
-    apiFetch('/api/knowledge-base?limit=1'),
-    apiFetch('/api/admin/geo/runs?limit=8'),
-    apiFetch('/api/reddit/gaps?limit=1&status=pending'),
-  ]);
-
-  allArticles = articleList.results || [];
-  stats = {
-    draft: draftCount.total || 0,
-    published: publishedCount.total || 0,
-    archived: archivedCount.total || 0,
-  };
-  total = totalCount.total || 0;
-  gapStats = {
-    new: gapNew.pagination?.total || 0,
-    in_progress: gapProg.pagination?.total || 0,
-    proposals: gapProps.pagination?.total || 0,
-  };
-  kbTotal = kbCount.pagination?.total || 0;
-  recentRuns = runs.runs || [];
-  redditPending = redditPendingData.pagination?.total || redditPendingData.total || 0;
+  const data = await loadAdminDashboardData({
+    fetchJson: apiFetch,
+    page,
+    limit: LIMIT,
+    search,
+    statusFilter,
+  });
+  allArticles = data.allArticles;
+  stats = data.stats;
+  total = data.total;
+  gapStats = data.gapStats;
+  kbTotal = data.kbTotal;
+  recentRuns = data.recentRuns;
+  redditPending = data.redditPending;
 } catch (e) {
   console.error('[Admin]', e);
 }

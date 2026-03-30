@@ -7,6 +7,7 @@ import { appJobs } from '../../../../../src/db/schema.ts';
 import { buildWorkflowFailureResult, buildWorkflowSuccessResult } from '../../../../../src/lib/cloudflare/workflow-results.ts';
 import type { JobQueueMessage } from '../../../../../src/lib/cloudflare/job-payloads.ts';
 import { runShCopyJob, type ShCopyResult } from '../../../../../src/lib/jobs/sh-copy.ts';
+import { initWorkflowDb } from './workflow-db-init.ts';
 import { callBcLlm, type BcLlmCallOptions } from '../../../../../src/lib/bc-llm-client.ts';
 
 type ShCopyQueueMessage = JobQueueMessage<{ briefId: number; siteId: number | null; model: string }>;
@@ -168,6 +169,7 @@ export async function startShCopyWorkflow(binding: ShCopyWorkflowBinding, messag
 
 export class ShCopyWorkflow extends WorkflowEntrypoint<ShCopyWorkflowEnv> {
   async run(event: CloudflareWorkflowEvent<ShCopyWorkflowMessage>, step: WorkflowStepLike) {
+    initWorkflowDb(this.env as unknown as Record<string, unknown>);
     return executeShCopyWorkflow(event.payload, {
       env: this.env,
       step,

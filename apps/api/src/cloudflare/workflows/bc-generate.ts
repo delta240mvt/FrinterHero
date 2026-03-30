@@ -7,6 +7,7 @@ import { appJobs } from '../../../../../src/db/schema.ts';
 import { buildWorkflowFailureResult, buildWorkflowSuccessResult } from '../../../../../src/lib/cloudflare/workflow-results.ts';
 import type { JobQueueMessage } from '../../../../../src/lib/cloudflare/job-payloads.ts';
 import { runBcGenerateJob, type BcGenerateResult } from '../../../../../src/lib/jobs/bc-generate.ts';
+import { initWorkflowDb } from './workflow-db-init.ts';
 import { callBcLlm, type BcLlmCallOptions } from '../../../../../src/lib/bc-llm-client.ts';
 
 type BcGenerateQueueMessage = JobQueueMessage<{ projectId: number; iterationId: number | null }>;
@@ -165,6 +166,7 @@ export async function startBcGenerateWorkflow(binding: BcGenerateWorkflowBinding
 
 export class BcGenerateWorkflow extends WorkflowEntrypoint<BcGenerateWorkflowEnv> {
   async run(event: CloudflareWorkflowEvent<BcGenerateWorkflowMessage>, step: WorkflowStepLike) {
+    initWorkflowDb(this.env as unknown as Record<string, unknown>);
     return executeBcGenerateWorkflow(event.payload, {
       env: this.env,
       step,
