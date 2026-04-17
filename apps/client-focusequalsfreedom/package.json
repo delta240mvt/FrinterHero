@@ -6,7 +6,7 @@
     "dev": "astro dev --host",
     "build": "astro build",
     "start": "astro dev --host",
-    "preview": "wrangler pages dev ./dist",
+    "preview": "node --input-type=module -e \"import { spawn } from 'node:child_process'; const forwarded = []; for (let i = 1; i < process.argv.length; i += 1) { const arg = process.argv[i]; if (arg === '--host') { forwarded.push('--ip'); continue; } forwarded.push(arg); } const child = spawn('wrangler', ['pages', 'dev', './dist', ...forwarded], { stdio: 'inherit', shell: process.platform === 'win32' }); child.on('exit', (code) => process.exit(code ?? 0)); child.on('error', (error) => { console.error(error); process.exit(1); });\" --",
     "deploy": "wrangler pages deploy ./dist",
     "check": "astro check"
   },
