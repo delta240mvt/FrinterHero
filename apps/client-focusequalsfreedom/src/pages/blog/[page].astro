@@ -18,13 +18,10 @@ export async function getStaticPaths() {
 }
 
 const requestedPage = Number(Astro.params.page);
-const tag = Astro.url.searchParams.get('tag') || '';
 const site = getSitePresentation();
-const { posts, page, totalPages } = await getPaginatedPosts(requestedPage, BLOG_PAGE_SIZE, tag);
+const { posts, page, totalPages } = await getPaginatedPosts(requestedPage, BLOG_PAGE_SIZE);
 const prevHref = page === 2 ? '/blog' : `/blog/${page - 1}`;
-const encodedTag = tag ? encodeURIComponent(tag) : '';
-const prevHrefWithTag = encodedTag ? `${prevHref}?tag=${encodedTag}` : prevHref;
-const nextHref = encodedTag ? `/blog/${page + 1}?tag=${encodedTag}` : `/blog/${page + 1}`;
+const nextHref = `/blog/${page + 1}`;
 ---
 
 <Base
@@ -36,12 +33,6 @@ const nextHref = encodedTag ? `/blog/${page + 1}?tag=${encodedTag}` : `/blog/${p
     <div class="blog-list-container">
       <header class="blog-list-header">
         <h1 class="blog-list-title">/blog</h1>
-        {tag && (
-          <div class="tag-filter">
-            <span>Filtered by: <strong class="tag-name">{tag}</strong></span>
-            <a href="/blog" class="clear-filter">✕ Clear filter</a>
-          </div>
-        )}
       </header>
 
       {posts.length > 0 ? (
@@ -54,7 +45,7 @@ const nextHref = encodedTag ? `/blog/${page + 1}?tag=${encodedTag}` : `/blog/${p
               readingTime={post.readingTime}
               tags={post.tags}
               slug={post.slug}
-              featured={!tag && i === 0}
+              featured={i === 0}
             />
           ))}
         </div>
@@ -64,7 +55,7 @@ const nextHref = encodedTag ? `/blog/${page + 1}?tag=${encodedTag}` : `/blog/${p
 
       {totalPages > 1 && (
         <nav class="pagination" aria-label="Blog pagination">
-          <a href={prevHrefWithTag} class="page-btn">← Previous</a>
+          <a href={prevHref} class="page-btn">← Previous</a>
           <span class="page-info">Page {page} of {totalPages}</span>
           {page < totalPages && (
             <a href={nextHref} class="page-btn">Next →</a>
@@ -120,21 +111,6 @@ const nextHref = encodedTag ? `/blog/${page + 1}?tag=${encodedTag}` : `/blog/${p
     color: var(--teal);
     margin-bottom: 0.75rem;
   }
-  .tag-filter {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    font-family: var(--font-mono);
-    font-size: var(--text-sm);
-    color: var(--text-secondary);
-  }
-  .tag-name { color: var(--violet); }
-  .clear-filter {
-    color: var(--text-muted);
-    text-decoration: none;
-    transition: color 0.15s;
-  }
-  .clear-filter:hover { color: var(--text-primary); }
   .blog-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);

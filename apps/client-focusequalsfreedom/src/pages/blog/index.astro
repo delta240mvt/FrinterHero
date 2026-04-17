@@ -5,12 +5,19 @@ import Base from '@/components/layouts/Base.astro';
 import Nav from '@/components/Nav.astro';
 import Footer from '@/components/Footer.astro';
 import BlogCard from '@/components/BlogCard.astro';
-import { BLOG_PAGE_SIZE, getPaginatedPosts } from '@/lib/blog';
+import { BLOG_PAGE_SIZE, getPaginatedPosts, getPostsByTag } from '@/lib/blog';
 import { getSitePresentation } from '@/lib/site';
 
 const tag = Astro.url.searchParams.get('tag') || '';
 const site = getSitePresentation();
-const { posts, page, totalPages } = await getPaginatedPosts(1, BLOG_PAGE_SIZE, tag);
+const tagFilteredPosts = tag ? await getPostsByTag(tag) : null;
+const { posts, page, totalPages } = tagFilteredPosts
+  ? {
+      posts: tagFilteredPosts,
+      page: 1,
+      totalPages: 1,
+    }
+  : await getPaginatedPosts(1, BLOG_PAGE_SIZE);
 const encodedTag = tag ? encodeURIComponent(tag) : '';
 const nextHref = encodedTag ? `/blog/2?tag=${encodedTag}` : '/blog/2';
 ---
@@ -50,11 +57,8 @@ const nextHref = encodedTag ? `/blog/2?tag=${encodedTag}` : '/blog/2';
         <p class="empty-state">No articles found. Check back soon.</p>
       )}
 
-      {totalPages > 1 && (
+      {totalPages > 1 && !tag && (
         <nav class="pagination" aria-label="Blog pagination">
-          {page > 1 && (
-            <a href={`/blog?page=${page - 1}${tag ? `&tag=${tag}` : ''}`} class="page-btn">← Previous</a>
-          )}
           <span class="page-info">Page {page} of {totalPages}</span>
           {page < totalPages && (
             <a href={nextHref} class="page-btn">Next →</a>

@@ -63,7 +63,7 @@ const canonicalUrl = slug ? absoluteUrl(`/blog/${slug}`) : Astro.url.href;
         {tags.length > 0 && (
           <div class="article-tags">
             {tags.map(tag => (
-              <a href={`/blog?tag=${tag}`} class="article-tag">{tag}</a>
+              <a href={`/blog?tag=${encodeURIComponent(tag)}`} class="article-tag">{tag}</a>
             ))}
           </div>
         )}
