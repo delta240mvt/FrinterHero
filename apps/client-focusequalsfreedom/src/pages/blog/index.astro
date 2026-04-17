@@ -5,44 +5,14 @@ import Base from '@/components/layouts/Base.astro';
 import Nav from '@/components/Nav.astro';
 import Footer from '@/components/Footer.astro';
 import BlogCard from '@/components/BlogCard.astro';
-import { getCurrentSiteSlug, getSitePresentation } from '@/lib/site-config';
-import { getInternalApiBaseUrl } from '@/lib/internal-api';
+import { BLOG_PAGE_SIZE, getPaginatedPosts } from '@/lib/blog';
+import { getSitePresentation } from '@/lib/site';
 
-const page = parseInt(Astro.url.searchParams.get('page') || '1');
 const tag = Astro.url.searchParams.get('tag') || '';
-const LIMIT = 10;
-const offset = (page - 1) * LIMIT;
 const site = getSitePresentation();
-const siteSlug = getCurrentSiteSlug();
-
-let posts: any[] = [];
-let totalCount = 0;
-
-function toValidDate(value: unknown) {
-  if (!value) return null;
-  const date = value instanceof Date ? value : new Date(String(value));
-  return Number.isNaN(date.getTime()) ? null : date;
-}
-
-try {
-  const apiBase = getInternalApiBaseUrl();
-  const params = new URLSearchParams({ siteSlug, status: 'published', limit: String(LIMIT), offset: String(offset) });
-  const response = await fetch(`${apiBase}/v1/articles?${params}`);
-  if (response.ok) {
-    const data = await response.json();
-    posts = Array.isArray(data.results)
-      ? data.results.map((post: any) => ({
-          ...post,
-          publishedAt: toValidDate(post.publishedAt),
-        }))
-      : [];
-    totalCount = data.pagination?.total ?? posts.length;
-  }
-} catch {
-  // API not available
-}
-
-const totalPages = Math.ceil(totalCount / LIMIT);
+const { posts, page, totalPages } = await getPaginatedPosts(1, BLOG_PAGE_SIZE, tag);
+const encodedTag = tag ? encodeURIComponent(tag) : '';
+const nextHref = encodedTag ? `/blog/2?tag=${encodedTag}` : '/blog/2';
 ---
 
 <Base
@@ -68,11 +38,11 @@ const totalPages = Math.ceil(totalCount / LIMIT);
             <BlogCard
               title={post.title}
               description={post.description}
-              date={post.publishedAt}
+              date={post.pubDate}
               readingTime={post.readingTime}
-              tags={post.tags || []}
+              tags={post.tags}
               slug={post.slug}
-              featured={post.featured && i === 0}
+              featured={!tag && i === 0}
             />
           ))}
         </div>
@@ -87,7 +57,7 @@ const totalPages = Math.ceil(totalCount / LIMIT);
           )}
           <span class="page-info">Page {page} of {totalPages}</span>
           {page < totalPages && (
-            <a href={`/blog/${page + 1}`} class="page-btn">Next →</a>
+            <a href={nextHref} class="page-btn">Next →</a>
           )}
         </nav>
       )}

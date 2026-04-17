@@ -1,30 +1,8 @@
 ---
 import BlogCard from './BlogCard.astro';
-import { getCurrentSiteSlug } from '@/lib/site-config';
-import { getInternalApiBaseUrl } from '@/lib/internal-api';
+import { getPublishedPosts } from '@/lib/blog';
 
-let articles: any[] = [];
-try {
-  const siteSlug = getCurrentSiteSlug();
-  const apiBase = getInternalApiBaseUrl();
-  const params = new URLSearchParams({
-    siteSlug,
-    status: 'published',
-    limit: '3',
-  });
-  const response = await fetch(`${apiBase}/v1/articles?${params}`);
-  if (response.ok) {
-    const payload = await response.json();
-    articles = Array.isArray(payload?.results)
-      ? payload.results.map((article: any) => ({
-          ...article,
-          publishedAt: article.publishedAt ? new Date(article.publishedAt) : null,
-        }))
-      : [];
-  }
-} catch {
-  // API not available during build - show empty state
-}
+const articles = (await getPublishedPosts()).slice(0, 3);
 ---
 
 <section class="blog-preview reveal" id="blog">
@@ -37,11 +15,11 @@ try {
           <BlogCard
             title={article.title}
             description={article.description}
-            date={article.publishedAt}
+            date={article.pubDate}
             readingTime={article.readingTime}
-            tags={article.tags || []}
+            tags={article.tags}
             slug={article.slug}
-            featured={article.featured && i === 0}
+            featured={i === 0}
           />
         ))}
       </div>

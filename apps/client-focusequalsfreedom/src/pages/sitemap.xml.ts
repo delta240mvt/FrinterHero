@@ -1,25 +1,9 @@
 import type { APIRoute } from 'astro';
-import { getInternalApiBaseUrl } from '@/lib/internal-api';
-import { absoluteUrl, getCurrentSiteSlug } from '@/lib/site-config';
+import { getPublishedPosts } from '@/lib/blog';
+import { absoluteUrl } from '@/lib/site';
 
 export const GET: APIRoute = async () => {
-  const siteSlug = getCurrentSiteSlug();
-  let publishedArticles: { slug: string; updatedAt: string }[] = [];
-
-  try {
-    const apiBase = getInternalApiBaseUrl();
-    const params = new URLSearchParams({ siteSlug, status: 'published', limit: '100' });
-    const response = await fetch(`${apiBase}/v1/articles?${params}`);
-    if (response.ok) {
-      const data = await response.json();
-      publishedArticles = (data.results ?? []).map((a: any) => ({
-        slug: a.slug,
-        updatedAt: a.updatedAt,
-      }));
-    }
-  } catch {
-    // API unavailable
-  }
+  const publishedArticles = await getPublishedPosts();
 
   const today = new Date().toISOString().split('T')[0];
 
@@ -31,9 +15,9 @@ export const GET: APIRoute = async () => {
     { loc: absoluteUrl('/llms-full.txt'), lastmod: today },
   ];
 
-  const articleUrls = publishedArticles.map(a => ({
-    loc: absoluteUrl(`/blog/${a.slug}`),
-    lastmod: a.updatedAt ? new Date(a.updatedAt).toISOString().split('T')[0] : today,
+  const articleUrls = publishedArticles.map((article) => ({
+    loc: absoluteUrl(`/blog/${article.slug}`),
+    lastmod: (article.updatedDate ?? article.pubDate).toISOString().split('T')[0],
   }));
 
   const allUrls = [...staticUrls, ...articleUrls];
