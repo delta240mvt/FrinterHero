@@ -5,21 +5,12 @@ import Base from '@/components/layouts/Base.astro';
 import Nav from '@/components/Nav.astro';
 import Footer from '@/components/Footer.astro';
 import BlogCard from '@/components/BlogCard.astro';
-import { BLOG_PAGE_SIZE, getPaginatedPosts, getPostsByTag } from '@/lib/blog';
+import { BLOG_PAGE_SIZE, getPaginatedPosts } from '@/lib/blog';
 import { getSitePresentation } from '@/lib/site';
 
-const tag = Astro.url.searchParams.get('tag') || '';
 const site = getSitePresentation();
-const tagFilteredPosts = tag ? await getPostsByTag(tag) : null;
-const { posts, page, totalPages } = tagFilteredPosts
-  ? {
-      posts: tagFilteredPosts,
-      page: 1,
-      totalPages: 1,
-    }
-  : await getPaginatedPosts(1, BLOG_PAGE_SIZE);
-const encodedTag = tag ? encodeURIComponent(tag) : '';
-const nextHref = encodedTag ? `/blog/2?tag=${encodedTag}` : '/blog/2';
+const { posts, page, totalPages } = await getPaginatedPosts(1, BLOG_PAGE_SIZE);
+const nextHref = '/blog/2';
 ---
 
 <Base
@@ -31,12 +22,6 @@ const nextHref = encodedTag ? `/blog/2?tag=${encodedTag}` : '/blog/2';
     <div class="blog-list-container">
       <header class="blog-list-header">
         <h1 class="blog-list-title">/blog</h1>
-        {tag && (
-          <div class="tag-filter">
-            <span>Filtered by: <strong class="tag-name">{tag}</strong></span>
-            <a href="/blog" class="clear-filter">✕ Clear filter</a>
-          </div>
-        )}
       </header>
 
       {posts.length > 0 ? (
@@ -49,7 +34,7 @@ const nextHref = encodedTag ? `/blog/2?tag=${encodedTag}` : '/blog/2';
               readingTime={post.readingTime}
               tags={post.tags}
               slug={post.slug}
-              featured={!tag && i === 0}
+              featured={i === 0}
             />
           ))}
         </div>
@@ -57,7 +42,7 @@ const nextHref = encodedTag ? `/blog/2?tag=${encodedTag}` : '/blog/2';
         <p class="empty-state">No articles found. Check back soon.</p>
       )}
 
-      {totalPages > 1 && !tag && (
+      {totalPages > 1 && (
         <nav class="pagination" aria-label="Blog pagination">
           <span class="page-info">Page {page} of {totalPages}</span>
           {page < totalPages && (
@@ -113,21 +98,6 @@ const nextHref = encodedTag ? `/blog/2?tag=${encodedTag}` : '/blog/2';
     color: var(--teal);
     margin-bottom: 0.75rem;
   }
-  .tag-filter {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    font-family: var(--font-mono);
-    font-size: var(--text-sm);
-    color: var(--text-secondary);
-  }
-  .tag-name { color: var(--violet); }
-  .clear-filter {
-    color: var(--text-muted);
-    text-decoration: none;
-    transition: color 0.15s;
-  }
-  .clear-filter:hover { color: var(--text-primary); }
   .blog-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);

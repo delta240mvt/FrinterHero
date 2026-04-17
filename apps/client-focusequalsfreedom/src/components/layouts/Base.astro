@@ -18,7 +18,7 @@ const {
   title = undefined,
   description = undefined,
   ogImage = '/og-image.png',
-  canonical = Astro.url.href,
+  canonical = absoluteUrl(Astro.url.pathname),
   ogType = 'website',
   articlePublishedAt,
   articleModifiedAt,

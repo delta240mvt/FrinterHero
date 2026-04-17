@@ -95,16 +95,6 @@ export async function getPublishedPostBySlug(slug: string): Promise<BlogPost | n
   return posts.find((post) => post.slug === slug) ?? null;
 }
 
-export async function getPostsByTag(tag: string): Promise<BlogPost[]> {
-  const normalizedTagFilter = normalizeTag(tag);
-  if (!normalizedTagFilter) {
-    return getPublishedPosts();
-  }
-
-  const posts = await getPublishedPosts();
-  return posts.filter((post) => post.tags.some((entryTag) => normalizeTag(entryTag) === normalizedTagFilter));
-}
-
 export async function getPaginatedPosts(
   page: number,
   pageSize = BLOG_PAGE_SIZE,
