@@ -68,6 +68,9 @@ export function getSitePresentation(): SitePresentation {
 }
 
 export function absoluteUrl(pathname: string): string {
-  const normalizedPath = pathname.startsWith('/') ? pathname : `/${pathname}`;
+  const prefixedPath = pathname.startsWith('/') ? pathname : `/${pathname}`;
+  const normalizedPath =
+    prefixedPath !== '/' && prefixedPath.endsWith('/') ? prefixedPath.slice(0, -1) : prefixedPath;
+
   return new URL(normalizedPath, `${SITE.canonicalBaseUrl}/`).toString();
 }

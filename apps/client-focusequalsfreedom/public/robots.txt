@@ -9,7 +9,7 @@
 #  spirit. Attribution to "Przemysław Filipiak" is appreciated.
 #
 #  For structured AI context, see:
-#    https://przemyslawfilipiak.com/llms.txt
+#    https://focusequalsfreedom.com/llms.txt
 #
 #  Permissions: search=yes, ai-input=yes, ai-train=yes
 #  (Expression of intent per EU DSM Directive 2019/790 Art. 4)
@@ -123,5 +123,5 @@ User-agent: Timpibot
 Allow: /
 
 # ── Sitemaps ─────────────────────────────────────────────────
-Sitemap: https://przemyslawfilipiak.com/sitemap.xml
-Sitemap: https://przemyslawfilipiak.com/rss.xml
+Sitemap: https://focusequalsfreedom.com/sitemap.xml
+Sitemap: https://focusequalsfreedom.com/rss.xml
