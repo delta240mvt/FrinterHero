@@ -8,9 +8,24 @@ const TEST_FILE = fileURLToPath(import.meta.url);
 const APP_ROOT = path.resolve(path.dirname(TEST_FILE), '..', '..');
 const SRC_ROOT = path.join(APP_ROOT, 'src');
 const REPO_ROOT = path.resolve(APP_ROOT, '..', '..');
-const IMPORT_RE =
-  /(?:import|export)\s.+?from\s+['"]([^'"]+)['"]|import\(\s*['"]([^'"]+)['"]\s*\)/g;
 const RESOLVABLE_EXTENSIONS = ['.astro', '.ts', '.tsx', '.js', '.mjs', '.mdx', '.css', '.json'];
+
+function extractModuleSpecifiers(content: string): string[] {
+  const specifiers: string[] = [];
+  const staticImportExportRe =
+    /(?:^|[;\r\n])\s*(?:import|export)\s+[\s\S]*?\s+from\s+['"]([^'"]+)['"]/gm;
+  const dynamicImportRe = /import\(\s*['"]([^'"]+)['"]\s*\)/g;
+
+  for (const match of content.matchAll(staticImportExportRe)) {
+    if (match[1]) specifiers.push(match[1]);
+  }
+
+  for (const match of content.matchAll(dynamicImportRe)) {
+    if (match[1]) specifiers.push(match[1]);
+  }
+
+  return specifiers;
+}
 
 function resolveExistingModule(basePath: string): string | null {
   const candidates = path.extname(basePath)
@@ -63,12 +78,27 @@ function walk(dir: string): string[] {
   return files;
 }
 
+test('extractModuleSpecifiers matches multiline import and export-from statements', () => {
+  const content = `
+    import {
+      alpha,
+      beta,
+    } from 'node:fs';
+
+    export {
+      gamma,
+      delta,
+    } from 'node:path';
+  `;
+
+  assert.deepEqual(extractModuleSpecifiers(content), ['node:fs', 'node:path']);
+});
+
 test('client-focusequalsfreedom has no imports to shared backend or monorepo-only runtime modules', () => {
   const offenders: string[] = [];
   for (const file of walk(SRC_ROOT)) {
     const content = readFileSync(file, 'utf8');
-    for (const match of content.matchAll(IMPORT_RE)) {
-      const specifier = match[1] ?? match[2];
+    for (const specifier of extractModuleSpecifiers(content)) {
       if (!specifier) continue;
       const resolved = resolveAppSpecifier(file, specifier);
       if (resolved) {
