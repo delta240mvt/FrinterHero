@@ -28,6 +28,31 @@ const nextHref = `/blog/${page + 1}`;
   title={`${site.blogTitle} — Page ${page}`}
   description={site.blogDescription}
 >
+  <Fragment slot="head">
+    <script type="application/ld+json" set:html={JSON.stringify({
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "CollectionPage",
+          "@id": `${site.canonicalBaseUrl}/blog/${page}/#webpage`,
+          "url": `${site.canonicalBaseUrl}/blog/${page}`,
+          "name": `${site.blogTitle} — Page ${page}`,
+          "description": site.blogDescription,
+          "isPartOf": { "@id": `${site.canonicalBaseUrl}/#website` },
+          "author": { "@id": `${site.canonicalBaseUrl}/#entity` },
+          "inLanguage": "en-US",
+          "breadcrumb": {
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+              { "@type": "ListItem", "position": 1, "name": "Home", "item": site.canonicalBaseUrl },
+              { "@type": "ListItem", "position": 2, "name": "Blog", "item": `${site.canonicalBaseUrl}/blog` },
+              { "@type": "ListItem", "position": 3, "name": `Page ${page}`, "item": `${site.canonicalBaseUrl}/blog/${page}` }
+            ]
+          }
+        }
+      ]
+    })} />
+  </Fragment>
   <Nav />
   <main class="blog-list-main" aria-label="Blog posts">
     <div class="blog-list-container">
@@ -66,30 +91,6 @@ const nextHref = `/blog/${page + 1}`;
   </main>
   <Footer />
 </Base>
-
-<script type="application/ld+json" set:html={JSON.stringify({
-  "@context": "https://schema.org",
-  "@graph": [
-    {
-      "@type": "CollectionPage",
-      "@id": `${site.canonicalBaseUrl}/blog/${page}/#webpage`,
-      "url": `${site.canonicalBaseUrl}/blog/${page}`,
-      "name": `${site.blogTitle} — Page ${page}`,
-      "description": site.blogDescription,
-      "isPartOf": { "@id": `${site.canonicalBaseUrl}/#website` },
-      "author": { "@id": `${site.canonicalBaseUrl}/#entity` },
-      "inLanguage": "en-US",
-      "breadcrumb": {
-        "@type": "BreadcrumbList",
-        "itemListElement": [
-          { "@type": "ListItem", "position": 1, "name": "Home", "item": site.canonicalBaseUrl },
-          { "@type": "ListItem", "position": 2, "name": "Blog", "item": `${site.canonicalBaseUrl}/blog` },
-          { "@type": "ListItem", "position": 3, "name": `Page ${page}`, "item": `${site.canonicalBaseUrl}/blog/${page}` }
-        ]
-      }
-    }
-  ]
-})} />
 
 <style>
   .blog-list-main {

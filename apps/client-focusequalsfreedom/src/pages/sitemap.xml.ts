@@ -10,6 +10,8 @@ export const GET: APIRoute = async () => {
   const staticUrls = [
     { loc: absoluteUrl('/'), lastmod: today },
     { loc: absoluteUrl('/blog'), lastmod: today },
+    { loc: absoluteUrl('/privacy-policy'), lastmod: today },
+    { loc: absoluteUrl('/polityka-prywatnosci'), lastmod: today },
     { loc: absoluteUrl('/rss.xml'), lastmod: today },
     { loc: absoluteUrl('/llms.txt'), lastmod: today },
     { loc: absoluteUrl('/llms-full.txt'), lastmod: today },

@@ -17,6 +17,30 @@ const nextHref = '/blog/2';
   title={site.blogTitle}
   description={site.blogDescription}
 >
+  <Fragment slot="head">
+    <script type="application/ld+json" set:html={JSON.stringify({
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "CollectionPage",
+          "@id": `${site.canonicalBaseUrl}/blog/#webpage`,
+          "url": `${site.canonicalBaseUrl}/blog`,
+          "name": site.blogTitle,
+          "description": site.blogDescription,
+          "isPartOf": { "@id": `${site.canonicalBaseUrl}/#website` },
+          "author": { "@id": `${site.canonicalBaseUrl}/#entity` },
+          "inLanguage": "en-US",
+          "breadcrumb": {
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+              { "@type": "ListItem", "position": 1, "name": "Home", "item": site.canonicalBaseUrl },
+              { "@type": "ListItem", "position": 2, "name": "Blog", "item": `${site.canonicalBaseUrl}/blog` }
+            ]
+          }
+        }
+      ]
+    })} />
+  </Fragment>
   <Nav />
   <main class="blog-list-main" aria-label="Blog posts">
     <div class="blog-list-container">
@@ -54,29 +78,6 @@ const nextHref = '/blog/2';
   </main>
   <Footer />
 </Base>
-
-<script type="application/ld+json" set:html={JSON.stringify({
-  "@context": "https://schema.org",
-  "@graph": [
-    {
-      "@type": "CollectionPage",
-      "@id": `${site.canonicalBaseUrl}/blog/#webpage`,
-      "url": `${site.canonicalBaseUrl}/blog`,
-      "name": site.blogTitle,
-      "description": site.blogDescription,
-      "isPartOf": { "@id": `${site.canonicalBaseUrl}/#website` },
-      "author": { "@id": `${site.canonicalBaseUrl}/#entity` },
-      "inLanguage": "en-US",
-      "breadcrumb": {
-        "@type": "BreadcrumbList",
-        "itemListElement": [
-          { "@type": "ListItem", "position": 1, "name": "Home", "item": site.canonicalBaseUrl },
-          { "@type": "ListItem", "position": 2, "name": "Blog", "item": `${site.canonicalBaseUrl}/blog` }
-        ]
-      }
-    }
-  ]
-})} />
 
 <style>
   .blog-list-main {

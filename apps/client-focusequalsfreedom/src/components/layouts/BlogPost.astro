@@ -44,6 +44,40 @@ const canonicalUrl = slug ? absoluteUrl(`/blog/${slug}`) : absoluteUrl(Astro.url
   articlePublishedAt={publishedAt?.toISOString()}
   articleModifiedAt={updatedAt?.toISOString()}
 >
+  <Fragment slot="head">
+    <script type="application/ld+json" set:html={JSON.stringify({
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "BlogPosting",
+          "@id": `${canonicalUrl}#article`,
+          "headline": title,
+          "description": description,
+          "datePublished": publishedAt?.toISOString(),
+          "dateModified": updatedAt?.toISOString() || publishedAt?.toISOString(),
+          "author": { "@id": `${site.canonicalBaseUrl}/#entity` },
+          "publisher": { "@id": `${site.canonicalBaseUrl}/#entity` },
+          "url": canonicalUrl,
+          "isPartOf": { "@id": `${site.canonicalBaseUrl}/#website` },
+          "mainEntityOfPage": {
+            "@type": "WebPage",
+            "@id": `${canonicalUrl}#webpage`
+          },
+          "image": absoluteUrl('/og-image.png'),
+          "inLanguage": "en-US",
+          "keywords": tags.join(', ')
+        },
+        {
+          "@type": "BreadcrumbList",
+          "itemListElement": [
+            { "@type": "ListItem", "position": 1, "name": "Home", "item": site.canonicalBaseUrl },
+            { "@type": "ListItem", "position": 2, "name": "Blog", "item": absoluteUrl('/blog') },
+            { "@type": "ListItem", "position": 3, "name": title, "item": canonicalUrl }
+          ]
+        }
+      ]
+    })} />
+  </Fragment>
   <Nav />
   <main class="blog-main" aria-label="Article content">
     <article class="blog-article">
@@ -86,39 +120,6 @@ const canonicalUrl = slug ? absoluteUrl(`/blog/${slug}`) : absoluteUrl(Astro.url
   </main>
   <Footer />
 </Base>
-
-<script type="application/ld+json" set:html={JSON.stringify({
-  "@context": "https://schema.org",
-  "@graph": [
-    {
-      "@type": "BlogPosting",
-      "@id": `${canonicalUrl}#article`,
-      "headline": title,
-      "description": description,
-      "datePublished": publishedAt?.toISOString(),
-      "dateModified": updatedAt?.toISOString() || publishedAt?.toISOString(),
-      "author": { "@id": `${site.canonicalBaseUrl}/#entity` },
-      "publisher": { "@id": `${site.canonicalBaseUrl}/#entity` },
-      "url": canonicalUrl,
-      "isPartOf": { "@id": `${site.canonicalBaseUrl}/#website` },
-      "mainEntityOfPage": {
-        "@type": "WebPage",
-        "@id": `${canonicalUrl}#webpage`
-      },
-      "image": absoluteUrl('/og-image.png'),
-      "inLanguage": "en-US",
-      "keywords": tags.join(', ')
-    },
-    {
-      "@type": "BreadcrumbList",
-      "itemListElement": [
-        { "@type": "ListItem", "position": 1, "name": "Home", "item": site.canonicalBaseUrl },
-        { "@type": "ListItem", "position": 2, "name": "Blog", "item": absoluteUrl('/blog') },
-        { "@type": "ListItem", "position": 3, "name": title, "item": canonicalUrl }
-      ]
-    }
-  ]
-})} />
 
 <style>
   .blog-main {
