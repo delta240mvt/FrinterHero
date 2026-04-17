@@ -70,8 +70,8 @@ export function getPrivacyPolicyDocument(locale: PrivacyPolicyLocale): PrivacyPo
         {
           title: '5. Cookies and similar technologies',
           paragraphs: [
-            'Based on the current standalone implementation, the public website does not intentionally use analytics, advertising, or login cookies.',
-            'Standard server-side logs and browser-level technical mechanisms may still be used by hosting infrastructure as required to deliver the site securely and reliably.',
+            'The current standalone implementation may use a lightweight website analytics script to measure aggregate traffic and page usage without enabling public user accounts or advertising features.',
+            'The public website does not intentionally use advertising or login cookies. Standard server-side logs and browser-level technical mechanisms may still be used by hosting infrastructure as required to deliver the site securely and reliably.',
           ],
         },
         {
@@ -160,8 +160,8 @@ export function getPrivacyPolicyDocument(locale: PrivacyPolicyLocale): PrivacyPo
       {
         title: '5. Cookies i podobne technologie',
         paragraphs: [
-          'Na podstawie aktualnej, samodzielnej implementacji publiczna strona nie korzysta celowo z cookies analitycznych, reklamowych ani logowania.',
-          'Infrastruktura hostingowa moze nadal wykorzystywac standardowe logi serwerowe i techniczne mechanizmy przegladarki niezbedne do bezpiecznego i prawidlowego dostarczania strony.',
+          'Aktualna, samodzielna implementacja moze wykorzystywac lekki skrypt analityczny do mierzenia zagregowanego ruchu i wykorzystania stron, bez udostepniania publicznych kont uzytkownikow ani funkcji reklamowych.',
+          'Publiczna strona nie korzysta celowo z cookies reklamowych ani logowania. Infrastruktura hostingowa moze nadal wykorzystywac standardowe logi serwerowe i techniczne mechanizmy przegladarki niezbedne do bezpiecznego i prawidlowego dostarczania strony.',
         ],
       },
       {
