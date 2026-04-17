@@ -5,11 +5,13 @@ import Base from '@/components/layouts/Base.astro';
 import Nav from '@/components/Nav.astro';
 import Footer from '@/components/Footer.astro';
 import { getPrivacyPolicyDocument } from '@/lib/privacy-policy';
+import { getSitePresentation } from '@/lib/site';
 
 const doc = getPrivacyPolicyDocument('pl');
+const site = getSitePresentation();
 ---
 
-<Base title={`${doc.title} — Przemysław Filipiak`} description={doc.lead}>
+<Base title={`${doc.title} — ${site.displayName}`} description={doc.lead}>
   <Nav />
   <main class="legal-main">
     <div class="legal-container">

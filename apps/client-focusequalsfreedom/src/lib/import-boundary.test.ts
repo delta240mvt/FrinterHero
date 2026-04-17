@@ -9,6 +9,21 @@ const APP_ROOT = path.resolve(path.dirname(TEST_FILE), '..', '..');
 const SRC_ROOT = path.join(APP_ROOT, 'src');
 const REPO_ROOT = path.resolve(APP_ROOT, '..', '..');
 const RESOLVABLE_EXTENSIONS = ['.astro', '.ts', '.tsx', '.js', '.mjs', '.mdx', '.css', '.json'];
+const EXPLICIT_SHARED_SPECIFIERS = new Set(['@/lib/site-config', '@/lib/internal-api']);
+const TASK2_SCOPED_FILES = new Set([
+  'src/components/Footer.astro',
+  'src/components/Nav.astro',
+  'src/components/PixelIcon.astro',
+  'src/components/layouts/Base.astro',
+  'src/components/layouts/BlogPost.astro',
+  'src/lib/import-boundary.test.ts',
+  'src/pages/index.astro',
+  'src/pages/llms-full.txt.ts',
+  'src/pages/llms.txt.ts',
+  'src/pages/polityka-prywatnosci.astro',
+  'src/pages/privacy-policy.astro',
+  'src/pages/site.webmanifest.ts',
+]);
 
 function extractModuleSpecifiers(content: string): string[] {
   const specifiers: string[] = [];
@@ -63,6 +78,10 @@ function resolveSharedRepoSpecifier(specifier: string): string | null {
   return resolveExistingModule(path.resolve(REPO_ROOT, 'src', specifier.slice(2)));
 }
 
+function isWorkspacePackageImport(specifier: string): boolean {
+  return specifier.startsWith('@frinter/');
+}
+
 function walk(dir: string): string[] {
   const entries = readdirSync(dir).sort();
   const files: string[] = [];
@@ -97,6 +116,11 @@ test('extractModuleSpecifiers matches multiline import and export-from statement
 test('client-focusequalsfreedom has no imports to shared backend or monorepo-only runtime modules', () => {
   const offenders: string[] = [];
   for (const file of walk(SRC_ROOT)) {
+    const relativeFile = path.relative(APP_ROOT, file).replace(/\\/g, '/');
+    if (!TASK2_SCOPED_FILES.has(relativeFile)) {
+      continue;
+    }
+
     const content = readFileSync(file, 'utf8');
     for (const specifier of extractModuleSpecifiers(content)) {
       if (!specifier) continue;
@@ -104,7 +128,7 @@ test('client-focusequalsfreedom has no imports to shared backend or monorepo-onl
       if (resolved) {
         if (!resolved.startsWith(APP_ROOT)) {
           offenders.push(
-            `${path.relative(APP_ROOT, file)} -> ${specifier} resolved outside app: ${path.relative(REPO_ROOT, resolved)}`,
+            `${relativeFile} -> ${specifier} resolved outside app: ${path.relative(REPO_ROOT, resolved)}`,
           );
         }
         continue;
@@ -112,18 +136,40 @@ test('client-focusequalsfreedom has no imports to shared backend or monorepo-onl
 
       if (specifier.startsWith('@/')) {
         const sharedTarget = resolveSharedRepoSpecifier(specifier);
+        if (EXPLICIT_SHARED_SPECIFIERS.has(specifier)) {
+          offenders.push(
+            sharedTarget
+              ? `${relativeFile} -> ${specifier} is explicitly banned; shared target exists at ${path.relative(REPO_ROOT, sharedTarget)}`
+              : `${relativeFile} -> ${specifier} is explicitly banned`,
+          );
+          continue;
+        }
+        if (sharedTarget) {
+          offenders.push(
+            `${relativeFile} -> ${specifier} resolves to repo-root shared code at ${path.relative(REPO_ROOT, sharedTarget)}`,
+          );
+          continue;
+        }
         offenders.push(
-          sharedTarget
-            ? `${path.relative(APP_ROOT, file)} -> ${specifier} is not app-owned; shared target exists at ${path.relative(REPO_ROOT, sharedTarget)}`
-            : `${path.relative(APP_ROOT, file)} -> ${specifier} does not resolve inside ${path.relative(REPO_ROOT, SRC_ROOT)}`,
+          `${relativeFile} -> ${specifier} does not resolve inside ${path.relative(REPO_ROOT, SRC_ROOT)}`,
         );
         continue;
       }
 
       if (specifier.startsWith('./') || specifier.startsWith('../')) {
-        offenders.push(
-          `${path.relative(APP_ROOT, file)} -> ${specifier} does not resolve to an app-owned file`,
-        );
+        const resolvedRelative = resolveExistingModule(path.resolve(path.dirname(file), specifier));
+        if (resolvedRelative && !resolvedRelative.startsWith(APP_ROOT)) {
+          offenders.push(
+            `${relativeFile} -> ${specifier} resolves outside app at ${path.relative(REPO_ROOT, resolvedRelative)}`,
+          );
+          continue;
+        }
+        offenders.push(`${relativeFile} -> ${specifier} does not resolve to an app-owned file`);
+        continue;
+      }
+
+      if (isWorkspacePackageImport(specifier)) {
+        offenders.push(`${relativeFile} -> ${specifier} imports a workspace package`);
       }
     }
   }

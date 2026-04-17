@@ -1,7 +1,7 @@
 ---
 import '@/styles/global.css';
 import '@/styles/animations.css';
-import { absoluteUrl, getSitePresentation } from '@/lib/site-config';
+import { absoluteUrl, getSitePresentation } from '@/lib/site';
 
 
 export interface Props {
@@ -25,8 +25,6 @@ const {
 } = Astro.props;
 
 const site = getSitePresentation();
-const isAdminPage = Astro.url.pathname.startsWith('/admin') && Astro.url.pathname !== '/admin/login';
-const adminActiveSite = isAdminPage ? (Astro.locals.activeSiteSlug ?? null) : null;
 const resolvedTitle = title ?? site.defaultTitle;
 const resolvedDescription = description ?? site.defaultDescription;
 const ogImageAbsolute = ogImage.startsWith('http') ? ogImage : absoluteUrl(ogImage);
@@ -35,23 +33,14 @@ const entityGraphNode = site.entityType === 'Person'
       '@type': 'Person',
       '@id': `${site.canonicalBaseUrl}/#entity`,
       name: site.authorName,
-      givenName: 'Przemysław',
-      familyName: 'Filipiak',
-      jobTitle: 'High Performer & Deep Focus Founder',
+      givenName: site.structuredData.givenName,
+      familyName: site.structuredData.familyName,
+      jobTitle: site.structuredData.jobTitle,
       description: site.defaultDescription,
       url: site.canonicalBaseUrl,
       image: absoluteUrl('/og-image.png'),
       sameAs: site.socialLinks,
-      knowsAbout: [
-        'Artificial Intelligence',
-        'Generative Engine Optimization (GEO)',
-        'Deep Work',
-        'Astro Framework',
-        'Python',
-        'React',
-        'Local-first Software',
-        'High Performance Productivity',
-      ],
+      knowsAbout: site.structuredData.knowsAbout,
     }
   : {
       '@type': 'Organization',
@@ -154,97 +143,5 @@ const entityGraphNode = site.entityType === 'Person'
   </head>
   <body>
     <slot />
-    {isAdminPage && (
-      <>
-        <div class="admin-site-switcher" data-admin-site-switcher>
-          <label class="admin-site-switcher__label" for="admin-site-switcher-select">Tenant</label>
-          <select
-            id="admin-site-switcher-select"
-            class="admin-site-switcher__select"
-            data-current-site={adminActiveSite ?? ''}
-          >
-            <option value="focusequalsfreedom" selected={adminActiveSite === 'focusequalsfreedom'}>FocusEqualsFreedom</option>
-            <option value="przemyslawfilipiak" selected={adminActiveSite === 'przemyslawfilipiak'}>PrzemyslawFilipiak</option>
-            <option value="frinter" selected={adminActiveSite === 'frinter'}>Frinter</option>
-          </select>
-        </div>
-        <script is:inline>
-          (() => {
-            const root = document.querySelector('[data-admin-site-switcher]');
-            const select = document.getElementById('admin-site-switcher-select');
-            if (!root || !(select instanceof HTMLSelectElement)) return;
-            select.addEventListener('change', async () => {
-              const siteSlug = select.value;
-              const originalValue = select.dataset.currentSite;
-              select.disabled = true;
-              try {
-                const res = await fetch('/api/admin/switch-tenant', {
-                  method: 'POST',
-                  headers: { 'content-type': 'application/json' },
-                  body: JSON.stringify({ siteSlug }),
-                });
-                if (res.ok) {
-                  window.location.reload();
-                } else {
-                  const data = await res.json().catch(() => ({}));
-                  alert(data.error ?? 'Failed to switch tenant');
-                  select.value = originalValue || '';
-                  select.disabled = false;
-                }
-              } catch {
-                alert('Network error switching tenant');
-                select.value = originalValue || '';
-                select.disabled = false;
-              }
-            });
-          })();
-        </script>
-        <style>
-          .admin-site-switcher {
-            position: fixed;
-            right: 1rem;
-            bottom: 1rem;
-            z-index: 90;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 0.55rem 0.75rem;
-            border: 1px solid rgba(74, 141, 131, 0.25);
-            border-radius: 0.55rem;
-            background: rgba(15, 23, 42, 0.94);
-            box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28);
-            backdrop-filter: blur(8px);
-          }
-          .admin-site-switcher__label {
-            font-family: var(--font-mono);
-            font-size: 0.68rem;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-          }
-          .admin-site-switcher__select {
-            min-width: 12rem;
-            padding: 0.4rem 0.55rem;
-            border: 1px solid var(--border);
-            border-radius: 0.35rem;
-            background: rgba(15, 23, 42, 0.95);
-            color: var(--text-primary);
-            font-family: var(--font-mono);
-            font-size: 0.72rem;
-          }
-          @media (max-width: 640px) {
-            .admin-site-switcher {
-              left: 0.75rem;
-              right: 0.75rem;
-              bottom: 0.75rem;
-            }
-            .admin-site-switcher__select {
-              min-width: 0;
-              flex: 1;
-            }
-          }
-        </style>
-      </>
-    )}
   </body>
 </html>
