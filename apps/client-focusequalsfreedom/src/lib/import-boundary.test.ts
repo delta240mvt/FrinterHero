@@ -1,25 +1,55 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
-const APP_ROOT = path.resolve(process.cwd());
+const TEST_FILE = fileURLToPath(import.meta.url);
+const APP_ROOT = path.resolve(path.dirname(TEST_FILE), '..', '..');
 const SRC_ROOT = path.join(APP_ROOT, 'src');
+const REPO_ROOT = path.resolve(APP_ROOT, '..', '..');
 const IMPORT_RE =
   /(?:import|export)\s.+?from\s+['"]([^'"]+)['"]|import\(\s*['"]([^'"]+)['"]\s*\)/g;
+const RESOLVABLE_EXTENSIONS = ['.astro', '.ts', '.tsx', '.js', '.mjs', '.mdx', '.css', '.json'];
 
-function resolveSpecifier(fromFile: string, specifier: string): string | null {
+function resolveExistingModule(basePath: string): string | null {
+  const candidates = path.extname(basePath)
+    ? [basePath]
+    : [
+        basePath,
+        ...RESOLVABLE_EXTENSIONS.map((extension) => `${basePath}${extension}`),
+        ...RESOLVABLE_EXTENSIONS.map((extension) => path.join(basePath, `index${extension}`)),
+      ];
+
+  for (const candidate of candidates) {
+    if (existsSync(candidate) && statSync(candidate).isFile()) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
+function resolveAppSpecifier(fromFile: string, specifier: string): string | null {
   if (specifier.startsWith('@/')) {
-    return path.resolve(SRC_ROOT, specifier.slice(2));
+    return resolveExistingModule(path.resolve(SRC_ROOT, specifier.slice(2)));
   }
   if (specifier.startsWith('./') || specifier.startsWith('../')) {
-    return path.resolve(path.dirname(fromFile), specifier);
+    return resolveExistingModule(path.resolve(path.dirname(fromFile), specifier));
   }
   return null;
 }
 
+function resolveSharedRepoSpecifier(specifier: string): string | null {
+  if (!specifier.startsWith('@/')) {
+    return null;
+  }
+
+  return resolveExistingModule(path.resolve(REPO_ROOT, 'src', specifier.slice(2)));
+}
+
 function walk(dir: string): string[] {
-  const entries = readdirSync(dir);
+  const entries = readdirSync(dir).sort();
   const files: string[] = [];
   for (const entry of entries) {
     const fullPath = path.join(dir, entry);
@@ -40,12 +70,33 @@ test('client-focusequalsfreedom has no imports to shared backend or monorepo-onl
     for (const match of content.matchAll(IMPORT_RE)) {
       const specifier = match[1] ?? match[2];
       if (!specifier) continue;
-      const resolved = resolveSpecifier(file, specifier);
-      if (!resolved) continue;
-      if (!resolved.startsWith(APP_ROOT)) {
-        offenders.push(`${path.relative(APP_ROOT, file)} -> ${specifier}`);
+      const resolved = resolveAppSpecifier(file, specifier);
+      if (resolved) {
+        if (!resolved.startsWith(APP_ROOT)) {
+          offenders.push(
+            `${path.relative(APP_ROOT, file)} -> ${specifier} resolved outside app: ${path.relative(REPO_ROOT, resolved)}`,
+          );
+        }
+        continue;
+      }
+
+      if (specifier.startsWith('@/')) {
+        const sharedTarget = resolveSharedRepoSpecifier(specifier);
+        offenders.push(
+          sharedTarget
+            ? `${path.relative(APP_ROOT, file)} -> ${specifier} is not app-owned; shared target exists at ${path.relative(REPO_ROOT, sharedTarget)}`
+            : `${path.relative(APP_ROOT, file)} -> ${specifier} does not resolve inside ${path.relative(REPO_ROOT, SRC_ROOT)}`,
+        );
+        continue;
+      }
+
+      if (specifier.startsWith('./') || specifier.startsWith('../')) {
+        offenders.push(
+          `${path.relative(APP_ROOT, file)} -> ${specifier} does not resolve to an app-owned file`,
+        );
       }
     }
   }
+  offenders.sort();
   assert.deepEqual(offenders, []);
 });
