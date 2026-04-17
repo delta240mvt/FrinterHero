@@ -12,10 +12,6 @@ export default defineConfig({
   adapter: cloudflare({}),
   integrations: [mdx(), tailwind({ configFile: './tailwind.config.mjs' })],
   vite: {
-    define: {
-      'import.meta.env.SITE_SLUG': JSON.stringify('focusequalsfreedom'),
-      'import.meta.env.API_BASE_URL': JSON.stringify('https://frinter-api.delta240mvt.workers.dev'),
-    },
     resolve: {
       alias: [
         { find: '@', replacement: path.resolve(appDir, 'src') },
