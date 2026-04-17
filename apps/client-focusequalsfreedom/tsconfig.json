@@ -6,9 +6,6 @@
     "moduleResolution": "bundler",
     "baseUrl": ".",
     "paths": {
-      "@/db/*": ["../../src/db/*"],
-      "@/lib/*": ["../../src/lib/*"],
-      "@/utils/*": ["../../src/utils/*"],
       "@/*": ["./src/*"]
     }
   }

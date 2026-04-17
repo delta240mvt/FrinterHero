@@ -2,15 +2,15 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'astro/config';
 import cloudflare from '@astrojs/cloudflare';
+import mdx from '@astrojs/mdx';
 import tailwind from '@astrojs/tailwind';
 
 const appDir = path.dirname(fileURLToPath(import.meta.url));
-const repoRoot = path.resolve(appDir, '..', '..');
 
 export default defineConfig({
   output: 'hybrid',
   adapter: cloudflare({}),
-  integrations: [tailwind({ configFile: './tailwind.config.mjs' })],
+  integrations: [mdx(), tailwind({ configFile: './tailwind.config.mjs' })],
   vite: {
     define: {
       'import.meta.env.SITE_SLUG': JSON.stringify('focusequalsfreedom'),
@@ -18,9 +18,6 @@ export default defineConfig({
     },
     resolve: {
       alias: [
-        { find: '@/db', replacement: path.resolve(repoRoot, 'src/db') },
-        { find: '@/lib', replacement: path.resolve(repoRoot, 'src/lib') },
-        { find: '@/utils', replacement: path.resolve(repoRoot, 'src/utils') },
         { find: '@', replacement: path.resolve(appDir, 'src') },
       ],
     },

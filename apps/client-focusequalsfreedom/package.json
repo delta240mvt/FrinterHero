@@ -3,9 +3,24 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "astro dev",
+    "dev": "astro dev --host",
     "build": "astro build",
-    "start": "node ../../scripts/monorepo/start-client-app.mjs",
-    "preview": "astro preview"
+    "start": "astro dev --host",
+    "preview": "wrangler pages dev ./dist",
+    "deploy": "wrangler pages deploy ./dist",
+    "check": "astro check"
+  },
+  "dependencies": {
+    "@astrojs/cloudflare": "^11.2.0",
+    "@astrojs/mdx": "^3.1.5",
+    "@astrojs/tailwind": "^5.1.0",
+    "astro": "^4.16.19"
+  },
+  "devDependencies": {
+    "@tailwindcss/typography": "^0.5.0",
+    "tailwindcss": "^3.4.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "wrangler": "^4.20.0"
   }
 }
