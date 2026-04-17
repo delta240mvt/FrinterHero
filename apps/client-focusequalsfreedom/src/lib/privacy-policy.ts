@@ -1,3 +1,5 @@
+import { getSitePresentation } from '@/lib/site';
+
 export type PrivacyPolicyLocale = 'pl' | 'en';
 
 export interface PrivacyPolicySection {
@@ -16,8 +18,9 @@ export interface PrivacyPolicyDocument {
 }
 
 const LAST_UPDATED = '2026-04-17';
-const CONTACT_EMAIL = 'hello@focusequalsfreedom.com';
-const CONTROLLER_NAME = 'Przemyslaw Filipiak';
+const site = getSitePresentation();
+const CONTACT_EMAIL = site.contactEmail;
+const CONTROLLER_NAME = site.authorName;
 
 const controllerLinePl = `Administratorem danych osobowych jest ${CONTROLLER_NAME}, kontakt: ${CONTACT_EMAIL}.`;
 const controllerLineEn = `The controller of personal data is ${CONTROLLER_NAME}, contact: ${CONTACT_EMAIL}.`;

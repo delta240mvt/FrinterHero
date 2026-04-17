@@ -10,19 +10,29 @@ const SRC_ROOT = path.join(APP_ROOT, 'src');
 const REPO_ROOT = path.resolve(APP_ROOT, '..', '..');
 const RESOLVABLE_EXTENSIONS = ['.astro', '.ts', '.tsx', '.js', '.mjs', '.mdx', '.css', '.json'];
 const EXPLICIT_SHARED_SPECIFIERS = new Set(['@/lib/site-config', '@/lib/internal-api']);
-const TASK2_SCOPED_FILES = new Set([
+const PUBLIC_SURFACE_FILES = new Set([
+  'src/components/About.astro',
+  'src/components/BlogPreview.astro',
+  'src/components/Contact.astro',
   'src/components/Footer.astro',
+  'src/components/Hero.astro',
   'src/components/Nav.astro',
   'src/components/PixelIcon.astro',
+  'src/components/Projects.astro',
   'src/components/layouts/Base.astro',
   'src/components/layouts/BlogPost.astro',
+  'src/components/layouts/Landing.astro',
   'src/lib/import-boundary.test.ts',
+  'src/lib/privacy-policy.ts',
+  'src/lib/site.ts',
   'src/pages/index.astro',
   'src/pages/llms-full.txt.ts',
   'src/pages/llms.txt.ts',
   'src/pages/polityka-prywatnosci.astro',
   'src/pages/privacy-policy.astro',
+  'src/pages/rss.xml.ts',
   'src/pages/site.webmanifest.ts',
+  'src/pages/sitemap.xml.ts',
 ]);
 
 function extractModuleSpecifiers(content: string): string[] {
@@ -117,7 +127,7 @@ test('client-focusequalsfreedom has no imports to shared backend or monorepo-onl
   const offenders: string[] = [];
   for (const file of walk(SRC_ROOT)) {
     const relativeFile = path.relative(APP_ROOT, file).replace(/\\/g, '/');
-    if (!TASK2_SCOPED_FILES.has(relativeFile)) {
+    if (!PUBLIC_SURFACE_FILES.has(relativeFile)) {
       continue;
     }
 

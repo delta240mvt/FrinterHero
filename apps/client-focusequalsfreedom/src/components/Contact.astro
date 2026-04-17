@@ -1,20 +1,24 @@
 ---
+import { getSitePresentation } from '@/lib/site';
+
+const site = getSitePresentation();
+const [githubLink, linkedInLink] = site.socialLinks;
 ---
 
 <section class="contact reveal" id="contact">
   <div class="contact-container">
     <h2 class="section-heading">/contact</h2>
     <p class="contact-text">
-      Building something interesting with AI or have a question about deep work systems — reach out.
+      Building something interesting with AI or have a question about deep work systems for {site.displayName}? Reach out.
     </p>
     <div class="contact-links">
-      <a href="https://www.linkedin.com/in/przemyslaw-filipiak-8a9b77113/" target="_blank" rel="noopener noreferrer" class="contact-btn">
+      <a href={linkedInLink} target="_blank" rel="noopener noreferrer" class="contact-btn">
         LinkedIn ↗
       </a>
-      <a href="https://github.com/delta240mvt" target="_blank" rel="noopener noreferrer" class="contact-btn">
+      <a href={githubLink} target="_blank" rel="noopener noreferrer" class="contact-btn">
         GitHub ↗
       </a>
-      <a href="mailto:hello@frinter.app" class="contact-btn">
+      <a href={`mailto:${site.contactEmail}`} class="contact-btn">
         Email ↗
       </a>
     </div>
