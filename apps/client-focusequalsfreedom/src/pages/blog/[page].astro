@@ -6,10 +6,8 @@ import BlogCard from '@/components/BlogCard.astro';
 import { BLOG_PAGE_SIZE, getPaginatedPosts } from '@/lib/blog';
 import { getSitePresentation } from '@/lib/site';
 
-const LIMIT = BLOG_PAGE_SIZE;
-
 export async function getStaticPaths() {
-  const { totalPages } = await getPaginatedPosts(1, LIMIT);
+  const { totalPages } = await getPaginatedPosts(1, BLOG_PAGE_SIZE);
   const paths = [];
 
   for (let page = 2; page <= totalPages; page += 1) {
@@ -22,7 +20,7 @@ export async function getStaticPaths() {
 const requestedPage = Number(Astro.params.page);
 const tag = Astro.url.searchParams.get('tag') || '';
 const site = getSitePresentation();
-const { posts, page, totalPages } = await getPaginatedPosts(requestedPage, LIMIT, tag);
+const { posts, page, totalPages } = await getPaginatedPosts(requestedPage, BLOG_PAGE_SIZE, tag);
 const prevHref = page === 2 ? '/blog' : `/blog/${page - 1}`;
 const encodedTag = tag ? encodeURIComponent(tag) : '';
 const prevHrefWithTag = encodedTag ? `${prevHref}?tag=${encodedTag}` : prevHref;
