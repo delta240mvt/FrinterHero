@@ -5,6 +5,8 @@ import cloudflare from '@astrojs/cloudflare';
 import tailwind from '@astrojs/tailwind';
 
 const appDir = path.dirname(fileURLToPath(import.meta.url));
+const siteSlug = process.env.SITE_SLUG ?? 'frinter';
+const apiBaseUrl = process.env.API_BASE_URL ?? 'https://frinter-api.delta240mvt.workers.dev';
 
 export default defineConfig({
   output: 'hybrid',
@@ -12,8 +14,8 @@ export default defineConfig({
   integrations: [tailwind({ configFile: './tailwind.config.mjs', applyBaseStyles: false })],
   vite: {
     define: {
-      'import.meta.env.SITE_SLUG': JSON.stringify('frinter'),
-      'import.meta.env.API_BASE_URL': JSON.stringify('https://frinter-api.delta240mvt.workers.dev'),
+      'import.meta.env.SITE_SLUG': JSON.stringify(siteSlug),
+      'import.meta.env.API_BASE_URL': JSON.stringify(apiBaseUrl),
     },
     resolve: {
       alias: [{ find: '@', replacement: path.resolve(appDir, 'src') }],

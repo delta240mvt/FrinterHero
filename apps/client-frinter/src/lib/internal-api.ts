@@ -1,7 +1,7 @@
 import type { AstroCookies } from 'astro';
 import { getCurrentSiteSlug } from './site-config';
 
-const DEFAULT_INTERNAL_API_BASE_URL = 'https://new-pp-api-2026-03-19-new-pp-copy.up.railway.app';
+const DEFAULT_INTERNAL_API_BASE_URL = 'https://frinter-api.delta240mvt.workers.dev';
 const HOP_BY_HOP_HEADERS = new Set([
   'connection',
   'content-length',
