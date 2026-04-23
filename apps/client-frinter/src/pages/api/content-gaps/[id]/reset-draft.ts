@@ -1,6 +1,6 @@
 export const prerender = false;
 import type { APIRoute } from 'astro';
-import { proxyInternalApiRequest } from '@/lib/internal-api';
+import { proxyInternalApiRequest } from '../../../../lib/internal-api';
 
 function resetDraftPath(id: string | undefined) {
   return `/v1/admin/content-gaps/${id ?? ''}/reset-draft`;

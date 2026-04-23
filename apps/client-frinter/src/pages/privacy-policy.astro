@@ -4,12 +4,14 @@ export const prerender = true;
 import Base from '@/components/layouts/Base.astro';
 import Nav from '@/components/Nav.astro';
 import Footer from '@/components/Footer.astro';
+import { getSiteConfig } from '@/config/site';
 import { getPrivacyPolicyDocument } from '@/lib/privacy-policy';
 
+const site = getSiteConfig();
 const doc = getPrivacyPolicyDocument('en');
 ---
 
-<Base title={`${doc.title} — Przemysław Filipiak`} description={doc.lead}>
+<Base title={`${doc.title} — ${site.displayName}`} description={doc.lead}>
   <Nav />
   <main class="legal-main">
     <div class="legal-container">

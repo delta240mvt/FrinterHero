@@ -3,8 +3,8 @@ export const prerender = true;
 
 import BlogPost from '@/components/layouts/BlogPost.astro';
 import BlogCard from '@/components/BlogCard.astro';
-import { getCurrentSiteSlug } from '@/lib/site-config';
-import { getInternalApiBaseUrl } from '@/lib/internal-api';
+import { getCurrentSiteSlug } from '../../lib/site-config';
+import { getInternalApiBaseUrl } from '../../lib/internal-api';
 
 export async function getStaticPaths() {
   const siteSlug = getCurrentSiteSlug();

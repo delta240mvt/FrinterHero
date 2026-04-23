@@ -1,16 +1,20 @@
 import type { APIRoute } from 'astro';
-import { getSitePresentation } from '@/lib/site-config';
+import { getSeoConfig } from '@/config/seo';
+import { getSiteConfig } from '@/config/site';
+
+export const prerender = true;
 
 export const GET: APIRoute = async () => {
-  const site = getSitePresentation();
+  const site = getSiteConfig();
+  const seo = getSeoConfig();
 
   return Response.json({
     name: site.displayName,
     short_name: site.shortName,
     start_url: '/',
     display: 'standalone',
-    background_color: '#0f172a',
-    theme_color: '#0f172a',
+    background_color: seo.backgroundColor,
+    theme_color: seo.themeColor,
     icons: [
       { src: '/favicon-48x48.png', sizes: '48x48', type: 'image/png', purpose: 'any' },
       { src: '/favicon-32x32.png', sizes: '32x32', type: 'image/png', purpose: 'any' },

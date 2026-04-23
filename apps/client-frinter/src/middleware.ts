@@ -1,5 +1,5 @@
 import { defineMiddleware } from 'astro:middleware';
-import { getInternalApiBaseUrl } from '@/lib/internal-api';
+import { getInternalApiBaseUrl } from './lib/internal-api';
 
 export const onRequest = defineMiddleware(async (context: any, next: any) => {
   const pathname = context.url.pathname;

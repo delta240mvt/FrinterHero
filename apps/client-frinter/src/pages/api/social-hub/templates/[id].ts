@@ -1,7 +1,7 @@
 export const prerender = false;
 
 import type { APIRoute } from 'astro';
-import { proxyInternalApiRequest } from '@/lib/internal-api';
+import { proxyInternalApiRequest } from '../../../../lib/internal-api';
 
 function templatePath(id: string | undefined) {
   return `/v1/social-hub/templates/${id ?? ''}`;

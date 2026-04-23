@@ -1,7 +1,7 @@
 export const prerender = false;
 
 import type { APIRoute } from 'astro';
-import { buildInternalApiUrl, isAuthenticated } from '@/lib/internal-api';
+import { buildInternalApiUrl, isAuthenticated } from '../../../../../lib/internal-api';
 
 const TERMINAL_JOB_STATUSES = new Set(['done', 'error', 'cancelled']);
 

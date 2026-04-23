@@ -1,6 +1,6 @@
 export const prerender = false;
 import type { APIRoute } from 'astro';
-import { buildInternalApiUrl } from '@/lib/internal-api';
+import { buildInternalApiUrl } from '../../lib/internal-api';
 
 export const GET: APIRoute = async ({ request, redirect }) => {
   const response = await fetch(buildInternalApiUrl('/v1/auth/logout'), {

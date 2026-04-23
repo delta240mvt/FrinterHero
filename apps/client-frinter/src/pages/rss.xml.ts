@@ -1,49 +1,59 @@
 import type { APIRoute } from 'astro';
-import { getInternalApiBaseUrl } from '@/lib/internal-api';
-import { absoluteUrl, getCurrentSiteSlug, getSitePresentation } from '@/lib/site-config';
+import { absoluteUrl, formatRssDate, getLatestDate } from '@/config/seo';
+import { getSiteConfig } from '@/config/site';
+import type { PublicPost } from '@/lib/public-posts';
+import { getPublishedPosts } from '@/lib/public-posts';
+
+export const prerender = true;
+
+function escapeXml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+function getItemDescription(post: PublicPost): string {
+  return post.seoDescription ?? post.description ?? post.excerpt ?? '';
+}
 
 export const GET: APIRoute = async () => {
-  const site = getSitePresentation();
-  const siteSlug = getCurrentSiteSlug();
-  let posts: any[] = [];
+  const site = getSiteConfig();
+  const posts = await getPublishedPosts();
+  const latestDate = getLatestDate(posts.map((post) => post.updatedAt ?? post.publishedAt)) ?? new Date();
 
-  try {
-    const apiBase = getInternalApiBaseUrl();
-    const params = new URLSearchParams({ siteSlug, status: 'published', limit: '50' });
-    const response = await fetch(`${apiBase}/v1/articles?${params}`);
-    if (response.ok) {
-      const data = await response.json();
-      posts = data.results ?? [];
-    }
-  } catch {
-    // API unavailable
-  }
+  const items = posts
+    .map((post) => {
+      const itemUrl = absoluteUrl(`/blog/${post.slug}`);
+      const title = post.title;
+      const description = getItemDescription(post);
+      const pubDate = post.updatedAt ?? post.publishedAt;
+      const categories = post.tags.map((tag) => `<category>${escapeXml(tag)}</category>`).join('\n      ');
 
-  const items = posts.map(post => `
-    <item>
-      <title><![CDATA[${post.title}]]></title>
-      <link>${absoluteUrl(`/blog/${post.slug}`)}</link>
-      <guid>${absoluteUrl(`/blog/${post.slug}`)}</guid>
-      <description><![CDATA[${post.description || ''}]]></description>
-      <author>${site.contactEmail} (${site.authorName})</author>
-      <pubDate>${new Date(post.publishedAt || post.createdAt).toUTCString()}</pubDate>
-      ${post.content ? `<content:encoded><![CDATA[${post.content}]]></content:encoded>` : ''}
-      ${(post.tags || []).map((tag: string) => `<category>${tag}</category>`).join('')}
-    </item>
-  `).join('');
+      return `    <item>
+      <title>${escapeXml(title)}</title>
+      <link>${escapeXml(itemUrl)}</link>
+      <guid isPermaLink="true">${escapeXml(itemUrl)}</guid>
+      <description>${escapeXml(description)}</description>
+      <pubDate>${formatRssDate(pubDate)}</pubDate>
+      ${categories ? `${categories}\n      ` : ''}
+    </item>`;
+    })
+    .join('\n');
 
   const rss = `<?xml version="1.0" encoding="UTF-8"?>
-<rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:atom="http://www.w3.org/2005/Atom">
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
-    <title>${site.blogTitle}</title>
-    <link>${site.canonicalBaseUrl}</link>
-    <description>${site.blogDescription}</description>
-    <language>en</language>
-    <copyright>© ${new Date().getFullYear()} ${site.displayName}</copyright>
-    <atom:link href="${absoluteUrl('/rss.xml')}" rel="self" type="application/rss+xml"/>
-    <lastBuildDate>${new Date().toUTCString()}</lastBuildDate>
-    ${items}
-  </channel>
+    <title>${escapeXml(site.blogTitle)}</title>
+    <link>${escapeXml(absoluteUrl('/blog'))}</link>
+    <description>${escapeXml(site.blogDescription)}</description>
+    <language>en-US</language>
+    <copyright>© ${latestDate.getFullYear()} ${escapeXml(site.displayName)}</copyright>
+    <atom:link href="${escapeXml(absoluteUrl('/rss.xml'))}" rel="self" type="application/rss+xml"/>
+    <lastBuildDate>${formatRssDate(latestDate)}</lastBuildDate>
+${items ? `${items}\n` : ''}  </channel>
 </rss>`;
 
   return new Response(rss, {

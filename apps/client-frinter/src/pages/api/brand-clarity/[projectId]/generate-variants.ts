@@ -1,6 +1,6 @@
 export const prerender = false;
 import type { APIRoute } from 'astro';
-import { fetchInternalApiJson, isAuthenticated, jsonUnauthorized, JSON_HEADERS } from '@/lib/internal-api';
+import { fetchInternalApiJson, isAuthenticated, jsonUnauthorized, JSON_HEADERS } from '../../../../lib/internal-api';
 
 export const POST: APIRoute = async ({ params, request, cookies }) => {
   if (!isAuthenticated(cookies)) return jsonUnauthorized();

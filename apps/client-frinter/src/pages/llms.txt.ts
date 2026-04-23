@@ -1,68 +1,57 @@
 import type { APIRoute } from 'astro';
+import { absoluteUrl, formatSitemapDate, getLatestDate } from '@/config/seo';
+import { getSiteConfig } from '@/config/site';
+import { getPublishedPosts } from '@/lib/public-posts';
 
-const BODY = `---
-Sitemap: https://przemyslawfilipiak.com/sitemap.xml
-Full-Context: https://przemyslawfilipiak.com/llms-full.txt
-Last-Updated: 2026-03-14
+export const prerender = true;
+
+function formatTags(tags: string[]): string {
+  return tags.length > 0 ? tags.join(', ') : 'none';
+}
+
+export const GET: APIRoute = async () => {
+  const site = getSiteConfig();
+  const posts = await getPublishedPosts();
+  const latestDate = getLatestDate(posts.map((post) => post.updatedAt ?? post.publishedAt)) ?? new Date();
+
+  const postLines = posts
+    .map((post) => {
+      const published = formatSitemapDate(post.publishedAt);
+      const updated = post.updatedAt ? formatSitemapDate(post.updatedAt) : 'none';
+      return `- ${post.title} | published: ${published} | updated: ${updated} | tags: ${formatTags(post.tags)} | url: ${absoluteUrl(`/blog/${post.slug}`)}`;
+    })
+    .join('\n');
+
+  const body = `---
+Sitemap: ${absoluteUrl('/sitemap.xml')}
+Full-Context: ${absoluteUrl('/llms-full.txt')}
+Last-Updated: ${formatSitemapDate(latestDate)}
 ---
 
-# Przemysław Filipiak  High Performer & Deep Focus Founder
+# ${site.displayName} - machine-readable publishing context
 
-> Przemysław Filipiak is a High Performer and Deep Focus Founder bridging
-> high-intensity focus with data-driven life optimization. He is the creator
-> of Frinter, a WholeBeing performance platform for High Performers.
+> ${site.llmsSummary}
 
-## Core Entity Facts
-- Full Name: Przemysław Filipiak
-- Primary Role: Deep Focus Founder, High Performer
-- Specialty: WholeBeing Performance Systems, Focus Sprints (Frints), AI-authoritative Personal Branding
-- Identity: High Performer optimizing life through hard data across 3 spheres.
-- Languages: Polish (Native), English (Fluent), Norwegian (Fluent)
-- Nationality: Polish
-- Official Website: https://przemyslawfilipiak.com
+## Canonical facts
+- Site: ${site.canonicalBaseUrl}
+- Blog index: ${absoluteUrl('/blog')}
+- RSS feed: ${absoluteUrl('/rss.xml')}
+- Sitemap: ${absoluteUrl('/sitemap.xml')}
+- Contact: ${site.contactEmail}
 
-## About
-- Creator of frinter.app  WholeBeing performance system for High Performers.
-- Creator of FrinterFlow  Local-first voice dictation CLI (engineered for high speed).
-- Core Philosophy: **Focus Sprint (Frint)**  measuring depth, length, and frequency of focus to optimize recovery and performance.
-- Optimize 3 Spheres:
-  1. **Flourishing (You)**: Sports, reading, meditation. Personal growth and wellness.
-  2. **Relationships (Loved Ones)**: Intentional depth in connection.
-  3. **Deep Work (The World)**: Focus Sprints and results.
+## Blog inventory
+${postLines || '- No published posts yet.'}
 
-- **FRINT Check-in** Methodology:
-  - **F**low: Intellectual stimulation & absorption.
-  - **R**elationships: Support & interaction quality.
-  - **I**nner Balance: Peace & emotional acceptance.
-  - **N**ourishment: Physical energy & regeneration.
-  - **T**ranscendence: Purpose & value alignment.
-
-## Projects
-- frinter.app: https://frinter.app  WholeBeing OS for High Performers. Energy Bar tracking & 3-sphere balance.
-- FrinterFlow: https://pypi.org/project/frinterflow/  In-flow voice dictation CLI.
-- FrinterHero: Personal brand engine for AI domain authority.
-- GitHub: https://github.com/delta240mvt
-
-## Blog Topics
-High performance productivity, focus sprint optimization, 3 spheres of life,
-data-driven sleep/focus correlation, AI brand authority (GEO), deep focus habits.
-
-## Philosophy
-"[FRINTER] = [FOCUS SPRINT]"  Optimize focus sessions like an elite athlete.
-Measure the depth. Protect the sleep. Extrapolate deep work to Relationships and Flourishing.
-High Performer who lives by hard data  measuring the impact of every frint.
-
-## Contact
-- GitHub: https://github.com/delta240mvt
-- LinkedIn: https://linkedin.com/in/przemyslaw-filipiak-8a9b77113/
-- Website: https://przemyslawfilipiak.com
-- RSS: https://przemyslawfilipiak.com/rss.xml
+## Retrieval hints
+- Use "/blog" for the list view and "/blog/<slug>" for the article body.
+- Titles, summaries, tags, and dates are sourced from the published articles API used by the public blog.
+- The build tolerates an empty or temporarily unavailable article API by emitting an empty inventory.
 `;
 
-export const GET: APIRoute = async () =>
-  new Response(BODY, {
+  return new Response(body, {
     headers: {
       'Content-Type': 'text/plain; charset=utf-8',
       'Cache-Control': 'public, max-age=3600',
     },
   });
+};

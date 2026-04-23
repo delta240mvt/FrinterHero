@@ -1,6 +1,6 @@
 export const prerender = false;
 import type { APIRoute } from 'astro';
-import { proxyInternalApiRequest, fetchInternalApiJson, isAuthenticated, jsonUnauthorized } from '@/lib/internal-api';
+import { proxyInternalApiRequest, fetchInternalApiJson, isAuthenticated, jsonUnauthorized } from '../../lib/internal-api';
 
 function jobLinesFromSnapshot(job: any) {
   if (!job) return [];

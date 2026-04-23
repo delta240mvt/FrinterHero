@@ -3,14 +3,14 @@ import Base from '@/components/layouts/Base.astro';
 import Nav from '@/components/Nav.astro';
 import Footer from '@/components/Footer.astro';
 import BlogCard from '@/components/BlogCard.astro';
-import { getCurrentSiteSlug, getSitePresentation } from '@/lib/site-config';
-import { getInternalApiBaseUrl } from '@/lib/internal-api';
+import { getCurrentSiteSlug, getSitePresentation } from '../../lib/site-config';
+import { getInternalApiBaseUrl } from '../../lib/internal-api';
 
 const LIMIT = 10;
 
 export async function getStaticPaths() {
-  const { getCurrentSiteSlug } = await import('@/lib/site-config');
-  const { getInternalApiBaseUrl } = await import('@/lib/internal-api');
+  const { getCurrentSiteSlug } = await import('../../lib/site-config');
+  const { getInternalApiBaseUrl } = await import('../../lib/internal-api');
   const siteSlug = getCurrentSiteSlug();
   const apiBase = getInternalApiBaseUrl();
   try {

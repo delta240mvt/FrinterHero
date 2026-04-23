@@ -1,6 +1,6 @@
 export const prerender = false;
 import type { APIRoute } from 'astro';
-import { proxyInternalApiRequest } from '@/lib/internal-api';
+import { proxyInternalApiRequest } from '../../../../../lib/internal-api';
 
 export const POST: APIRoute = ({ params, request, cookies }) =>
   proxyInternalApiRequest({

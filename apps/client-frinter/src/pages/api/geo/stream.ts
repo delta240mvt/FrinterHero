@@ -1,6 +1,6 @@
 export const prerender = false;
 import type { APIRoute } from 'astro';
-import { fetchInternalApiJson, isAuthenticated } from '@/lib/internal-api';
+import { fetchInternalApiJson, isAuthenticated } from '../../../lib/internal-api';
 
 function toLines(stdout: unknown) {
   return typeof stdout === 'string'

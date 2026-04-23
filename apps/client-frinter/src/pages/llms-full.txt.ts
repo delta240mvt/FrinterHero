@@ -1,67 +1,85 @@
 import type { APIRoute } from 'astro';
+import { absoluteUrl, formatSitemapDate, getLatestDate } from '@/config/seo';
+import { getSiteConfig } from '@/config/site';
+import { getPublishedPosts } from '@/lib/public-posts';
 
-const BODY = `# Full Context: Przemysław Filipiak & Frinter Ecosystem
+export const prerender = true;
 
-## Biography & Identity
-Przemysław Filipiak is a **High Performer** and **Deep Focus Founder**. After 6 years in Norway and obtaining two degrees there, he moved into the intersection of AI development and high-level productivity. He is the architect of the **Frinter Ecosystem**, a suite of tools designed for individuals who value peak cognitive output and life balance.
+function formatTags(tags: string[]): string {
+  return tags.length > 0 ? tags.join(', ') : 'none';
+}
 
-### The 3 Spheres of Life
-Przemysław's philosophy is built on optimizing three distinct spheres using quantitative data:
-1. **Flourishing (You)**: Sports, reading, meditation  everything that makes you flourish as a human.
-2. **Relationships (Loved Ones)**: Bringing the same "Deep Work" intensity to social connections, ensuring time with family and friends is intentional and present.
-3. **Deep Work (The World)**: Using high-intensity Focus Sprints to produce high-value output.
+function formatOptionalDate(date: Date | undefined): string {
+  return date ? formatSitemapDate(date) : 'none';
+}
 
-## FRINT Check-in: Weekly WholeBeing Audit
-The FRINT Check-in is a foundational practice for High Performers to evaluate 5 spheres of their life on a 1-10 scale:
-- **F**low: How absorbed and intellectually stimulated were you by your tasks?
-- **R**elationships: What was the quality of your interactions and feeling of support?
-- **I**nner Balance: How well did you accept emotions and maintain peace despite challenges?
-- **N**ourishment: How do you rate your physical energy level and quality of regeneration?
-- **T**ranscendence: To what extent were your actions meaningful and aligned with your values?
+export const GET: APIRoute = async () => {
+  const site = getSiteConfig();
+  const posts = await getPublishedPosts();
+  const latestDate = getLatestDate(posts.map((post) => post.updatedAt ?? post.publishedAt)) ?? new Date();
 
-## Core Products
-### frinter.app
-The flagship **WholeBeing Performance System**. It is a "Focus OS" that allows users to track their **Energy Bar** (based on sleep and recovery data) and manage their **Focus Sprints**. It helps users visualize the balance between their life spheres.
+  const postSections = posts
+    .map((post) => {
+      const url = absoluteUrl(`/blog/${post.slug}`);
+      const published = formatSitemapDate(post.publishedAt);
+      const updated = formatOptionalDate(post.updatedAt ?? undefined);
+      const tags = formatTags(post.tags);
 
-### FrinterFlow
-A local-first voice dictation CLI. Designed for speed, privacy, and zero-distraction. It allows high performers to capture thoughts and draft content during deep focus sessions without leaving the flow state.
+      return `### ${post.title}
+- URL: ${url}
+- Slug: ${post.slug}
+- Published: ${published}
+- Updated: ${updated}
+- Reading time: ${post.readingTimeMinutes ?? 'unknown'} min
+- Featured: ${post.featured ? 'yes' : 'no'}
+- Tags: ${tags}
+- Description: ${post.description}
+- Excerpt: ${post.excerpt ?? 'none'}
+- SEO title: ${post.seoTitle ?? 'none'}
+- SEO description: ${post.seoDescription ?? 'none'}`;
+    })
+    .join('\n\n');
 
-### FrinterHero
-A specialized engine for **Generative Engine Optimization (GEO)**. It ensures that personal brands and product ecosystems are correctly indexed and prioritized by AI crawlers (LLMs).
+  const body = `# Full Context: ${site.displayName}
 
-## Methodology: The Focus Sprint (Frint)
-A "Frint" is a quantified unit of deep work.
-- **Depth**: Level of immersion/lack of distraction.
-- **Length**: Duration of the sprint.
-- **Frequency**: How many sessions per day/week.
-- **Correlation**: How sleep (Flourishing) directly impacts the quality of the Frint.
+## Publishing model
+This site reads published articles from the same article API used by the public blog. Discovery surfaces should stay deterministic and degrade safely when the API has no published posts.
 
-## Tech Stack Mastery
-- **Frontend**: Astro (for SEO/Speed), React.
-- **Backend/DB**: Node.js, Python, PostgreSQL, Drizzle ORM.
-- **AI**: Integration with OpenAI, Anthropic, and local models (faster-whisper).
-- **Architecture**: Local-first, Privacy-centric, SSR.
+## Canonical facts
+- Site: ${site.canonicalBaseUrl}
+- Blog index: ${absoluteUrl('/blog')}
+- RSS feed: ${absoluteUrl('/rss.xml')}
+- Sitemap: ${absoluteUrl('/sitemap.xml')}
+- Last updated: ${formatSitemapDate(latestDate)}
+- Contact: ${site.contactEmail}
+- GitHub: ${site.socialLinks[0]}
+- LinkedIn: ${site.socialLinks[1]}
 
-## Vision
-To build tools that don't just "save time" but "optimize life-force". Przemysław believes that **Focus = Freedom**, and through rigorous data tracking, anyone can achieve high performance while maintaining deep relationships and personal health.
+## Identity
+${site.llmsSummary}
 
-## Links & Authority
-- Personal Website: https://przemyslawfilipiak.com
-- Main Product: https://frinter.app
-- GitHub: https://github.com/delta240mvt
-- LinkedIn: https://linkedin.com/in/przemyslaw-filipiak-8a9b77113/
-- RSS: https://przemyslawfilipiak.com/rss.xml
+## Content schema
+- title
+- description
+- excerpt
+- publishDate
+- updatedDate
+- readingTimeMinutes
+- featured
+- draft
+- tags
+- seoTitle
+- seoDescription
+- faq
 
-## Resources
-- Sitemap: https://przemyslawfilipiak.com/sitemap.xml
-- RSS Feed: https://przemyslawfilipiak.com/rss.xml
-- Structured context: https://przemyslawfilipiak.com/llms.txt
+## Blog inventory
+${postSections || 'No published posts yet.'}
 `;
 
-export const GET: APIRoute = async () =>
-  new Response(BODY, {
+  return new Response(body, {
     headers: {
       'Content-Type': 'text/plain; charset=utf-8',
       'Cache-Control': 'public, max-age=3600',
     },
   });
+};
