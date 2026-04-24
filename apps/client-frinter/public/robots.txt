@@ -1,8 +1,0 @@
-User-agent: *
-Allow: /
-Disallow: /admin
-Disallow: /api
-Crawl-delay: 1
-
-Sitemap: https://frinter.app/sitemap.xml
-Sitemap: https://frinter.app/rss.xml
