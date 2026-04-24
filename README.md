@@ -53,9 +53,8 @@ The internet has changed. Traditional search is dying. **FrinterHero** is an ope
 
 Current runtime truth:
 
+- `apps/client-przemyslawfilipiak` is the only Astro client in this repo
 - `apps/api` is the central DB-backed backend
-- `apps/client-przemyslawfilipiak` is the primary Astro client
-- `apps/client-focusequalsfreedom` and `apps/client-frinter` are site-scoped BFF clients
 - workers live in `workers/*` and share `workers/runner/src/index.ts`
 
 Current source-of-truth docs:
@@ -354,7 +353,7 @@ npm run dev
 
 | Action | Command |
 |--------|-----|
-| Start primary client dev server | `npm run dev` |
+| Start the Przemyslaw Filipiak client | `npm run dev` |
 | Start API dev server | `npm run dev:api` |
 | Sync DB schema | `npm run db:push` |
 | Seed sites + Social Hub site backfill | `npm run migrate` |

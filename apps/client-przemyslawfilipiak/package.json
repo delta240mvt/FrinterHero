@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
-    "start": "node ../../scripts/monorepo/start-client-app.mjs",
-    "preview": "astro preview"
+    "start": "astro preview --host 0.0.0.0",
+    "preview": "astro preview --host 0.0.0.0"
   }
 }

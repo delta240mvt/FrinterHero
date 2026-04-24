@@ -5,7 +5,8 @@ import cloudflare from '@astrojs/cloudflare';
 import tailwind from '@astrojs/tailwind';
 
 const appDir = path.dirname(fileURLToPath(import.meta.url));
-const repoRoot = path.resolve(appDir, '..', '..');
+const siteSlug = process.env.SITE_SLUG ?? 'przemyslawfilipiak';
+const apiBaseUrl = process.env.API_BASE_URL ?? 'https://frinter-api.delta240mvt.workers.dev';
 
 export default defineConfig({
   output: 'hybrid',
@@ -13,16 +14,11 @@ export default defineConfig({
   integrations: [tailwind({ configFile: './tailwind.config.mjs' })],
   vite: {
     define: {
-      'import.meta.env.SITE_SLUG': JSON.stringify('przemyslawfilipiak'),
-      'import.meta.env.API_BASE_URL': JSON.stringify('https://frinter-api.delta240mvt.workers.dev'),
+      'import.meta.env.SITE_SLUG': JSON.stringify(siteSlug),
+      'import.meta.env.API_BASE_URL': JSON.stringify(apiBaseUrl),
     },
     resolve: {
-      alias: [
-        { find: '@/db', replacement: path.resolve(repoRoot, 'src/db') },
-        { find: '@/lib', replacement: path.resolve(repoRoot, 'src/lib') },
-        { find: '@/utils', replacement: path.resolve(repoRoot, 'src/utils') },
-        { find: '@', replacement: path.resolve(appDir, 'src') },
-      ],
+      alias: [{ find: '@', replacement: path.resolve(appDir, 'src') }],
     },
     ssr: { noExternal: ['drizzle-orm'], external: ['node:*', 'pg', 'drizzle-orm/node-postgres'] },
   },
